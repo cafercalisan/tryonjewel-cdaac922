@@ -342,7 +342,8 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
       }
     } catch (error) {
       console.error('Design generation error:', error);
-      toast.error('Tasarım oluşturulurken hata oluştu');
+      const msg = error instanceof Error ? error.message : 'Tasarım oluşturulurken hata oluştu';
+      toast.error(msg);
     } finally {
       setIsGenerating(false);
     }
