@@ -272,11 +272,11 @@ FORBIDDEN:
 
     console.log('Generating with precision prompt...');
 
-    // Step 2: Generate 3 variations using Imagen 3
+    // Step 2: Generate 2 variations
     const generatedUrls: string[] = [];
     
-    for (let i = 0; i < 3; i++) {
-      console.log(`Generating variation ${i + 1}/3...`);
+    for (let i = 0; i < 2; i++) {
+      console.log(`Generating variation ${i + 1}/2...`);
       
       try {
         const genResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`, {

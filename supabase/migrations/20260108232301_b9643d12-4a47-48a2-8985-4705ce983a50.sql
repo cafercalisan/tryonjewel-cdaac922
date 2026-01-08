@@ -1,0 +1,31 @@
+-- First delete all existing data
+DELETE FROM scenes;
+
+-- Drop the existing check constraint
+ALTER TABLE scenes DROP CONSTRAINT IF EXISTS scenes_category_check;
+
+-- Add new check constraint with updated categories
+ALTER TABLE scenes ADD CONSTRAINT scenes_category_check 
+  CHECK (category IN ('urun', 'manken'));
+
+-- Insert new scenes with 'urun' (Product) and 'manken' (Model) categories
+INSERT INTO scenes (name, name_tr, category, description, description_tr, prompt, sort_order) VALUES
+('Black Velvet', 'Siyah Kadife', 'urun', 'Deep black velvet texture background', 'Derin siyah kadife doku arka planı, zarif stüdyo aydınlatması', 'Ultra realistic luxury jewelry photography on deep black velvet fabric. Soft diffused lighting creates subtle highlights on the velvet texture. Hyper-realistic fabric details with visible velvet pile. Premium studio setup.', 1),
+('Champagne Silk', 'Şampanya İpek', 'urun', 'Champagne colored silk fabric', 'Şampanya rengi ipek kumaş detayları, yumuşak aydınlatma', 'Ultra realistic jewelry photography on champagne colored silk fabric. Soft flowing silk texture with natural light reflections. Hyper-realistic fabric weave details. Elegant and luxurious atmosphere.', 2),
+('Burgundy Velvet', 'Bordo Kadife', 'urun', 'Deep burgundy velvet texture', 'Derin bordo kadife doku, dramatik aydınlatma', 'Luxury jewelry on deep burgundy velvet fabric. Rich color saturation with dramatic side lighting. Hyper-realistic velvet texture. Royal and prestigious mood.', 3),
+('Ivory Satin', 'Fildişi Saten', 'urun', 'Ivory satin fabric background', 'Fildişi saten kumaş, zarif kıvrımlar', 'Elegant jewelry photography on ivory satin fabric with soft folds. Creamy light reflections on satin surface. Hyper-realistic fabric details. Bridal and romantic aesthetic.', 4),
+('White Carrara Marble', 'Beyaz Carrara Mermer', 'urun', 'White Carrara marble surface', 'Beyaz Carrara mermer yüzey, doğal damarlar', 'Luxury jewelry on white Carrara marble surface. Hyper-realistic marble veins and texture. Natural daylight feel. Clean and sophisticated aesthetic. Premium stone details.', 5),
+('Black Marble', 'Siyah Mermer', 'urun', 'Black marble with gold veins', 'Siyah mermer altın damarlar, lüks görünüm', 'Premium jewelry on black marble with gold veins. Nero Marquina marble texture. Dramatic contrast with hyper-realistic stone details. Opulent and exclusive mood.', 6),
+('Grey Granite', 'Gri Granit', 'urun', 'Grey granite stone texture', 'Gri granit taş dokusu, modern görünüm', 'Jewelry photography on grey granite surface. Modern and minimalist aesthetic. Hyper-realistic stone texture with natural variations. Contemporary luxury feel.', 7),
+('Luxury Gift Box', 'Lüks Hediye Kutusu', 'urun', 'Premium jewelry gift box', 'Premium mücevher hediye kutusu içinde sergileme', 'Jewelry elegantly displayed inside premium leather gift box. Hyper-realistic leather texture and stitching details. Velvet interior lining. Luxurious unboxing experience. Product-appropriate box size.', 8),
+('Ring Stand', 'Yüzük Standı', 'urun', 'Elegant ring display stand', 'Zarif yüzük sergileme standı, minimal tasarım', 'Ring displayed on elegant minimal ring stand. Premium acrylic or metal stand. Hyper-realistic materials. Clean studio background. Professional product photography.', 9),
+('Jewelry Bust', 'Takı Büstü', 'urun', 'Necklace display bust', 'Kolye sergileme büstü, şık sunum', 'Necklace elegantly draped on premium jewelry display bust. Black velvet or leather covered bust. Hyper-realistic texture details. Professional jewelry showroom aesthetic.', 10),
+('Glass Display', 'Cam Vitrin', 'urun', 'Glass display case', 'Cam vitrin içinde premium sunum', 'Jewelry inside premium glass display case. Hyper-realistic glass reflections. Museum-quality presentation. Spot lighting with soft shadows. Exclusive boutique feel.', 11),
+('Rose Petals', 'Gül Yaprakları', 'urun', 'Scattered rose petals', 'Dağınık gül yaprakları arasında romantik sunum', 'Jewelry artfully arranged among scattered rose petals. Hyper-realistic petal textures and natural colors. Soft romantic lighting. Fresh and elegant composition.', 12),
+('Natural Stone', 'Doğal Taş', 'urun', 'Raw natural stone', 'Ham doğal taş üzerinde organik sunum', 'Jewelry displayed on raw natural stone. Organic and earthy aesthetic. Hyper-realistic stone texture with natural imperfections. Nature-inspired luxury.', 13),
+('Neck Portrait', 'Boyun Portresi', 'manken', 'Elegant neck portrait for necklaces', 'Kolye için zarif boyun portresi, yumuşak aydınlatma', 'Elegant female neck portrait showcasing necklace. Soft studio lighting on skin. Professional fashion photography. Focus on jewelry with subtle skin tones. Editorial beauty aesthetic.', 14),
+('Hand Close-up', 'El Yakın Çekim', 'manken', 'Elegant hand pose for rings/bracelets', 'Yüzük ve bileklik için zarif el pozu', 'Elegant female hand close-up showcasing ring or bracelet. Manicured nails, soft skin texture. Professional hand model photography. Jewelry in focus with beautiful hand positioning.', 15),
+('Ear Portrait', 'Kulak Portresi', 'manken', 'Side profile for earrings', 'Küpe için yan profil çekimi', 'Elegant side profile portrait showcasing earring. Professional studio lighting. Fashion editorial quality. Focus on jewelry with subtle hair and skin details.', 16),
+('Wrist Shot', 'Bilek Çekimi', 'manken', 'Wrist pose for bracelets/watches', 'Bileklik ve saat için bilek pozu', 'Elegant wrist pose showcasing bracelet or watch. Professional hand model with styled positioning. Soft lighting on skin. Fashion photography quality.', 17),
+('Decolletage', 'Dekolte Çekimi', 'manken', 'Neckline area for pendants', 'Kolye uçları için dekolte bölgesi çekimi', 'Elegant decolletage shot showcasing pendant. Soft fabric and skin tones. Professional fashion photography. Romantic and sophisticated mood.', 18),
+('Full Portrait', 'Tam Portre', 'manken', 'Full upper body jewelry showcase', 'Tam üst vücut mücevher sergisi', 'Elegant female portrait showcasing jewelry. Professional fashion photography with studio lighting. Editorial quality. Complete jewelry styling look.', 19);
