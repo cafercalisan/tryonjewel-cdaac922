@@ -12,6 +12,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Generate from "./pages/Generate";
 import Results from "./pages/Results";
+import DesignResults from "./pages/DesignResults";
 import Gallery from "./pages/Gallery";
 import Scenes from "./pages/Scenes";
 import Account from "./pages/Account";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/panel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/olustur" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
             <Route path="/sonuclar" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+            <Route path="/tasarim-sonuc" element={<ProtectedRoute><DesignResults /></ProtectedRoute>} />
             <Route path="/gorsellerim" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             <Route path="/hesap" element={<ProtectedRoute><Account /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
