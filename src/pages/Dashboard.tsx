@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins, Download, Instagram, Globe, Upload, X } from 'lucide-react';
+import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins, Instagram, Globe, Upload, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { DesignGeneratingOverlay } from '@/components/design/DesignGeneratingOverlay';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -156,19 +157,7 @@ export default function Dashboard() {
                 {selectedImages.length} seçili
               </span>
               {selectedImages.length > 0 && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
-                      Tasarım Oluştur
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl">
-                    <DialogHeader>
-                      <DialogTitle>Sosyal Medya Tasarımı</DialogTitle>
-                    </DialogHeader>
-                    <DesignCreator selectedImages={selectedImages} />
-                  </DialogContent>
-                </Dialog>
+                <DesignDialog selectedImages={selectedImages} />
               )}
             </div>
           </motion.div>
@@ -279,12 +268,32 @@ function QuickActionCard({
   );
 }
 
-function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
+function DesignDialog({ selectedImages }: { selectedImages: string[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+          Tasarım Oluştur
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Sosyal Medya Tasarımı</DialogTitle>
+        </DialogHeader>
+        <DesignCreator selectedImages={selectedImages} onClose={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DesignCreator({ selectedImages, onClose }: { selectedImages: string[]; onClose?: () => void }) {
+  const navigate = useNavigate();
   const [campaignText, setCampaignText] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
   const [designType, setDesignType] = useState<'instagram' | 'banner'>('instagram');
   const [designMode, setDesignMode] = useState('kampanya');
   const [aspectRatio, setAspectRatio] = useState('');
@@ -310,7 +319,7 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
 
   const handleGenerateDesign = async () => {
     setIsGenerating(true);
-    setGeneratedDesign(null);
+    onClose?.(); // Close dialog when starting generation
 
     try {
       // Convert logo to base64 if exists
@@ -335,7 +344,13 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
       }
 
       if (response.data?.designUrl) {
-        setGeneratedDesign(response.data.designUrl);
+        // Navigate to results page with design URL
+        navigate('/tasarim-sonuc', { 
+          state: { 
+            designUrl: response.data.designUrl,
+            designType 
+          } 
+        });
         toast.success('Tasarım başarıyla oluşturuldu!');
       } else {
         throw new Error('Tasarım oluşturulamadı');
@@ -344,28 +359,7 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
       console.error('Design generation error:', error);
       const msg = error instanceof Error ? error.message : 'Tasarım oluşturulurken hata oluştu';
       toast.error(msg);
-    } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!generatedDesign) return;
-    
-    try {
-      const response = await fetch(generatedDesign);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `jewelry-design-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Tasarım indirildi!');
-    } catch (error) {
-      toast.error('İndirme başarısız');
     }
   };
 
@@ -529,37 +523,8 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
         )}
       </Button>
 
-      {/* Generated Design Preview */}
-      <AnimatePresence>
-        {generatedDesign && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="border border-border rounded-xl p-4 bg-card"
-          >
-            <p className="text-sm font-medium mb-3 text-foreground">Oluşturulan Tasarım</p>
-            <img src={generatedDesign} alt="Generated design" className="w-full rounded-lg shadow-lg" />
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleDownload} className="flex-1">
-                <Download className="mr-2 h-4 w-4" />
-                İndir
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedDesign);
-                  toast.success('URL kopyalandı!');
-                }}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Paylaş
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Loading Overlay */}
+      <DesignGeneratingOverlay isOpen={isGenerating} designType={designType} />
     </div>
   );
 }
