@@ -99,7 +99,7 @@ serve(async (req) => {
     const selectedMode = modePrompts[designMode] || modePrompts.kampanya;
     const selectedType = typePrompts[designType] || typePrompts.instagram;
 
-    const designPrompt = `Create a professional luxury jewelry marketing design.
+    const designPrompt = `Create a stunning luxury jewelry marketing design with REAL design elements.
 
 DESIGN TYPE:
 ${selectedType}
@@ -107,36 +107,49 @@ ${selectedType}
 STYLE & MOOD:
 ${selectedMode}
 
+CRITICAL DESIGN ELEMENTS TO INCLUDE:
+- Geometric patterns: Art deco lines, golden ratio spirals, diamond shapes
+- Luxury textures: Subtle marble veins, brushed gold accents, silk textures
+- Premium borders: Elegant frames with ornate corners
+- Decorative motifs: Subtle filigree patterns, jewel-inspired ornaments
+- Typography layout: Create visual hierarchy with styled text blocks
+- Visual depth: Layered elements, shadows, reflections
+
 PRODUCT INTEGRATION:
-- Feature the jewelry product prominently as the hero element
+- Place the jewelry as the hero centerpiece
+- Create visual harmony between design elements and product
 - Maintain exact product details and proportions
-- Professional product photography integration
-- Elegant placement with breathing room
+- Surround with complementary decorative elements
 
 ${campaignText ? `CAMPAIGN TEXT TO INCLUDE:
 "${campaignText}"
-- Use premium luxury typography (Didot, Bodoni, or similar serif fonts)
-- Elegant text placement that complements the jewelry
-- Text should feel like high-end fashion advertising` : ''}
+- Use premium luxury serif typography (Didot, Bodoni, Playfair Display style)
+- Create typographic art - stylized letter spacing, elegant ligatures
+- Text should be part of the design composition, not just overlaid
+- Add decorative flourishes around key text` : ''}
 
 ${logoBase64 ? `LOGO INTEGRATION:
-- Subtly place the provided logo in an appropriate corner
-- Logo should be elegant and not overpower the jewelry
-- Professional brand placement` : ''}
+- Place logo with decorative frame or border
+- Integrate naturally into the overall design composition
+- Professional brand placement with design context` : ''}
 
-VISUAL REQUIREMENTS:
-- Ultra premium luxury aesthetic
-- Clean, sophisticated color palette (black, gold, cream, deep jewel tones)
-- Professional lighting and shadows
-- High-end fashion magazine quality
-- No cluttered or cheap-looking elements
-- Subtle gradient backgrounds or solid luxury colors
-- Professional depth and dimension
+COLOR PALETTE:
+- Rich jewel tones: deep emerald, sapphire blue, ruby red, amethyst purple
+- Luxury metallics: gold, rose gold, platinum, champagne
+- Elegant neutrals: ivory, charcoal, soft black
+- Accent gradients: subtle color transitions for depth
 
-OUTPUT:
-- Single cohesive marketing visual
-- Ready for social media or web use
-- Professional advertising quality`;
+DESIGN COMPOSITION:
+- Use rule of thirds for balanced layout
+- Create visual flow that guides eye to product
+- Include breathing space balanced with decorative richness
+- Layer elements: background texture → patterns → product → text → accents
+
+OUTPUT REQUIREMENTS:
+- Complete, polished marketing design (not just product on plain background)
+- Cartier/Tiffany/Vogue advertisement quality
+- Print-ready professional composition
+- Every element intentionally designed`;
 
     console.log('Generating design with Lovable AI gateway...');
 
