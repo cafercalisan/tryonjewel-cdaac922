@@ -162,7 +162,7 @@ export default function Results() {
                   <button
                     key={index}
                     onClick={() => setSelectedIndex(index)}
-                    className={`aspect-[4/5] rounded-xl overflow-hidden transition-all ${
+                    className={`relative aspect-[4/5] rounded-xl overflow-hidden transition-all ${
                       selectedIndex === index 
                         ? 'ring-2 ring-primary ring-offset-2' 
                         : 'opacity-70 hover:opacity-100'
@@ -174,7 +174,7 @@ export default function Results() {
                       className="w-full h-full object-cover"
                     />
                     {selectedIndex === index && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/20">
                         <Check className="h-6 w-6 text-primary" />
                       </div>
                     )}
