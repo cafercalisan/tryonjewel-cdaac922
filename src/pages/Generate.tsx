@@ -4,11 +4,12 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Upload, Check, Loader2, ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, Check, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { motion } from 'framer-motion';
 
 interface Scene {
   id: string;
@@ -21,6 +22,18 @@ interface Scene {
   preview_image_url: string | null;
   sort_order: number;
 }
+
+// Scene background gradients for visual appeal
+const sceneBackgrounds: Record<string, string> = {
+  'Siyah Kadife': 'from-gray-900 via-gray-800 to-black',
+  'Beyaz Mermer': 'from-gray-100 via-white to-gray-200',
+  'Şampanya İpek': 'from-amber-100 via-yellow-50 to-orange-100',
+  'Cam Yansıma': 'from-blue-100 via-cyan-50 to-teal-100',
+  'Saf E-ticaret': 'from-gray-50 via-gray-100 to-gray-200',
+  'Boyun Modeli': 'from-rose-100 via-pink-50 to-red-100',
+  'El Modeli': 'from-amber-50 via-orange-50 to-rose-100',
+  'Lüks Yaşam': 'from-yellow-100 via-amber-50 to-orange-100',
+};
 
 export default function Generate() {
   const { user } = useAuth();
@@ -90,7 +103,7 @@ export default function Generate() {
 
       if (uploadError) throw uploadError;
 
-      // 2. Call generate edge function with file path (not public URL)
+      // 2. Call generate edge function with file path
       setGenerationStep('generating');
       
       const { data, error } = await supabase.functions.invoke('generate-jewelry', {
@@ -118,7 +131,7 @@ export default function Generate() {
   return (
     <AppLayout showFooter={false}>
       <div className="container py-8 md:py-12 animate-fade-in">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-semibold mb-2">Görsel Oluştur</h1>
@@ -193,32 +206,34 @@ export default function Generate() {
           <div className="mb-8">
             <h2 className="text-lg font-medium mb-4">2. Sahne Seçin</h2>
             <Tabs defaultValue="studio" className="w-full">
-              <TabsList className="w-full justify-start mb-4">
-                <TabsTrigger value="studio">Stüdyo</TabsTrigger>
-                <TabsTrigger value="lifestyle">Yaşam Tarzı</TabsTrigger>
+              <TabsList className="w-full justify-start mb-6 bg-muted/50 p-1">
+                <TabsTrigger value="studio" className="flex-1 md:flex-none">Stüdyo</TabsTrigger>
+                <TabsTrigger value="lifestyle" className="flex-1 md:flex-none">Yaşam Tarzı</TabsTrigger>
               </TabsList>
 
               <TabsContent value="studio">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {studioScenes.map((scene) => (
+                <div className="flex flex-col gap-3">
+                  {studioScenes.map((scene, index) => (
                     <SceneCard
                       key={scene.id}
                       scene={scene}
                       selected={selectedSceneId === scene.id}
                       onClick={() => setSelectedSceneId(scene.id)}
+                      delay={index * 0.05}
                     />
                   ))}
                 </div>
               </TabsContent>
 
               <TabsContent value="lifestyle">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {lifestyleScenes.map((scene) => (
+                <div className="flex flex-col gap-3">
+                  {lifestyleScenes.map((scene, index) => (
                     <SceneCard
                       key={scene.id}
                       scene={scene}
                       selected={selectedSceneId === scene.id}
                       onClick={() => setSelectedSceneId(scene.id)}
+                      delay={index * 0.05}
                     />
                   ))}
                 </div>
@@ -227,7 +242,7 @@ export default function Generate() {
           </div>
 
           {/* Summary & Generate */}
-          <div className="bg-card rounded-2xl p-6 shadow-luxury">
+          <div className="bg-card rounded-2xl p-6 shadow-luxury border border-border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Seçilen sahne</p>
@@ -254,7 +269,10 @@ export default function Generate() {
                       {generationStep === 'analyzing' ? 'Ürün analiz ediliyor...' : 'Görsel oluşturuluyor...'}
                     </>
                   ) : (
-                    'Görsel Oluştur'
+                    <>
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Görsel Oluştur
+                    </>
                   )}
                 </Button>
               </div>
@@ -269,33 +287,66 @@ export default function Generate() {
 function SceneCard({ 
   scene, 
   selected, 
-  onClick 
+  onClick,
+  delay = 0
 }: { 
   scene: Scene; 
   selected: boolean; 
   onClick: () => void;
+  delay?: number;
 }) {
+  const bgGradient = sceneBackgrounds[scene.name_tr] || 'from-gray-200 via-gray-100 to-gray-300';
+  const isLightBg = ['Beyaz Mermer', 'Saf E-ticaret', 'Şampanya İpek', 'Cam Yansıma', 'Boyun Modeli', 'El Modeli', 'Lüks Yaşam'].includes(scene.name_tr);
+  
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`relative aspect-square rounded-xl p-4 text-left transition-all ${
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      className={`relative w-full rounded-xl overflow-hidden transition-all ${
         selected 
-          ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2' 
-          : 'bg-muted hover:bg-muted/80'
+          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
+          : 'hover:ring-1 hover:ring-border'
       }`}
     >
-      <div className="h-full flex flex-col justify-end">
-        <ImageIcon className={`h-8 w-8 mb-2 ${selected ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
-        <h3 className="font-medium text-sm">{scene.name_tr}</h3>
-        <p className={`text-xs mt-1 line-clamp-2 ${selected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-          {scene.description_tr}
-        </p>
+      {/* Background with blur effect */}
+      <div className={`absolute inset-0 bg-gradient-to-r ${bgGradient}`}>
+        <div className="absolute inset-0 backdrop-blur-[2px]" />
       </div>
-      {selected && (
-        <div className="absolute top-3 right-3">
-          <Check className="h-5 w-5" />
+      
+      {/* Content */}
+      <div className="relative flex items-center gap-4 p-4">
+        {/* Scene indicator */}
+        <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
+          selected 
+            ? 'bg-primary text-primary-foreground' 
+            : isLightBg 
+              ? 'bg-black/10 text-gray-800' 
+              : 'bg-white/20 text-white'
+        } transition-colors`}>
+          <Sparkles className="h-6 w-6" />
         </div>
-      )}
-    </button>
+        
+        {/* Text content */}
+        <div className="flex-1 text-left">
+          <h3 className={`font-semibold ${isLightBg ? 'text-gray-900' : 'text-white'}`}>
+            {scene.name_tr}
+          </h3>
+          <p className={`text-sm mt-0.5 line-clamp-1 ${isLightBg ? 'text-gray-600' : 'text-white/80'}`}>
+            {scene.description_tr}
+          </p>
+        </div>
+        
+        {/* Selection indicator */}
+        {selected && (
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <Check className="h-5 w-5 text-primary-foreground" />
+          </div>
+        )}
+      </div>
+    </motion.button>
   );
 }
