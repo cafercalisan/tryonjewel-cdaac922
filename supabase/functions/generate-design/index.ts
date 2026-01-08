@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,11 +48,17 @@ serve(async (req) => {
     const productImagesBase64: string[] = [];
     for (const url of productImageUrls.slice(0, 3)) {
       try {
+        console.log('Fetching image:', url);
         const response = await fetch(url);
-        const blob = await response.blob();
-        const buffer = await blob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        if (!response.ok) {
+          console.error('Failed to fetch image:', response.status);
+          continue;
+        }
+        const buffer = await response.arrayBuffer();
+        // Use Deno's base64 encoder instead of btoa with spread operator
+        const base64 = encode(buffer);
         productImagesBase64.push(base64);
+        console.log('Image fetched successfully, size:', buffer.byteLength);
       } catch (e) {
         console.error('Error fetching product image:', e);
       }
