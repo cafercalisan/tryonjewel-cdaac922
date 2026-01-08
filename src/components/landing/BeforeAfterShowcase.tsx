@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
-import { ImageComparisonSlider } from './ImageComparisonSlider';
 
 // Import showcase images
 import earringOriginal from '@/assets/showcase/earring-original.webp';
@@ -94,24 +93,69 @@ export function BeforeAfterShowcase() {
           </p>
         </motion.div>
 
-        {/* Main showcase */}
-        <div 
-          className="relative max-w-3xl mx-auto"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* Slider Comparison */}
-          <motion.div
-            key={currentItem.id}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
+        {/* 2-Column Grid Layout */}
+        <div className="max-w-5xl mx-auto">
+          <div 
+            className="grid md:grid-cols-2 gap-6 md:gap-8"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           >
-            <ImageComparisonSlider
-              beforeImage={currentItem.original}
-              afterImage={currentItem.result}
-            />
-          </motion.div>
+            {/* Before Image */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute top-4 left-4 z-10">
+                <span className="px-3 py-1.5 rounded-full bg-background/90 backdrop-blur-sm text-sm font-medium border border-border/50 shadow-sm">
+                  Önce
+                </span>
+              </div>
+              <motion.div 
+                key={`before-${currentItem.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-border/50 shadow-luxury"
+              >
+                <img
+                  src={currentItem.original}
+                  alt={`${currentItem.name} - Önce`}
+                  className="w-full h-full object-cover"
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* After Image */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute top-4 left-4 z-10">
+                <span className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-sm">
+                  Sonra
+                </span>
+              </div>
+              <motion.div 
+                key={`after-${currentItem.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-primary/20 shadow-luxury-lg"
+              >
+                <img
+                  src={currentItem.result}
+                  alt={`${currentItem.name} - Sonra`}
+                  className="w-full h-full object-cover"
+                />
+              </motion.div>
+            </motion.div>
+          </div>
 
           {/* Product name */}
           <motion.div 
@@ -129,7 +173,7 @@ export function BeforeAfterShowcase() {
               <motion.button
                 key={item.id}
                 onClick={() => setActiveIndex(index)}
-                className={`relative w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden transition-all duration-300 ${
+                className={`relative w-14 h-14 md:w-16 md:h-16 rounded-xl overflow-hidden transition-all duration-300 ${
                   index === activeIndex 
                     ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105' 
                     : 'opacity-50 hover:opacity-80'
