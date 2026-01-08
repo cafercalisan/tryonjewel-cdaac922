@@ -119,14 +119,13 @@ export default function Dashboard() {
               color="bg-blue-500/10 text-blue-500"
             />
           </Link>
-          <button onClick={() => setIsSelectionMode(!isSelectionMode)}>
+          <Link to="/tasarim-olustur">
             <QuickActionCard
               icon={<Wand2 className="h-5 w-5" />}
               title="Tasarım Oluştur"
               color="bg-purple-500/10 text-purple-500"
-              active={isSelectionMode}
             />
-          </button>
+          </Link>
           <Link to="/sahneler">
             <QuickActionCard
               icon={<Share2 className="h-5 w-5" />}
