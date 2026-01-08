@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,11 +128,10 @@ serve(async (req) => {
     // Step 1: Analyze the jewelry for accurate reproduction
     console.log('Step 1: Analyzing jewelry with precision...');
     
-    // Fetch the image and convert to base64 for Gemini API
+    // Fetch the image and convert to base64 for Gemini API (using chunked encoding to avoid stack overflow)
     const imageResponse = await fetch(imageUrl);
-    const imageBlob = await imageResponse.blob();
-    const imageBuffer = await imageBlob.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64Image = base64Encode(imageBuffer);
     
     const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
