@@ -8,7 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -20,9 +20,9 @@ serve(async (req) => {
   try {
     console.log('Design generation request received');
 
-    if (!LOVABLE_API_KEY) {
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'AI is not configured (missing LOVABLE_API_KEY)' }),
+        JSON.stringify({ error: 'AI is not configured (missing GOOGLE_API_KEY)' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -151,56 +151,52 @@ OUTPUT REQUIREMENTS:
 - Print-ready professional composition
 - Every element intentionally designed`;
 
-    console.log('Generating design with Lovable AI gateway...');
+    console.log('Generating design with Google Gemini API...');
 
-    const userContent: any[] = [{ type: 'text', text: designPrompt }];
+    // Build parts array for Gemini
+    const contentParts: any[] = [{ text: designPrompt }];
 
     for (const dataUrl of productImageDataUrls) {
-      userContent.push({
-        type: 'image_url',
-        image_url: { url: dataUrl },
+      // Extract base64 from data URL
+      const commaIdx = dataUrl.indexOf(',');
+      const base64Data = dataUrl.slice(commaIdx + 1);
+      const mimeType = dataUrl.slice(5, commaIdx).split(';')[0] || 'image/png';
+      contentParts.push({
+        inline_data: { mime_type: mimeType, data: base64Data },
       });
     }
 
     if (logoBase64) {
-      userContent.push({
-        type: 'image_url',
-        image_url: { url: logoBase64 },
+      const commaIdx = logoBase64.indexOf(',');
+      const base64Data = logoBase64.slice(commaIdx + 1);
+      const mimeType = logoBase64.slice(5, commaIdx).split(';')[0] || 'image/png';
+      contentParts.push({
+        inline_data: { mime_type: mimeType, data: base64Data },
       });
     }
 
-    const genResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-pro-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: userContent,
+    const genResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: contentParts }],
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            temperature: 0.5,
           },
-        ],
-        modalities: ['image', 'text'],
-      }),
-    });
+        }),
+      }
+    );
 
     if (!genResponse.ok) {
       const t = await genResponse.text();
-      console.error('AI gateway error:', genResponse.status, t);
+      console.error('Gemini API error:', genResponse.status, t);
 
       if (genResponse.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit aşıldı, lütfen biraz sonra tekrar deneyin.' }), {
           status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      if (genResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI kullanım kredisi yetersiz. Lütfen çalışma alanı kredinizi kontrol edin.' }), {
-          status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -212,35 +208,36 @@ OUTPUT REQUIREMENTS:
     }
 
     const genData = await genResponse.json();
-    const dataUrl = genData?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
+    console.log('Generation response received');
 
-    if (!dataUrl || !dataUrl.startsWith('data:image/')) {
-      console.error('No image in gateway response');
+    // Extract image from Gemini response
+    const parts = genData.candidates?.[0]?.content?.parts || [];
+    let generatedImage: string | null = null;
+
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith('image/')) {
+        generatedImage = part.inlineData.data;
+        break;
+      }
+    }
+
+    if (!generatedImage) {
+      console.error('No image in Gemini response');
       return new Response(
         JSON.stringify({ error: 'No image generated' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Generation response received');
-
-    // Extract base64 payload from data URL
-    const commaIndex = dataUrl.indexOf(',');
-    const meta = dataUrl.slice(0, commaIndex);
-    const payload = dataUrl.slice(commaIndex + 1);
-    const mimeMatch = meta.match(/^data:(image\/[^;]+);base64$/);
-    const outMime = mimeMatch?.[1] || 'image/png';
-
     // Upload to storage
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const imageBuffer = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
-    const ext = outMime === 'image/jpeg' ? 'jpg' : outMime === 'image/webp' ? 'webp' : 'png';
-    const fileName = `designs/${Date.now()}-${designType}-${designMode}.${ext}`;
+    const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+    const fileName = `designs/${Date.now()}-${designType}-${designMode}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from('jewelry-images')
-      .upload(fileName, imageBuffer, { contentType: outMime });
+      .upload(fileName, imageBuffer, { contentType: 'image/png' });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);

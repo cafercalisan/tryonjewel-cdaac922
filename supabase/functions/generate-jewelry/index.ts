@@ -9,7 +9,6 @@ const corsHeaders = {
 };
 
 const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -280,82 +279,106 @@ FORBIDDEN:
       console.log(`Generating variation ${i + 1}/2...`);
       
       try {
-        if (!LOVABLE_API_KEY) {
-          console.error('Missing LOVABLE_API_KEY');
+        if (!GOOGLE_API_KEY) {
+          console.error('Missing GOOGLE_API_KEY');
           break;
         }
 
-        // Use Lovable AI Gateway for image generation to avoid provider model changes
-        const referenceDataUrl = `data:image/jpeg;base64,${base64Image}`;
+        // Use Google Gemini API directly with user's own API key for commercial use
         const variationHint = i === 0
-          ? 'Variation A: slightly different camera angle and lighting, same jewelry fidelity.'
-          : 'Variation B: slightly different composition and reflections, same jewelry fidelity.';
+          ? 'Variation A: slightly different camera angle and lighting.'
+          : 'Variation B: slightly different composition and reflections.';
 
-        const gatewayResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-3-pro-image-preview',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: `${fullPrompt}\n\n${variationHint}` },
-                  { type: 'image_url', image_url: { url: referenceDataUrl } },
-                ],
+        const genResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: `${fullPrompt}\n\n${variationHint}` },
+                    { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
+                  ],
+                },
+              ],
+              generationConfig: {
+                responseModalities: ['TEXT', 'IMAGE'],
+                temperature: 0.4,
               },
-            ],
-            modalities: ['image', 'text'],
-            temperature: 0.35,
-          }),
-        });
-
-        if (!gatewayResp.ok) {
-          const t = await gatewayResp.text();
-          console.error(`Generation ${i + 1} gateway error:`, gatewayResp.status, t);
-
-          // Surface common issues as status codes
-          if (gatewayResp.status === 429) {
-            return new Response(JSON.stringify({ error: 'Rate limit aşıldı, lütfen biraz sonra tekrar deneyin.' }), {
-              status: 429,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            }),
           }
-          if (gatewayResp.status === 402) {
-            return new Response(JSON.stringify({ error: 'AI kullanım kredisi yetersiz. Lütfen çalışma alanı kredinizi kontrol edin.' }), {
-              status: 402,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
+        );
 
+        if (!genResponse.ok) {
+          const errText = await genResponse.text();
+          console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
+
+          // Check if model not found, try fallback model
+          if (genResponse.status === 404) {
+            console.log('Trying fallback model imagen-3.0-generate-002...');
+            const fallbackResp = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GOOGLE_API_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  instances: [{ prompt: `${fullPrompt}\n\n${variationHint}` }],
+                  parameters: { sampleCount: 1, aspectRatio: '4:5' },
+                }),
+              }
+            );
+
+            if (fallbackResp.ok) {
+              const fallbackData = await fallbackResp.json();
+              const predictions = fallbackData.predictions || [];
+              if (predictions.length > 0 && predictions[0].bytesBase64Encoded) {
+                const payload = predictions[0].bytesBase64Encoded;
+                const imageBuffer = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+                const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
+                const { error: uploadError } = await supabase.storage
+                  .from('jewelry-images')
+                  .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+                if (!uploadError) {
+                  const { data: { publicUrl } } = supabase.storage
+                    .from('jewelry-images')
+                    .getPublicUrl(filePath);
+                  generatedUrls.push(publicUrl);
+                  console.log(`Variation ${i + 1} uploaded successfully (fallback)`);
+                }
+                continue;
+              }
+            }
+          }
           continue;
         }
 
-        const genData = await gatewayResp.json();
-        const dataUrl = genData?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
+        const genData = await genResponse.json();
+        console.log(`Generation ${i + 1} response received`);
 
-        if (!dataUrl || !dataUrl.startsWith('data:image/')) {
-          console.error(`No image in generation ${i + 1} gateway response`);
+        // Extract image from Gemini response
+        const parts = genData.candidates?.[0]?.content?.parts || [];
+        let generatedImage: string | null = null;
+
+        for (const part of parts) {
+          if (part.inlineData?.mimeType?.startsWith('image/')) {
+            generatedImage = part.inlineData.data;
+            break;
+          }
+        }
+
+        if (!generatedImage) {
+          console.error(`No image in generation ${i + 1} response`);
           continue;
         }
 
-        // Extract base64 payload from data URL
-        const commaIndex = dataUrl.indexOf(',');
-        const meta = dataUrl.slice(0, commaIndex);
-        const payload = dataUrl.slice(commaIndex + 1);
-        const mimeMatch = meta.match(/^data:(image\/[^;]+);base64$/);
-        const outMime = mimeMatch?.[1] || 'image/png';
-        const ext = outMime === 'image/jpeg' ? 'jpg' : outMime === 'image/webp' ? 'webp' : 'png';
-
-        const imageBuffer = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
-
-        const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.${ext}`;
+        const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+        const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
         const { error: uploadError } = await supabase.storage
           .from('jewelry-images')
-          .upload(filePath, imageBuffer, { contentType: outMime });
+          .upload(filePath, imageBuffer, { contentType: 'image/png' });
 
         if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
