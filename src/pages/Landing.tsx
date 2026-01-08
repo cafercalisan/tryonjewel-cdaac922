@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Gem, Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Play, Clock, Zap, TrendingUp, X, Check } from 'lucide-react';
+import { Gem, Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Play, Clock, Zap, TrendingUp, X, Check, Share2 } from 'lucide-react';
 import { BeforeAfterShowcase } from '@/components/landing/BeforeAfterShowcase';
 import { TransformationGallery } from '@/components/landing/TransformationGallery';
 
@@ -13,9 +13,9 @@ export default function Landing() {
     <AppLayout>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
-        <div className="container py-16 md:py-24 lg:py-32">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <div className="container pt-6 md:pt-10 pb-16 md:pb-20">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               {/* Left - Text Content */}
               <motion.div 
                 className="order-2 lg:order-1 text-center lg:text-left"
@@ -24,7 +24,7 @@ export default function Landing() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
               >
                 <motion.p 
-                  className="text-xs md:text-sm font-medium tracking-[0.2em] text-primary mb-6"
+                  className="text-xs md:text-sm font-medium tracking-[0.2em] text-primary mb-4"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1 }}
@@ -33,7 +33,7 @@ export default function Landing() {
                 </motion.p>
                 
                 <motion.h1 
-                  className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-6 leading-[1.1]"
+                  className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-5 leading-[1.1]"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.2 }}
@@ -44,7 +44,7 @@ export default function Landing() {
                 </motion.h1>
                 
                 <motion.p 
-                  className="text-base md:text-lg text-muted-foreground mb-8 max-w-md mx-auto lg:mx-0 leading-relaxed"
+                  className="text-base md:text-lg text-muted-foreground mb-6 max-w-md mx-auto lg:mx-0 leading-relaxed"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.3 }}
@@ -53,7 +53,7 @@ export default function Landing() {
                 </motion.p>
                 
                 <motion.div 
-                  className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+                  className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.4 }}
@@ -75,14 +75,14 @@ export default function Landing() {
               
               {/* Right - Hero Image */}
               <motion.div 
-                className="order-1 lg:order-2 flex justify-center"
+                className="order-1 lg:order-2 flex justify-center lg:justify-end"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
               >
                 <div className="relative">
                   <motion.div 
-                    className="w-[280px] md:w-[340px] lg:w-[380px] aspect-[3/4] rounded-3xl overflow-hidden shadow-luxury-lg"
+                    className="w-[260px] md:w-[300px] lg:w-[340px] aspect-[3/4] rounded-3xl overflow-hidden shadow-luxury-lg"
                     whileHover={{ scale: 1.02 }}
                     transition={{ duration: 0.3 }}
                   >
@@ -94,7 +94,7 @@ export default function Landing() {
                   </motion.div>
                   {/* Decorative element */}
                   <motion.div 
-                    className="absolute -z-10 -bottom-4 -right-4 w-full h-full rounded-3xl border-2 border-primary/20"
+                    className="absolute -z-10 -bottom-3 -right-3 w-full h-full rounded-3xl border-2 border-primary/20"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.6, delay: 0.5 }}
@@ -290,60 +290,152 @@ export default function Landing() {
       {/* Transformation Gallery */}
       <TransformationGallery />
 
-      {/* Scenes Preview */}
-      <section className="py-20 md:py-28">
+      {/* Digital Story Section */}
+      <section className="py-20 md:py-28 bg-muted/20">
         <div className="container">
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl md:text-4xl font-semibold mb-4">8 Premium Sahne</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Stüdyo ve yaşam tarzı sahneleri ile mücevherlerinizi sergileyın
-            </p>
-          </motion.div>
-          <motion.div 
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            {scenes.map((scene, index) => (
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              {/* Left - Visual */}
               <motion.div 
-                key={scene.name}
-                className="aspect-square rounded-xl bg-muted flex items-center justify-center text-center p-4 shadow-luxury hover:shadow-luxury-lg transition-shadow"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
+                className="relative"
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
                 viewport={{ once: true }}
-                whileHover={{ y: -4 }}
               >
-                <div>
-                  <Gem className="h-8 w-8 text-primary mx-auto mb-2" />
-                  <p className="font-medium">{scene.name}</p>
-                  <p className="text-xs text-muted-foreground">{scene.category}</p>
+                <div className="relative aspect-square max-w-md mx-auto lg:mx-0">
+                  {/* Background decorative elements */}
+                  <motion.div 
+                    className="absolute inset-4 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 blur-2xl"
+                    animate={{ 
+                      scale: [1, 1.05, 1],
+                      opacity: [0.5, 0.7, 0.5]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  
+                  {/* Main visual container */}
+                  <div className="relative rounded-3xl overflow-hidden border border-border/50 bg-background shadow-luxury-lg">
+                    <div className="aspect-square p-8 flex flex-col items-center justify-center">
+                      {/* Brand mockup */}
+                      <div className="w-full max-w-[280px] space-y-4">
+                        {/* Logo placeholder */}
+                        <motion.div 
+                          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto shadow-lg"
+                          initial={{ scale: 0 }}
+                          whileInView={{ scale: 1 }}
+                          transition={{ duration: 0.5, delay: 0.2 }}
+                          viewport={{ once: true }}
+                        >
+                          <Gem className="h-8 w-8 text-primary-foreground" />
+                        </motion.div>
+                        
+                        {/* Social media mockups */}
+                        <div className="grid grid-cols-2 gap-3 mt-6">
+                          {[1, 2, 3, 4].map((i) => (
+                            <motion.div 
+                              key={i}
+                              className="aspect-square rounded-xl bg-muted/50 border border-border/30 overflow-hidden"
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.4, delay: 0.1 * i }}
+                              viewport={{ once: true }}
+                            >
+                              <div className="w-full h-full bg-gradient-to-br from-muted to-muted/30 flex items-center justify-center">
+                                <Image className="h-6 w-6 text-muted-foreground/50" />
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                        
+                        {/* Color palette indicator */}
+                        <div className="flex justify-center gap-2 mt-4">
+                          <motion.div 
+                            className="w-8 h-8 rounded-full bg-primary shadow-md"
+                            whileHover={{ scale: 1.1 }}
+                          />
+                          <motion.div 
+                            className="w-8 h-8 rounded-full bg-foreground shadow-md"
+                            whileHover={{ scale: 1.1 }}
+                          />
+                          <motion.div 
+                            className="w-8 h-8 rounded-full bg-muted border border-border shadow-md"
+                            whileHover={{ scale: 1.1 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
-            ))}
-          </motion.div>
-          <motion.div 
-            className="text-center mt-8"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            viewport={{ once: true }}
-          >
-            <Link to="/sahneler">
-              <Button variant="outline" size="lg">
-                Tüm Sahneleri Gör
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
+              
+              {/* Right - Content */}
+              <motion.div 
+                className="text-center lg:text-left"
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                viewport={{ once: true }}
+              >
+                <p className="text-xs md:text-sm font-medium tracking-[0.2em] text-primary mb-4">
+                  MARKA KİMLİĞİ
+                </p>
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-6">
+                  Dijital Varlığınızın <span className="italic text-primary font-serif">Hikayesi</span>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed">
+                  Logo ve marka renklerinize göre kreatifler oluşturun. Tutarlı bir görsel kimlik ile sosyal medyada öne çıkın.
+                </p>
+                
+                {/* Features list */}
+                <div className="space-y-4 mb-8">
+                  <motion.div 
+                    className="flex items-center gap-4 justify-center lg:justify-start"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Palette className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="text-sm md:text-base">Marka renklerinize uyumlu görseller</p>
+                  </motion.div>
+                  <motion.div 
+                    className="flex items-center gap-4 justify-center lg:justify-start"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.3 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Share2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="text-sm md:text-base">Sosyal medya için optimize boyutlar</p>
+                  </motion.div>
+                  <motion.div 
+                    className="flex items-center gap-4 justify-center lg:justify-start"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.4 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="text-sm md:text-base">Profesyonel ve tutarlı içerikler</p>
+                  </motion.div>
+                </div>
+
+                <Link to="/kayit">
+                  <Button size="lg" className="rounded-full px-8">
+                    Hemen Başla
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </motion.div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -388,46 +480,6 @@ export default function Landing() {
     </AppLayout>
   );
 }
-
-function FeatureCard({ 
-  icon, 
-  title, 
-  description, 
-  delay = 0 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
-  description: string;
-  delay?: number;
-}) {
-  return (
-    <motion.div 
-      className="bg-card rounded-2xl p-8 shadow-luxury hover:shadow-luxury-lg transition-shadow"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-      viewport={{ once: true }}
-      whileHover={{ y: -4 }}
-    >
-      <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center text-accent-foreground mb-4">
-        {icon}
-      </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
-    </motion.div>
-  );
-}
-
-const scenes = [
-  { name: 'Siyah Kadife', category: 'Stüdyo' },
-  { name: 'Beyaz Mermer', category: 'Stüdyo' },
-  { name: 'Şampanya İpek', category: 'Stüdyo' },
-  { name: 'Cam Yansıma', category: 'Stüdyo' },
-  { name: 'Saf E-ticaret', category: 'Stüdyo' },
-  { name: 'Boyun Modeli', category: 'Yaşam Tarzı' },
-  { name: 'El Modeli', category: 'Yaşam Tarzı' },
-  { name: 'Lüks Yaşam', category: 'Yaşam Tarzı' },
-];
 
 function HowItWorksStep({ 
   number, 
