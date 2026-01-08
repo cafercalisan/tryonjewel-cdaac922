@@ -326,7 +326,7 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
           campaignText,
           designType,
           designMode,
-          aspectRatio: aspectRatio || (designType === 'instagram' ? '1:1' : '16:9')
+          aspectRatio: aspectRatio || (designType === 'instagram' ? '3:4' : '16:9')
         }
       });
 
@@ -399,12 +399,12 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
           <div>
             <label className="text-sm font-medium mb-2 block text-foreground">En Boy Oranı</label>
             <div className="flex gap-2">
-              {['1:1', '4:5', '9:16'].map((ratio) => (
+              {['3:4', '1:1', '4:5', '9:16'].map((ratio) => (
                 <button
                   key={ratio}
                   onClick={() => setAspectRatio(ratio)}
                   className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    aspectRatio === ratio || (!aspectRatio && ratio === '1:1')
+                    aspectRatio === ratio || (!aspectRatio && ratio === '3:4')
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border hover:border-primary/50'
                   }`}
