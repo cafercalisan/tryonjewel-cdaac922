@@ -8,7 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -20,21 +20,28 @@ serve(async (req) => {
   try {
     console.log('Design generation request received');
 
-    const { 
-      productImageUrls, 
-      logoBase64, 
-      campaignText, 
-      designType, 
+    if (!LOVABLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'AI is not configured (missing LOVABLE_API_KEY)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const {
+      productImageUrls,
+      logoBase64,
+      campaignText,
+      designType,
       designMode,
-      aspectRatio 
+      aspectRatio
     } = await req.json();
 
-    console.log('Request params:', { 
-      imageCount: productImageUrls?.length, 
-      hasLogo: !!logoBase64, 
-      designType, 
+    console.log('Request params:', {
+      imageCount: productImageUrls?.length,
+      hasLogo: !!logoBase64,
+      designType,
       designMode,
-      aspectRatio 
+      aspectRatio
     });
 
     if (!productImageUrls || productImageUrls.length === 0) {
@@ -44,8 +51,8 @@ serve(async (req) => {
       );
     }
 
-    // Fetch product images and convert to base64
-    const productImagesBase64: string[] = [];
+    // Fetch product images and convert to data URLs (avoid call stack issues)
+    const productImageDataUrls: string[] = [];
     for (const url of productImageUrls.slice(0, 3)) {
       try {
         console.log('Fetching image:', url);
@@ -54,17 +61,18 @@ serve(async (req) => {
           console.error('Failed to fetch image:', response.status);
           continue;
         }
+
+        const contentType = response.headers.get('content-type') || 'image/png';
         const buffer = await response.arrayBuffer();
-        // Use Deno's base64 encoder instead of btoa with spread operator
-        const base64 = encode(buffer);
-        productImagesBase64.push(base64);
+        const b64 = encode(buffer);
+        productImageDataUrls.push(`data:${contentType};base64,${b64}`);
         console.log('Image fetched successfully, size:', buffer.byteLength);
       } catch (e) {
         console.error('Error fetching product image:', e);
       }
     }
 
-    if (productImagesBase64.length === 0) {
+    if (productImageDataUrls.length === 0) {
       return new Response(
         JSON.stringify({ error: 'Could not fetch product images' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -73,19 +81,23 @@ serve(async (req) => {
 
     // Build prompt based on design type and mode
     const modePrompts: Record<string, string> = {
-      'kampanya': 'High-end luxury sale campaign aesthetic. Bold yet elegant typography placement. Premium fashion brand advertising style like Cartier or Tiffany campaigns.',
-      'koleksiyon': 'Exclusive collection launch visual. Editorial fashion photography style. Vogue magazine aesthetic with sophisticated minimalism.',
-      'reklam': 'Cinematic luxury advertisement. Hollywood-style glamour lighting. Premium brand commercial aesthetic like Bulgari or Van Cleef & Arpels.',
-      'sinematik': 'Ultra cinematic movie poster style. Dramatic lighting and shadows. Anamorphic lens flare effects. Epic and luxurious mood.'
+      kampanya:
+        'High-end luxury sale campaign aesthetic. Bold yet elegant typography placement. Premium fashion brand advertising style like Cartier or Tiffany campaigns.',
+      koleksiyon:
+        'Exclusive collection launch visual. Editorial fashion photography style. Vogue magazine aesthetic with sophisticated minimalism.',
+      reklam:
+        'Cinematic luxury advertisement. Hollywood-style glamour lighting. Premium brand commercial aesthetic like Bulgari or Van Cleef & Arpels.',
+      sinematik:
+        'Ultra cinematic movie poster style. Dramatic lighting and shadows. Anamorphic lens flare effects. Epic and luxurious mood.',
     };
 
     const typePrompts: Record<string, string> = {
-      'instagram': `Instagram post design (${aspectRatio || '1:1'} aspect ratio). Modern luxury social media aesthetic. Clean composition with elegant typography space.`,
-      'banner': `Web banner design (${aspectRatio || '16:9'} aspect ratio). Premium website hero banner. Sophisticated horizontal composition for luxury jewelry brand.`
+      instagram: `Instagram post design (${aspectRatio || '3:4'} aspect ratio). Modern luxury social media aesthetic. Clean composition with elegant typography space.`,
+      banner: `Web banner design (${aspectRatio || '16:9'} aspect ratio). Premium website hero banner. Sophisticated horizontal composition for luxury jewelry brand.`,
     };
 
-    const selectedMode = modePrompts[designMode] || modePrompts['kampanya'];
-    const selectedType = typePrompts[designType] || typePrompts['instagram'];
+    const selectedMode = modePrompts[designMode] || modePrompts.kampanya;
+    const selectedType = typePrompts[designType] || typePrompts.instagram;
 
     const designPrompt = `Create a professional luxury jewelry marketing design.
 
@@ -126,89 +138,96 @@ OUTPUT:
 - Ready for social media or web use
 - Professional advertising quality`;
 
-    console.log('Generating design with prompt...');
+    console.log('Generating design with Lovable AI gateway...');
 
-    // Build content parts
-    const contentParts: any[] = [
-      { text: designPrompt }
-    ];
+    const userContent: any[] = [{ type: 'text', text: designPrompt }];
 
-    // Add product images
-    for (const base64 of productImagesBase64) {
-      contentParts.push({
-        inline_data: {
-          mime_type: "image/jpeg",
-          data: base64
-        }
+    for (const dataUrl of productImageDataUrls) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: dataUrl },
       });
     }
 
-    // Add logo if provided
     if (logoBase64) {
-      // Remove data URL prefix if present
-      const cleanLogo = logoBase64.replace(/^data:image\/\w+;base64,/, '');
-      contentParts.push({
-        inline_data: {
-          mime_type: "image/png",
-          data: cleanLogo
-        }
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: logoBase64 },
       });
     }
 
-    const genResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GOOGLE_API_KEY}`, {
+    const genResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: contentParts
-        }],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          temperature: 0.6
-        }
+        model: 'google/gemini-3-pro-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: userContent,
+          },
+        ],
+        modalities: ['image', 'text'],
       }),
     });
 
     if (!genResponse.ok) {
-      const errorText = await genResponse.text();
-      console.error('Generation API error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Design generation failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const t = await genResponse.text();
+      console.error('AI gateway error:', genResponse.status, t);
+
+      if (genResponse.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit aşıldı, lütfen biraz sonra tekrar deneyin.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (genResponse.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI kullanım kredisi yetersiz. Lütfen çalışma alanı kredinizi kontrol edin.' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: 'Design generation failed' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const genData = await genResponse.json();
-    console.log('Generation response received');
+    const dataUrl = genData?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
 
-    // Extract image from response
-    const parts = genData.candidates?.[0]?.content?.parts || [];
-    let generatedImage = null;
-
-    for (const part of parts) {
-      if (part.inlineData?.mimeType?.startsWith('image/')) {
-        generatedImage = part.inlineData.data;
-        break;
-      }
-    }
-
-    if (!generatedImage) {
-      console.error('No image in response');
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+      console.error('No image in gateway response');
       return new Response(
         JSON.stringify({ error: 'No image generated' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Generation response received');
+
+    // Extract base64 payload from data URL
+    const commaIndex = dataUrl.indexOf(',');
+    const meta = dataUrl.slice(0, commaIndex);
+    const payload = dataUrl.slice(commaIndex + 1);
+    const mimeMatch = meta.match(/^data:(image\/[^;]+);base64$/);
+    const outMime = mimeMatch?.[1] || 'image/png';
+
     // Upload to storage
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
-    const imageBuffer = Uint8Array.from(atob(generatedImage), c => c.charCodeAt(0));
-    const fileName = `designs/${Date.now()}-${designType}-${designMode}.png`;
-    
+
+    const imageBuffer = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+    const ext = outMime === 'image/jpeg' ? 'jpg' : outMime === 'image/webp' ? 'webp' : 'png';
+    const fileName = `designs/${Date.now()}-${designType}-${designMode}.${ext}`;
+
     const { error: uploadError } = await supabase.storage
       .from('jewelry-images')
-      .upload(fileName, imageBuffer, { contentType: 'image/png' });
+      .upload(fileName, imageBuffer, { contentType: outMime });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
