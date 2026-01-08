@@ -1,15 +1,15 @@
-import { useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { useProfile } from '@/hooks/useProfile';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Upload, Check, Loader2, AlertCircle, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { motion } from 'framer-motion';
+import { useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { useProfile } from "@/hooks/useProfile";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Upload, Check, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { motion } from "framer-motion";
 
 interface Scene {
   id: string;
@@ -25,14 +25,14 @@ interface Scene {
 
 // Scene background gradients for visual appeal
 const sceneBackgrounds: Record<string, string> = {
-  'Siyah Kadife': 'from-gray-900 via-gray-800 to-black',
-  'Beyaz Mermer': 'from-gray-100 via-white to-gray-200',
-  'Şampanya İpek': 'from-amber-100 via-yellow-50 to-orange-100',
-  'Cam Yansıma': 'from-blue-100 via-cyan-50 to-teal-100',
-  'Saf E-ticaret': 'from-gray-50 via-gray-100 to-gray-200',
-  'Boyun Modeli': 'from-rose-100 via-pink-50 to-red-100',
-  'El Modeli': 'from-amber-50 via-orange-50 to-rose-100',
-  'Lüks Yaşam': 'from-yellow-100 via-amber-50 to-orange-100',
+  "Kumaş Sergi": "from-gray-900 via-gray-800 to-black",
+  "Beyaz Mermer": "from-gray-100 via-white to-gray-200",
+  "Şampanya İpek": "from-amber-100 via-yellow-50 to-orange-100",
+  "Cam Yansıma": "from-blue-100 via-cyan-50 to-teal-100",
+  "Saf E-ticaret": "from-gray-50 via-gray-100 to-gray-200",
+  "Boyun Modeli": "from-rose-100 via-pink-50 to-red-100",
+  "El Modeli": "from-amber-50 via-orange-50 to-rose-100",
+  "Lüks Yaşam": "from-yellow-100 via-amber-50 to-orange-100",
 };
 
 export default function Generate() {
@@ -40,34 +40,31 @@ export default function Generate() {
   const { data: profile } = useProfile();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedSceneId = searchParams.get('scene');
+  const preselectedSceneId = searchParams.get("scene");
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStep, setGenerationStep] = useState<'idle' | 'analyzing' | 'generating'>('idle');
+  const [generationStep, setGenerationStep] = useState<"idle" | "analyzing" | "generating">("idle");
 
   const { data: scenes } = useQuery({
-    queryKey: ['scenes'],
+    queryKey: ["scenes"],
     queryFn: async (): Promise<Scene[]> => {
-      const { data, error } = await supabase
-        .from('scenes')
-        .select('*')
-        .order('sort_order');
-      
+      const { data, error } = await supabase.from("scenes").select("*").order("sort_order");
+
       if (error) throw error;
       return data;
     },
   });
 
-  const studioScenes = scenes?.filter(s => s.category === 'studio') || [];
-  const lifestyleScenes = scenes?.filter(s => s.category === 'lifestyle') || [];
+  const studioScenes = scenes?.filter((s) => s.category === "studio") || [];
+  const lifestyleScenes = scenes?.filter((s) => s.category === "lifestyle") || [];
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && file.type.startsWith("image/")) {
       setUploadedFile(file);
       setUploadedPreview(URL.createObjectURL(file));
     }
@@ -85,28 +82,26 @@ export default function Generate() {
     if (!uploadedFile || !selectedSceneId || !user) return;
 
     if (!profile || profile.credits <= 0) {
-      toast.error('Yetersiz kredi. Lütfen kredi satın alın.');
+      toast.error("Yetersiz kredi. Lütfen kredi satın alın.");
       return;
     }
 
     setIsGenerating(true);
-    setGenerationStep('analyzing');
+    setGenerationStep("analyzing");
 
     try {
       // 1. Upload image to storage
-      const fileExt = uploadedFile.name.split('.').pop();
+      const fileExt = uploadedFile.name.split(".").pop();
       const filePath = `${user.id}/originals/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('jewelry-images')
-        .upload(filePath, uploadedFile);
+
+      const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, uploadedFile);
 
       if (uploadError) throw uploadError;
 
       // 2. Call generate edge function with file path
-      setGenerationStep('generating');
-      
-      const { data, error } = await supabase.functions.invoke('generate-jewelry', {
+      setGenerationStep("generating");
+
+      const { data, error } = await supabase.functions.invoke("generate-jewelry", {
         body: {
           imagePath: filePath,
           sceneId: selectedSceneId,
@@ -115,18 +110,18 @@ export default function Generate() {
 
       if (error) throw error;
 
-      toast.success('Görselleriniz başarıyla oluşturuldu!');
+      toast.success("Görselleriniz başarıyla oluşturuldu!");
       navigate(`/sonuclar?id=${data.imageId}`);
     } catch (error) {
-      console.error('Generation error:', error);
-      toast.error('Görsel oluşturulurken bir hata oluştu.');
+      console.error("Generation error:", error);
+      toast.error("Görsel oluşturulurken bir hata oluştu.");
     } finally {
       setIsGenerating(false);
-      setGenerationStep('idle');
+      setGenerationStep("idle");
     }
   };
 
-  const selectedScene = scenes?.find(s => s.id === selectedSceneId);
+  const selectedScene = scenes?.find((s) => s.id === selectedSceneId);
 
   return (
     <AppLayout showFooter={false}>
@@ -135,9 +130,7 @@ export default function Generate() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-semibold mb-2">Görsel Oluştur</h1>
-            <p className="text-muted-foreground">
-              Mücevher fotoğrafınızı yükleyin ve bir sahne seçin
-            </p>
+            <p className="text-muted-foreground">Mücevher fotoğrafınızı yükleyin ve bir sahne seçin</p>
           </div>
 
           {/* Credits Warning */}
@@ -155,19 +148,13 @@ export default function Generate() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleFileDrop}
               className={`relative border-2 border-dashed rounded-2xl p-8 transition-colors ${
-                uploadedPreview 
-                  ? 'border-primary bg-accent/30' 
-                  : 'border-border hover:border-primary/50 bg-muted/30'
+                uploadedPreview ? "border-primary bg-accent/30" : "border-border hover:border-primary/50 bg-muted/30"
               }`}
             >
               {uploadedPreview ? (
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-40 h-50 rounded-xl overflow-hidden bg-muted shadow-luxury">
-                    <img 
-                      src={uploadedPreview} 
-                      alt="Uploaded jewelry" 
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={uploadedPreview} alt="Uploaded jewelry" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 text-primary mb-2">
@@ -177,12 +164,7 @@ export default function Generate() {
                     <p className="text-sm text-muted-foreground mb-4">{uploadedFile?.name}</p>
                     <label className="cursor-pointer">
                       <span className="text-sm text-primary hover:underline">Farklı bir fotoğraf seç</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleFileSelect}
-                      />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                     </label>
                   </div>
                 </div>
@@ -191,12 +173,7 @@ export default function Generate() {
                   <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="font-medium mb-1">Fotoğraf yüklemek için tıklayın</p>
                   <p className="text-sm text-muted-foreground">veya sürükleyip bırakın</p>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={handleFileSelect}
-                  />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                 </label>
               )}
             </div>
@@ -207,8 +184,12 @@ export default function Generate() {
             <h2 className="text-lg font-medium mb-4">2. Sahne Seçin</h2>
             <Tabs defaultValue="studio" className="w-full">
               <TabsList className="w-full justify-start mb-6 bg-muted/50 p-1">
-                <TabsTrigger value="studio" className="flex-1 md:flex-none">Stüdyo</TabsTrigger>
-                <TabsTrigger value="lifestyle" className="flex-1 md:flex-none">Yaşam Tarzı</TabsTrigger>
+                <TabsTrigger value="studio" className="flex-1 md:flex-none">
+                  Stüdyo
+                </TabsTrigger>
+                <TabsTrigger value="lifestyle" className="flex-1 md:flex-none">
+                  Yaşam Tarzı
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="studio">
@@ -246,9 +227,7 @@ export default function Generate() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Seçilen sahne</p>
-                <p className="font-medium">
-                  {selectedScene ? selectedScene.name_tr : 'Henüz seçilmedi'}
-                </p>
+                <p className="font-medium">{selectedScene ? selectedScene.name_tr : "Henüz seçilmedi"}</p>
                 <p className="text-sm text-muted-foreground mt-2">
                   En boy oranı: <span className="font-medium">4:5 (Portre)</span>
                 </p>
@@ -266,7 +245,7 @@ export default function Generate() {
                   {isGenerating ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {generationStep === 'analyzing' ? 'Ürün analiz ediliyor...' : 'Görsel oluşturuluyor...'}
+                      {generationStep === "analyzing" ? "Ürün analiz ediliyor..." : "Görsel oluşturuluyor..."}
                     </>
                   ) : (
                     <>
@@ -284,20 +263,28 @@ export default function Generate() {
   );
 }
 
-function SceneCard({ 
-  scene, 
-  selected, 
+function SceneCard({
+  scene,
+  selected,
   onClick,
-  delay = 0
-}: { 
-  scene: Scene; 
-  selected: boolean; 
+  delay = 0,
+}: {
+  scene: Scene;
+  selected: boolean;
   onClick: () => void;
   delay?: number;
 }) {
-  const bgGradient = sceneBackgrounds[scene.name_tr] || 'from-gray-200 via-gray-100 to-gray-300';
-  const isLightBg = ['Beyaz Mermer', 'Saf E-ticaret', 'Şampanya İpek', 'Cam Yansıma', 'Boyun Modeli', 'El Modeli', 'Lüks Yaşam'].includes(scene.name_tr);
-  
+  const bgGradient = sceneBackgrounds[scene.name_tr] || "from-gray-200 via-gray-100 to-gray-300";
+  const isLightBg = [
+    "Beyaz Mermer",
+    "Saf E-ticaret",
+    "Şampanya İpek",
+    "Cam Yansıma",
+    "Boyun Modeli",
+    "El Modeli",
+    "Lüks Yaşam",
+  ].includes(scene.name_tr);
+
   return (
     <motion.button
       onClick={onClick}
@@ -307,39 +294,37 @@ function SceneCard({
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
       className={`relative w-full rounded-xl overflow-hidden transition-all ${
-        selected 
-          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
-          : 'hover:ring-1 hover:ring-border'
+        selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:ring-1 hover:ring-border"
       }`}
     >
       {/* Background with blur effect */}
       <div className={`absolute inset-0 bg-gradient-to-r ${bgGradient}`}>
         <div className="absolute inset-0 backdrop-blur-[2px]" />
       </div>
-      
+
       {/* Content */}
       <div className="relative flex items-center gap-4 p-4">
         {/* Scene indicator */}
-        <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
-          selected 
-            ? 'bg-primary text-primary-foreground' 
-            : isLightBg 
-              ? 'bg-black/10 text-gray-800' 
-              : 'bg-white/20 text-white'
-        } transition-colors`}>
+        <div
+          className={`w-16 h-16 rounded-lg flex items-center justify-center ${
+            selected
+              ? "bg-primary text-primary-foreground"
+              : isLightBg
+                ? "bg-black/10 text-gray-800"
+                : "bg-white/20 text-white"
+          } transition-colors`}
+        >
           <Sparkles className="h-6 w-6" />
         </div>
-        
+
         {/* Text content */}
         <div className="flex-1 text-left">
-          <h3 className={`font-semibold ${isLightBg ? 'text-gray-900' : 'text-white'}`}>
-            {scene.name_tr}
-          </h3>
-          <p className={`text-sm mt-0.5 line-clamp-1 ${isLightBg ? 'text-gray-600' : 'text-white/80'}`}>
+          <h3 className={`font-semibold ${isLightBg ? "text-gray-900" : "text-white"}`}>{scene.name_tr}</h3>
+          <p className={`text-sm mt-0.5 line-clamp-1 ${isLightBg ? "text-gray-600" : "text-white/80"}`}>
             {scene.description_tr}
           </p>
         </div>
-        
+
         {/* Selection indicator */}
         {selected && (
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
