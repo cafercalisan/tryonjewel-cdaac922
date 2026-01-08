@@ -90,18 +90,13 @@ export default function Generate() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('jewelry-images')
-        .getPublicUrl(filePath);
-
-      // 2. Call generate edge function
+      // 2. Call generate edge function with file path (not public URL)
       setGenerationStep('generating');
       
       const { data, error } = await supabase.functions.invoke('generate-jewelry', {
         body: {
-          imageUrl: publicUrl,
+          imagePath: filePath,
           sceneId: selectedSceneId,
-          userId: user.id,
         },
       });
 

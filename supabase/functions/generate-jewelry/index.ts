@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req) => {
@@ -17,10 +18,69 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl, sceneId, userId } = await req.json();
-    console.log('Generate request:', { imageUrl, sceneId, userId });
+    // Authenticate user from JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('Auth error:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = user.id;
+    console.log('Authenticated user:', userId);
+
+    // Parse request body (no userId accepted from client)
+    const { imagePath, sceneId } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, userId });
+
+    // Validate imagePath format to prevent SSRF
+    if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid image path' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate sceneId format (UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!sceneId || !uuidRegex.test(sceneId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid scene ID' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Generate signed URL for the original image (valid for 1 hour)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('jewelry-images')
+      .createSignedUrl(imagePath, 3600);
+
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error('Signed URL error:', signedUrlError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to access image' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const imageUrl = signedUrlData.signedUrl;
 
     // Get scene details
     const { data: scene, error: sceneError } = await supabase
@@ -30,7 +90,24 @@ serve(async (req) => {
       .single();
 
     if (sceneError || !scene) {
-      throw new Error('Scene not found');
+      return new Response(
+        JSON.stringify({ error: 'Scene not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user has credits before processing
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (!profile || profile.credits <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient credits' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create image record
@@ -39,7 +116,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         scene_id: sceneId,
-        original_image_url: imageUrl,
+        original_image_url: imagePath, // Store path, not URL
         status: 'analyzing',
       })
       .select()
@@ -195,19 +272,11 @@ No text, no watermark, no logos.`;
       throw new Error('No images generated');
     }
 
-    // Deduct credit
-    const { data: profile } = await supabase
+    // Deduct credit (already verified at start)
+    await supabase
       .from('profiles')
-      .select('credits')
-      .eq('id', userId)
-      .single();
-
-    if (profile && profile.credits > 0) {
-      await supabase
-        .from('profiles')
-        .update({ credits: profile.credits - 1 })
-        .eq('id', userId);
-    }
+      .update({ credits: profile.credits - 1 })
+      .eq('id', userId);
 
     // Update image record
     await supabase
