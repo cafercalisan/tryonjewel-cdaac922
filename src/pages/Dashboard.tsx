@@ -4,12 +4,14 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins } from 'lucide-react';
+import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins, Download, Instagram, Globe, Upload, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -283,55 +285,207 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
+  const [designType, setDesignType] = useState<'instagram' | 'banner'>('instagram');
+  const [designMode, setDesignMode] = useState('kampanya');
+  const [aspectRatio, setAspectRatio] = useState('');
+
+  const designModes = [
+    { id: 'kampanya', label: 'Kampanya', desc: 'İndirim & Promosyon' },
+    { id: 'koleksiyon', label: 'Koleksiyon', desc: 'Yeni Sezon Tanıtım' },
+    { id: 'reklam', label: 'Reklam Filmi', desc: 'Sinematik Reklam' },
+    { id: 'sinematik', label: 'Sinematik', desc: 'Film Afişi Tarzı' },
+  ];
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleGenerateDesign = async () => {
     setIsGenerating(true);
-    // TODO: Implement design generation with AI
-    // This would call an edge function to compose the design
-    setTimeout(() => {
+    setGeneratedDesign(null);
+
+    try {
+      // Convert logo to base64 if exists
+      let logoBase64 = null;
+      if (logoPreview) {
+        logoBase64 = logoPreview;
+      }
+
+      const response = await supabase.functions.invoke('generate-design', {
+        body: {
+          productImageUrls: selectedImages,
+          logoBase64,
+          campaignText,
+          designType,
+          designMode,
+          aspectRatio: aspectRatio || (designType === 'instagram' ? '1:1' : '16:9')
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.designUrl) {
+        setGeneratedDesign(response.data.designUrl);
+        toast.success('Tasarım başarıyla oluşturuldu!');
+      } else {
+        throw new Error('Tasarım oluşturulamadı');
+      }
+    } catch (error) {
+      console.error('Design generation error:', error);
+      toast.error('Tasarım oluşturulurken hata oluştu');
+    } finally {
       setIsGenerating(false);
-      // Placeholder for generated design
-    }, 2000);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!generatedDesign) return;
+    
+    try {
+      const response = await fetch(generatedDesign);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jewelry-design-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Tasarım indirildi!');
+    } catch (error) {
+      toast.error('İndirme başarısız');
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
       {/* Selected Images Preview */}
       <div>
-        <label className="text-sm font-medium mb-2 block">Seçilen Görseller</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">Seçilen Görseller</label>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {selectedImages.map((url, index) => (
-            <div key={index} className="w-20 h-24 rounded-lg overflow-hidden flex-shrink-0 border">
+            <div key={index} className="w-20 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border">
               <img src={url} alt="" className="w-full h-full object-cover" />
             </div>
           ))}
         </div>
       </div>
 
+      {/* Design Type Tabs */}
+      <Tabs value={designType} onValueChange={(v) => setDesignType(v as 'instagram' | 'banner')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="instagram" className="flex items-center gap-2">
+            <Instagram className="h-4 w-4" />
+            Instagram Post
+          </TabsTrigger>
+          <TabsTrigger value="banner" className="flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            Web Banner
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="instagram" className="mt-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block text-foreground">En Boy Oranı</label>
+            <div className="flex gap-2">
+              {['1:1', '4:5', '9:16'].map((ratio) => (
+                <button
+                  key={ratio}
+                  onClick={() => setAspectRatio(ratio)}
+                  className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    aspectRatio === ratio || (!aspectRatio && ratio === '1:1')
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  {ratio}
+                </button>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="banner" className="mt-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block text-foreground">Banner Boyutu</label>
+            <div className="flex gap-2 flex-wrap">
+              {['16:9', '3:1', '2:1'].map((ratio) => (
+                <button
+                  key={ratio}
+                  onClick={() => setAspectRatio(ratio)}
+                  className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    aspectRatio === ratio || (!aspectRatio && ratio === '16:9')
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  {ratio}
+                </button>
+              ))}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Özel (örn: 1920:600)"
+                  value={aspectRatio.includes(':') && !['16:9', '3:1', '2:1', '1:1', '4:5', '9:16'].includes(aspectRatio) ? aspectRatio : ''}
+                  onChange={(e) => setAspectRatio(e.target.value)}
+                  className="w-36 h-10"
+                />
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Design Mode Selection */}
+      <div>
+        <label className="text-sm font-medium mb-3 block text-foreground">Tasarım Modu</label>
+        <div className="grid grid-cols-2 gap-2">
+          {designModes.map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setDesignMode(mode.id)}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                designMode === mode.id
+                  ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
+              }`}
+            >
+              <span className={`font-medium block ${designMode === mode.id ? 'text-primary' : 'text-foreground'}`}>
+                {mode.label}
+              </span>
+              <span className="text-xs text-muted-foreground">{mode.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Logo Upload */}
       <div>
-        <label className="text-sm font-medium mb-2 block">Logo (Opsiyonel)</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">Logo (Opsiyonel)</label>
         <div className="flex items-center gap-4">
           {logoPreview ? (
             <div className="relative">
-              <img src={logoPreview} alt="Logo" className="h-16 w-auto rounded-lg border" />
+              <img src={logoPreview} alt="Logo" className="h-16 w-auto rounded-lg border border-border bg-background p-2" />
               <button 
                 onClick={() => { setLogoFile(null); setLogoPreview(null); }}
-                className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full text-xs flex items-center justify-center"
+                className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90"
               >
-                ×
+                <X className="h-3 w-3" />
               </button>
             </div>
           ) : (
-            <label className="cursor-pointer px-4 py-2 border border-dashed rounded-lg hover:border-primary transition-colors">
+            <label className="cursor-pointer flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg hover:border-primary transition-colors bg-muted/30">
+              <Upload className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Logo Yükle</span>
               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
             </label>
@@ -341,28 +495,17 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
 
       {/* Campaign Text */}
       <div>
-        <label className="text-sm font-medium mb-2 block">Kampanya Metni</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">
+          {designType === 'instagram' ? 'Kampanya Metni' : 'Banner Yazısı'}
+        </label>
         <textarea
           value={campaignText}
           onChange={(e) => setCampaignText(e.target.value)}
-          placeholder="Örn: Yeni Koleksiyon | %20 İndirim | Ücretsiz Kargo"
-          className="w-full h-24 px-4 py-3 border rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-background"
+          placeholder={designType === 'instagram' 
+            ? "Örn: Yeni Koleksiyon | %20 İndirim | Ücretsiz Kargo" 
+            : "Örn: Pırlanta Koleksiyonu | Şimdi Keşfet"}
+          className="w-full h-24 px-4 py-3 border border-border rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
         />
-      </div>
-
-      {/* Style Options */}
-      <div>
-        <label className="text-sm font-medium mb-3 block">Tasarım Stili</label>
-        <div className="grid grid-cols-3 gap-2">
-          {['Minimal Lüks', 'Vogue Editoryal', 'Cartier Klasik'].map((style) => (
-            <button
-              key={style}
-              className="px-4 py-3 border rounded-lg text-sm font-medium hover:border-primary hover:bg-primary/5 transition-colors"
-            >
-              {style}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Generate Button */}
@@ -380,21 +523,42 @@ function DesignCreator({ selectedImages }: { selectedImages: string[] }) {
         ) : (
           <>
             <Wand2 className="mr-2 h-5 w-5" />
-            Premium Tasarım Oluştur
+            {designType === 'instagram' ? 'Instagram Tasarımı Oluştur' : 'Web Banner Oluştur'}
           </>
         )}
       </Button>
 
       {/* Generated Design Preview */}
-      {generatedDesign && (
-        <div className="border rounded-xl p-4">
-          <img src={generatedDesign} alt="Generated design" className="w-full rounded-lg" />
-          <div className="flex gap-2 mt-4">
-            <Button className="flex-1">İndir</Button>
-            <Button variant="outline" className="flex-1">Paylaş</Button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {generatedDesign && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="border border-border rounded-xl p-4 bg-card"
+          >
+            <p className="text-sm font-medium mb-3 text-foreground">Oluşturulan Tasarım</p>
+            <img src={generatedDesign} alt="Generated design" className="w-full rounded-lg shadow-lg" />
+            <div className="flex gap-2 mt-4">
+              <Button onClick={handleDownload} className="flex-1">
+                <Download className="mr-2 h-4 w-4" />
+                İndir
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedDesign);
+                  toast.success('URL kopyalandı!');
+                }}
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Paylaş
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
