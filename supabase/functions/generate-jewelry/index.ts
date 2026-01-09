@@ -341,7 +341,7 @@ CRITICAL FIDELITY REQUIREMENTS:
 6. Natural realistic scale relative to scene elements
 `.trim();
 
-    const fullPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio.
+    const fullPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. Ultra high resolution 4K quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
@@ -349,11 +349,13 @@ SCENE PLACEMENT:
 ${scene.prompt}
 
 TECHNICAL REQUIREMENTS:
+- Ultra high resolution 4K output (3840x4800 pixels minimum)
 - Macro photography quality with perfect focus on jewelry
 - Natural soft studio lighting with subtle highlights
 - Accurate metal reflections and gemstone refractions
 - Clean, uncluttered composition
 - The jewelry must look IDENTICAL to the reference - same piece, different setting
+- Maximum detail and sharpness for large format printing
 
 FORBIDDEN:
 - No text, watermarks, or logos
