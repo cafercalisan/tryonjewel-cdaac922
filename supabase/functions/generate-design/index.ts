@@ -175,8 +175,29 @@ OUTPUT REQUIREMENTS:
       });
     }
 
+    // Discover a working image-generation model dynamically to avoid 404 "model not found" outages.
+    const modelsResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GOOGLE_API_KEY}`, { method: 'GET' });
+    const modelsJson = modelsResp.ok ? await modelsResp.json() : null;
+    const modelCandidates = Array.isArray(modelsJson?.models)
+      ? modelsJson.models
+          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+          .map((m: any) => String(m.name || ''))
+          .filter(Boolean)
+      : [];
+
+    const preferred = modelCandidates.filter((n: string) => n.toLowerCase().includes('image'));
+    const chosenModel = (preferred[0] || modelCandidates[0]);
+
+    if (!chosenModel) {
+      console.error('ListModels returned no usable models');
+      return new Response(JSON.stringify({ error: 'AI model is not available right now' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const genResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/${chosenModel}:generateContent?key=${GOOGLE_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
