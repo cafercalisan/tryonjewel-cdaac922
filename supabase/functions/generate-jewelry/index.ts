@@ -49,6 +49,58 @@ async function callGeminiImageGeneration({
   });
 }
 
+async function callLovableImageGeneration({
+  base64Image,
+  prompt,
+}: {
+  base64Image: string;
+  prompt: string;
+}) {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
+
+  const imageDataUrl = `data:image/jpeg;base64,${base64Image}`;
+
+  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-3-pro-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+      modalities: ['image', 'text'],
+    }),
+  });
+
+  if (!resp.ok) {
+    const t = await resp.text();
+    const err = new Error(`Lovable AI gateway error (${resp.status}): ${t}`);
+    (err as any).status = resp.status;
+    throw err;
+  }
+
+  const data = await resp.json();
+  const url = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
+  if (!url || !url.startsWith('data:image/')) {
+    throw new Error('Lovable AI gateway did not return an image');
+  }
+
+  const commaIndex = url.indexOf(',');
+  if (commaIndex === -1) throw new Error('Invalid data URL from Lovable AI gateway');
+
+  return url.slice(commaIndex + 1); // base64
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -330,12 +382,47 @@ FORBIDDEN:
         const prompt = `${fullPrompt}\n\n${variationHint}`;
 
         const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
-        
+
         if (!genResponse.ok) {
           const errText = await genResponse.text();
           lastGenerationError = errText;
           lastGenerationStatus = genResponse.status;
           console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
+
+          // If Google image generation is blocked (region / project restriction), fall back to Lovable AI.
+          if (
+            errText.includes('Image generation is not available in your country') ||
+            errText.includes('FAILED_PRECONDITION')
+          ) {
+            try {
+              console.log('Falling back to Lovable AI image generation...');
+              const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt });
+              const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
+              const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
+
+              const { error: uploadError } = await supabase.storage
+                .from('jewelry-images')
+                .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+              if (uploadError) {
+                lastGenerationError = `Upload error: ${JSON.stringify(uploadError)}`;
+                lastGenerationStatus = 500;
+                console.error(`Upload error for variation ${i + 1}:`, uploadError);
+              } else {
+                const { data: { publicUrl } } = supabase.storage
+                  .from('jewelry-images')
+                  .getPublicUrl(filePath);
+                generatedUrls.push(publicUrl);
+                console.log(`Variation ${i + 1} uploaded successfully (Lovable AI)`);
+              }
+            } catch (fallbackErr) {
+              const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+              console.error('Lovable AI fallback failed:', msg);
+              lastGenerationError = `Lovable fallback failed: ${msg}`;
+              lastGenerationStatus = 500;
+            }
+          }
+
           continue;
         }
 
