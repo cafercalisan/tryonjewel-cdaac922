@@ -311,6 +311,8 @@ FORBIDDEN:
 
     // Step 2: Generate 1 variation
     const generatedUrls: string[] = [];
+    let lastGenerationError: string | null = null;
+    let lastGenerationStatus: number | null = null;
     
     for (let i = 0; i < 1; i++) {
       console.log(`Generating variation ${i + 1}/1 with ${IMAGE_GEN_MODEL}...`);
@@ -318,19 +320,20 @@ FORBIDDEN:
       try {
         if (!GOOGLE_API_KEY) {
           console.error('Missing GOOGLE_API_KEY');
+          lastGenerationError = 'Missing GOOGLE_API_KEY';
+          lastGenerationStatus = 500;
           break;
         }
 
-        const variationHint = i === 0
-          ? 'Variation A: slightly different camera angle and lighting.'
-          : 'Variation B: slightly different composition and reflections.';
-
+        const variationHint = 'Variation A: slightly different camera angle and lighting.';
         const prompt = `${fullPrompt}\n\n${variationHint}`;
 
         const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
         
         if (!genResponse.ok) {
           const errText = await genResponse.text();
+          lastGenerationError = errText;
+          lastGenerationStatus = genResponse.status;
           console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
           continue;
         }
@@ -350,6 +353,8 @@ FORBIDDEN:
         }
 
         if (!generatedImage) {
+          lastGenerationError = 'Model response did not include an image.';
+          lastGenerationStatus = 502;
           console.error(`No image in generation ${i + 1} response`);
           continue;
         }
@@ -367,20 +372,35 @@ FORBIDDEN:
           generatedUrls.push(publicUrl);
           console.log(`Variation ${i + 1} uploaded successfully`);
         } else {
+          lastGenerationError = `Upload error: ${JSON.stringify(uploadError)}`;
+          lastGenerationStatus = 500;
           console.error(`Upload error for variation ${i + 1}:`, uploadError);
         }
       } catch (genError) {
+        lastGenerationError = genError instanceof Error ? genError.message : String(genError);
+        lastGenerationStatus = 500;
         console.error(`Generation ${i + 1} error:`, genError);
       }
     }
 
     if (generatedUrls.length === 0) {
-      // Update status to failed
+      const friendlyError = (() => {
+        // Known Google restriction (seen in logs)
+        if (lastGenerationError?.includes('Image generation is not available in your country')) {
+          return 'Image generation is not available in your country for this API key/project.';
+        }
+        return 'No images generated';
+      })();
+
       await supabase
         .from('images')
-        .update({ status: 'failed', error_message: 'No images generated' })
+        .update({ status: 'failed', error_message: friendlyError })
         .eq('id', imageRecord.id);
-      throw new Error('No images generated');
+
+      return new Response(
+        JSON.stringify({ error: friendlyError, details: lastGenerationError }),
+        { status: lastGenerationStatus ?? 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Deduct credit
