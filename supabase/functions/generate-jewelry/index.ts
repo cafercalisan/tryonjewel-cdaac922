@@ -17,7 +17,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // Analysis: gemini-2.5-flash-preview-05-20
 // Image Generation: gemini-3-pro-preview
 // ========================================================
-const ANALYSIS_MODEL = 'models/gemini-2.5-flash-preview-05-20';
+const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
 const IMAGE_GEN_MODEL = 'models/gemini-3-pro-preview';
 
 async function callGeminiImageGeneration({
@@ -227,20 +227,22 @@ ONLY respond with valid JSON. No other text.`
       }),
     });
 
+    let analysisResult: any;
+
     if (!analysisResponse.ok) {
       const errorText = await analysisResponse.text();
-      console.error('Analysis API error:', errorText);
-      throw new Error('Analysis failed');
-    }
-
-    const analysisData = await analysisResponse.json();
-    let analysisResult;
-    try {
-      const content = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
-    } catch {
-      console.error('Failed to parse analysis, using defaults');
-      analysisResult = { type: 'jewelry', design_elements: { style: 'classic' } };
+      console.error('Analysis API error (continuing with defaults):', errorText);
+      // Do NOT fail the whole job if analysis model is unavailable.
+      analysisResult = { type: 'jewelry', design_elements: { style: 'classic', patterns: ['none'] } };
+    } else {
+      const analysisData = await analysisResponse.json();
+      try {
+        const content = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
+      } catch {
+        console.error('Failed to parse analysis, using defaults');
+        analysisResult = { type: 'jewelry', design_elements: { style: 'classic', patterns: ['none'] } };
+      }
     }
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));
@@ -307,11 +309,11 @@ FORBIDDEN:
 
     console.log('Generating with precision prompt...');
 
-    // Step 2: Generate 2 variations
+    // Step 2: Generate 1 variation
     const generatedUrls: string[] = [];
     
-    for (let i = 0; i < 2; i++) {
-      console.log(`Generating variation ${i + 1}/2 with ${IMAGE_GEN_MODEL}...`);
+    for (let i = 0; i < 1; i++) {
+      console.log(`Generating variation ${i + 1}/1 with ${IMAGE_GEN_MODEL}...`);
       
       try {
         if (!GOOGLE_API_KEY) {
