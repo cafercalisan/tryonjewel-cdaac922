@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 
 interface ImageRecord {
   id: string;
@@ -61,20 +62,16 @@ export default function Gallery() {
   });
 
   const handleDownload = async (url: string, index: number) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `jewelry-${selectedImage?.id}-${index + 1}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error('Download error:', error);
-    }
+    const id = selectedImage?.id;
+    if (!id) return;
+
+    await downloadImageAs4kJpeg({
+      url,
+      filenameBase: `jewelry-${id}-${index + 1}-4k`,
+      width: 3840,
+      height: 4800,
+      quality: 0.95,
+    });
   };
 
   const completedImages = images?.filter(i => i.status === 'completed') || [];
