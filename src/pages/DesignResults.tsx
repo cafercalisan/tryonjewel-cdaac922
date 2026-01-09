@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, ArrowLeft, Share2, Sparkles, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 
 export default function DesignResults() {
   const navigate = useNavigate();
@@ -13,20 +14,17 @@ export default function DesignResults() {
 
   const handleDownload = async () => {
     if (!designUrl) return;
-    
+
     try {
-      const response = await fetch(designUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `jewelry-design-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadImageAs4kJpeg({
+        url: designUrl,
+        filenameBase: `jewelry-design-${Date.now()}-4k`,
+        width: 3840,
+        height: 4800,
+        quality: 0.95,
+      });
       toast.success('Tasarım indirildi!');
-    } catch (error) {
+    } catch {
       toast.error('İndirme başarısız');
     }
   };
