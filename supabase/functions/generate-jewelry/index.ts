@@ -13,6 +13,85 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+let cachedImageGenModels: string[] | null = null;
+let cachedAt = 0;
+
+async function getImageGenerationModels(): Promise<string[]> {
+  if (!GOOGLE_API_KEY) return [];
+
+  // Cache for 10 minutes to avoid extra latency.
+  if (cachedImageGenModels && Date.now() - cachedAt < 10 * 60 * 1000) {
+    return cachedImageGenModels;
+  }
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${GOOGLE_API_KEY}`,
+    { method: 'GET' }
+  );
+
+  if (!resp.ok) {
+    const t = await resp.text();
+    console.error('ListModels failed:', resp.status, t);
+    return cachedImageGenModels ?? [];
+  }
+
+  const data = await resp.json();
+  const models = Array.isArray(data.models) ? data.models : [];
+
+  // Prefer models that support generateContent and look like image generation models.
+  const candidates: string[] = models
+    .filter(
+      (m: any) =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent')
+    )
+    .map((m: any) => String(m.name || ''))
+    .filter((name: string) => Boolean(name));
+
+  const preferred: string[] = candidates
+    .filter((name: string) => name.toLowerCase().includes('image'))
+    .concat(candidates);
+
+  // De-dupe while preserving order
+  const unique: string[] = Array.from(new Set<string>(preferred));
+
+  cachedImageGenModels = unique;
+  cachedAt = Date.now();
+
+  console.log('Discovered image generation model candidates:', unique.slice(0, 10));
+  return unique;
+}
+
+async function callGeminiGenerateContent({
+  modelName,
+  base64Image,
+  prompt,
+}: {
+  modelName: string;
+  base64Image: string;
+  prompt: string;
+}) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${GOOGLE_API_KEY}`;
+  return await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        temperature: 0.4,
+      },
+    }),
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -284,74 +363,41 @@ FORBIDDEN:
           break;
         }
 
-        // Use Google Gemini API directly with user's own API key for commercial use
         const variationHint = i === 0
           ? 'Variation A: slightly different camera angle and lighting.'
           : 'Variation B: slightly different composition and reflections.';
 
-        const genResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: `${fullPrompt}\n\n${variationHint}` },
-                    { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
-                  ],
-                },
-              ],
-              generationConfig: {
-                responseModalities: ['TEXT', 'IMAGE'],
-                temperature: 0.4,
-              },
-            }),
+        const prompt = `${fullPrompt}\n\n${variationHint}`;
+
+        // Discover a working image-generation model dynamically to avoid 404 "model not found" outages.
+        const modelCandidates = await getImageGenerationModels();
+        if (modelCandidates.length === 0) {
+          console.error('No candidate models returned by ListModels');
+          continue;
+        }
+
+        let genResponse: Response | null = null;
+        let lastErrText = '';
+
+        // Try a few candidates (first ones are preferred).
+        for (const modelName of modelCandidates.slice(0, 5)) {
+          const resp = await callGeminiGenerateContent({ modelName, base64Image, prompt });
+          if (resp.ok) {
+            genResponse = resp;
+            break;
           }
-        );
 
-        if (!genResponse.ok) {
-          const errText = await genResponse.text();
-          console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
+          lastErrText = await resp.text();
+          console.error(`Generation ${i + 1} API error (${resp.status}) model=${modelName}:`, lastErrText);
 
-          // Check if model not found, try fallback model
-          if (genResponse.status === 404) {
-            console.log('Trying fallback model imagen-3.0-generate-002...');
-            const fallbackResp = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GOOGLE_API_KEY}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  instances: [{ prompt: `${fullPrompt}\n\n${variationHint}` }],
-                  parameters: { sampleCount: 1, aspectRatio: '4:5' },
-                }),
-              }
-            );
-
-            if (fallbackResp.ok) {
-              const fallbackData = await fallbackResp.json();
-              const predictions = fallbackData.predictions || [];
-              if (predictions.length > 0 && predictions[0].bytesBase64Encoded) {
-                const payload = predictions[0].bytesBase64Encoded;
-                const imageBuffer = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
-                const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
-                const { error: uploadError } = await supabase.storage
-                  .from('jewelry-images')
-                  .upload(filePath, imageBuffer, { contentType: 'image/png' });
-
-                if (!uploadError) {
-                  const { data: { publicUrl } } = supabase.storage
-                    .from('jewelry-images')
-                    .getPublicUrl(filePath);
-                  generatedUrls.push(publicUrl);
-                  console.log(`Variation ${i + 1} uploaded successfully (fallback)`);
-                }
-                continue;
-              }
-            }
+          // If models list is stale or permissions changed, refresh cache once and retry.
+          if (resp.status === 404) {
+            cachedImageGenModels = null;
           }
+        }
+
+        if (!genResponse) {
+          console.error(`All candidate models failed for variation ${i + 1}. Last error:`, lastErrText);
           continue;
         }
 
