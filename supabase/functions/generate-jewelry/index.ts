@@ -13,65 +13,21 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-let cachedImageGenModels: string[] | null = null;
-let cachedAt = 0;
+// ============ FIXED MODELS - DO NOT CHANGE ============
+// Analysis: gemini-2.5-flash-preview-05-20
+// Image Generation: gemini-3-pro-preview
+// ========================================================
+const ANALYSIS_MODEL = 'models/gemini-2.5-flash-preview-05-20';
+const IMAGE_GEN_MODEL = 'models/gemini-3-pro-preview';
 
-async function getImageGenerationModels(): Promise<string[]> {
-  if (!GOOGLE_API_KEY) return [];
-
-  // Cache for 10 minutes to avoid extra latency.
-  if (cachedImageGenModels && Date.now() - cachedAt < 10 * 60 * 1000) {
-    return cachedImageGenModels;
-  }
-
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${GOOGLE_API_KEY}`,
-    { method: 'GET' }
-  );
-
-  if (!resp.ok) {
-    const t = await resp.text();
-    console.error('ListModels failed:', resp.status, t);
-    return cachedImageGenModels ?? [];
-  }
-
-  const data = await resp.json();
-  const models = Array.isArray(data.models) ? data.models : [];
-
-  // Prefer models that support generateContent and look like image generation models.
-  const candidates: string[] = models
-    .filter(
-      (m: any) =>
-        Array.isArray(m.supportedGenerationMethods) &&
-        m.supportedGenerationMethods.includes('generateContent')
-    )
-    .map((m: any) => String(m.name || ''))
-    .filter((name: string) => Boolean(name));
-
-  const preferred: string[] = candidates
-    .filter((name: string) => name.toLowerCase().includes('image'))
-    .concat(candidates);
-
-  // De-dupe while preserving order
-  const unique: string[] = Array.from(new Set<string>(preferred));
-
-  cachedImageGenModels = unique;
-  cachedAt = Date.now();
-
-  console.log('Discovered image generation model candidates:', unique.slice(0, 10));
-  return unique;
-}
-
-async function callGeminiGenerateContent({
-  modelName,
+async function callGeminiImageGeneration({
   base64Image,
   prompt,
 }: {
-  modelName: string;
   base64Image: string;
   prompt: string;
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${GOOGLE_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -212,7 +168,7 @@ serve(async (req) => {
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = base64Encode(imageBuffer);
     
-    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`, {
+    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -355,7 +311,7 @@ FORBIDDEN:
     const generatedUrls: string[] = [];
     
     for (let i = 0; i < 2; i++) {
-      console.log(`Generating variation ${i + 1}/2...`);
+      console.log(`Generating variation ${i + 1}/2 with ${IMAGE_GEN_MODEL}...`);
       
       try {
         if (!GOOGLE_API_KEY) {
@@ -369,35 +325,11 @@ FORBIDDEN:
 
         const prompt = `${fullPrompt}\n\n${variationHint}`;
 
-        // Discover a working image-generation model dynamically to avoid 404 "model not found" outages.
-        const modelCandidates = await getImageGenerationModels();
-        if (modelCandidates.length === 0) {
-          console.error('No candidate models returned by ListModels');
-          continue;
-        }
-
-        let genResponse: Response | null = null;
-        let lastErrText = '';
-
-        // Try a few candidates (first ones are preferred).
-        for (const modelName of modelCandidates.slice(0, 5)) {
-          const resp = await callGeminiGenerateContent({ modelName, base64Image, prompt });
-          if (resp.ok) {
-            genResponse = resp;
-            break;
-          }
-
-          lastErrText = await resp.text();
-          console.error(`Generation ${i + 1} API error (${resp.status}) model=${modelName}:`, lastErrText);
-
-          // If models list is stale or permissions changed, refresh cache once and retry.
-          if (resp.status === 404) {
-            cachedImageGenModels = null;
-          }
-        }
-
-        if (!genResponse) {
-          console.error(`All candidate models failed for variation ${i + 1}. Last error:`, lastErrText);
+        const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
+        
+        if (!genResponse.ok) {
+          const errText = await genResponse.text();
+          console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
           continue;
         }
 
