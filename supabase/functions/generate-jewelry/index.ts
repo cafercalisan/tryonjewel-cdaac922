@@ -357,11 +357,26 @@ TECHNICAL REQUIREMENTS:
 - The jewelry must look IDENTICAL to the reference - same piece, different setting
 - Maximum detail and sharpness for large format printing
 
+DIAMOND AND GEMSTONE REALISM (CRITICAL):
+- Real diamond light behavior: natural fire (spectral dispersion into rainbow colors), brilliance (white light reflection), and scintillation (sparkle when moving)
+- Authentic internal light refraction patterns - light enters facets and bounces inside before exiting
+- Subtle rainbow flashes from dispersion - not uniform or artificial glow
+- Natural inclusions and slight imperfections visible in realistic diamonds
+- Depth and three-dimensionality inside the stone - not flat or painted appearance
+- Realistic facet edges with crisp, geometric precision
+- Table facet reflects environment naturally
+- Pavilion facets create the signature "arrows" pattern in round brilliants
+- No artificial HDR glow, no uniform white shine, no CGI-like perfection
+- Diamonds should look photographed, not rendered - with natural lighting variations across facets
+
 FORBIDDEN:
 - No text, watermarks, or logos
 - No design alterations or creative interpretations
 - No exaggerated proportions
-- No additional jewelry pieces`;
+- No additional jewelry pieces
+- No artificial or CGI-looking gemstones
+- No uniform glowing stones without facet detail
+- No flat, painted-on sparkle effects`;
 
     console.log('Generating with precision prompt...');
 
