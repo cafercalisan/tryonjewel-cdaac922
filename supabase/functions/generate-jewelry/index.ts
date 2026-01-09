@@ -15,11 +15,11 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // ============ FIXED MODELS - DO NOT CHANGE ============
-// Analysis: gemini-2.5-flash-preview-05-20
-// Image Generation: gemini-3-pro-preview
+// Analysis: gemini-2.5-flash
+// Image Generation: gemini-3-pro-image-preview
 // ========================================================
 const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
-const IMAGE_GEN_MODEL = 'models/gemini-3-pro-preview';
+const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 
 async function callGeminiImageGeneration({
   base64Image,
@@ -28,7 +28,8 @@ async function callGeminiImageGeneration({
   base64Image: string;
   prompt: string;
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  // Using Gemini 3 Pro Image Preview with v1alpha API
+  const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
