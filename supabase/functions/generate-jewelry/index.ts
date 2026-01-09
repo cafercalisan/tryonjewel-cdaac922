@@ -8,7 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+const GOOGLE_ANALYSIS_API_KEY = Deno.env.get('GOOGLE_ANALYSIS_API_KEY');
+const GOOGLE_IMAGE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -27,7 +28,7 @@ async function callGeminiImageGeneration({
   base64Image: string;
   prompt: string;
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -168,7 +169,7 @@ serve(async (req) => {
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = base64Encode(imageBuffer);
     
-    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_API_KEY}`, {
+    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -318,8 +319,8 @@ FORBIDDEN:
       console.log(`Generating variation ${i + 1}/1 with ${IMAGE_GEN_MODEL}...`);
       
       try {
-        if (!GOOGLE_API_KEY) {
-          console.error('Missing GOOGLE_API_KEY');
+        if (!GOOGLE_IMAGE_API_KEY) {
+          console.error('Missing GOOGLE_API_KEY (for image generation)');
           lastGenerationError = 'Missing GOOGLE_API_KEY';
           lastGenerationStatus = 500;
           break;
