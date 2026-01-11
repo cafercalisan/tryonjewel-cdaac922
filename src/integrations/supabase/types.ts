@@ -145,6 +145,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_models: {
+        Row: {
+          age_range: string
+          created_at: string
+          ethnicity: string
+          gender: string
+          hair_color: string
+          hair_texture: string
+          id: string
+          name: string
+          preview_image_url: string | null
+          skin_tone: string
+          skin_undertone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_range: string
+          created_at?: string
+          ethnicity: string
+          gender: string
+          hair_color: string
+          hair_texture: string
+          id?: string
+          name: string
+          preview_image_url?: string | null
+          skin_tone: string
+          skin_undertone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_range?: string
+          created_at?: string
+          ethnicity?: string
+          gender?: string
+          hair_color?: string
+          hair_texture?: string
+          id?: string
+          name?: string
+          preview_image_url?: string | null
+          skin_tone?: string
+          skin_undertone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
