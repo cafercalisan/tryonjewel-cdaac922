@@ -81,7 +81,7 @@ export default function Landing() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link to="#showcase">
+                  <Link to="/ornekler">
                     <Button size="lg" variant="outline" className="w-full sm:w-auto text-sm font-medium tracking-wider px-8 rounded-full border-foreground/20 hover:bg-foreground/5">
                       <Play className="mr-2 h-3 w-3 fill-current" />
                       ÖRNEKLERİ İNCELE
