@@ -220,8 +220,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, sceneId, packageType, colorId, productType } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, userId });
+    const { imagePath, sceneId, packageType, colorId, productType, modelId } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, modelId, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -527,9 +527,39 @@ Ultra high resolution output.`;
 
       const modelScene = modelSceneMap[autoDetectedProductType] || modelSceneMap['kolye'];
 
+      // Fetch user model if selected
+      let userModelPrompt = '';
+      if (modelId) {
+        const { data: userModel } = await supabase
+          .from('user_models')
+          .select('*')
+          .eq('id', modelId)
+          .single();
+        
+        if (userModel) {
+          userModelPrompt = `
+MODEL IDENTITY (USE EXACTLY - THIS IS THE USER'S CUSTOM MODEL):
+- Skin Tone: ${userModel.skin_tone} melanin level
+- Skin Undertone: ${userModel.skin_undertone}
+- Ethnicity/Background: ${userModel.ethnicity}
+- Hair Color: ${userModel.hair_color}
+- Hair Texture: ${userModel.hair_texture}
+- Gender: ${userModel.gender}
+- Age Range: ${userModel.age_range}
+
+CRITICAL: Use these EXACT physical attributes. The model must match these specifications precisely.
+Skin must show realistic pores, natural texture, subsurface scattering appropriate for the skin tone.
+No plastic or over-smoothed appearance. Editorial macro-photography level realism.
+`;
+          console.log('Using custom model:', userModel.name);
+        }
+      }
+
       const modelPrompt = `Professional fashion model photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality.
 
 ${fidelityBlock}
+
+${userModelPrompt}
 
 CRITICAL PLACEMENT RULE:
 - Detected jewelry type: ${analysisResult.type || 'jewelry'}
