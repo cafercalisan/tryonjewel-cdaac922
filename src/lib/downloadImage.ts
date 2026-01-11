@@ -46,6 +46,10 @@ export async function downloadImage(url: string, filename: string) {
   }
 }
 
+/**
+ * Download image at maximum quality preserving original resolution
+ * If the original is already high-res, keep it. Only upscale if smaller than target.
+ */
 export async function downloadImageAs4kJpeg(params: {
   url: string;
   filenameBase: string;
@@ -53,9 +57,8 @@ export async function downloadImageAs4kJpeg(params: {
   height?: number;
   quality?: number;
 }) {
-  const { url, filenameBase, width = 3840, height = 4800, quality = 0.95 } = params;
+  const { url, filenameBase, width = 3840, height = 4800, quality = 1.0 } = params;
 
-  // Try canvas approach first for 4K export
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -66,60 +69,95 @@ export async function downloadImageAs4kJpeg(params: {
       img.src = url;
     });
 
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+
+    // Use original resolution if it's already high quality, otherwise use target
+    // Keep aspect ratio intact
+    const targetRatio = width / height;
+    const srcRatio = srcW / srcH;
+    
+    let finalWidth: number;
+    let finalHeight: number;
+    
+    // If source is already high-res (>= 2K), preserve original dimensions
+    const isHighRes = srcW >= 2048 || srcH >= 2048;
+    
+    if (isHighRes) {
+      // Keep original resolution
+      finalWidth = srcW;
+      finalHeight = srcH;
+    } else {
+      // Upscale to target resolution maintaining aspect ratio
+      if (srcRatio > targetRatio) {
+        finalWidth = width;
+        finalHeight = Math.round(width / srcRatio);
+      } else {
+        finalHeight = height;
+        finalWidth = Math.round(height * srcRatio);
+      }
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = finalWidth;
+    canvas.height = finalHeight;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not supported');
 
-    const srcW = img.naturalWidth || img.width;
-    const srcH = img.naturalHeight || img.height;
-    const targetRatio = width / height;
-    const srcRatio = srcW / srcH;
-
-    let sx = 0;
-    let sy = 0;
-    let sWidth = srcW;
-    let sHeight = srcH;
-
-    if (srcRatio > targetRatio) {
-      sWidth = Math.round(srcH * targetRatio);
-      sx = Math.round((srcW - sWidth) / 2);
-    } else if (srcRatio < targetRatio) {
-      sHeight = Math.round(srcW / targetRatio);
-      sy = Math.round((srcH - sHeight) / 2);
-    }
-
+    // Use highest quality rendering
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
+    
+    // Draw image without cropping - preserve full image
+    ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
 
+    // Export as PNG for maximum quality (lossless)
     const blob: Blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('JPEG export failed'))),
-        'image/jpeg',
+        (b) => (b ? resolve(b) : reject(new Error('Export failed'))),
+        'image/png', // PNG for lossless quality
         quality
       );
     });
 
     const downloadUrl = URL.createObjectURL(blob);
-    triggerDownload(downloadUrl, `${filenameBase}.jpg`);
+    triggerDownload(downloadUrl, `${filenameBase}.png`);
     URL.revokeObjectURL(downloadUrl);
     return;
   } catch {
-    // Fallback: open in new tab for manual save
+    // Fallback: try direct fetch
     try {
-      // Try fetch with no-cors fallback
       const response = await fetch(url, { mode: 'cors' });
       const blob = await response.blob();
       const downloadUrl = URL.createObjectURL(blob);
-      triggerDownload(downloadUrl, `${filenameBase}.jpg`);
+      triggerDownload(downloadUrl, `${filenameBase}.png`);
       URL.revokeObjectURL(downloadUrl);
     } catch {
       // Last resort: open image in new tab
       window.open(url, '_blank');
     }
+  }
+}
+
+/**
+ * Download image at original resolution without any processing
+ */
+export async function downloadOriginalImage(url: string, filename: string) {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    const blob = await response.blob();
+    
+    // Detect original format from blob type
+    const extension = blob.type.includes('png') ? '.png' : 
+                      blob.type.includes('webp') ? '.webp' : '.jpg';
+    
+    const downloadUrl = URL.createObjectURL(blob);
+    triggerDownload(downloadUrl, `${filename}${extension}`);
+    URL.revokeObjectURL(downloadUrl);
+  } catch {
+    // Fallback: open in new tab
+    window.open(url, '_blank');
   }
 }
 
