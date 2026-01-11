@@ -366,13 +366,14 @@ export default function Generate() {
                 </TabsList>
 
                 <TabsContent value="urun">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-3">
                     {urunScenes.map((scene, index) => (
-                      <SceneCard
+                      <SceneListItem
                         key={scene.id}
                         scene={scene}
                         selected={selectedSceneId === scene.id}
-                        onClick={() => handleSceneClick(scene)}
+                        onSelect={() => setSelectedSceneId(scene.id)}
+                        onViewDetails={() => handleSceneClick(scene)}
                         delay={index * 0.03}
                       />
                     ))}
@@ -380,13 +381,14 @@ export default function Generate() {
                 </TabsContent>
 
                 <TabsContent value="manken">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-3">
                     {mankenScenes.map((scene, index) => (
-                      <SceneCard
+                      <SceneListItem
                         key={scene.id}
                         scene={scene}
                         selected={selectedSceneId === scene.id}
-                        onClick={() => handleSceneClick(scene)}
+                        onSelect={() => setSelectedSceneId(scene.id)}
+                        onViewDetails={() => handleSceneClick(scene)}
                         delay={index * 0.03}
                       />
                     ))}
@@ -401,36 +403,36 @@ export default function Generate() {
   );
 }
 
-function SceneCard({
+function SceneListItem({
   scene,
   selected,
-  onClick,
+  onSelect,
+  onViewDetails,
   delay = 0,
 }: {
   scene: Scene;
   selected: boolean;
-  onClick: () => void;
+  onSelect: () => void;
+  onViewDetails: () => void;
   delay?: number;
 }) {
   const bgGradient = sceneBackgrounds[scene.name_tr] || "from-gray-200 via-gray-100 to-gray-300";
   const isLightBg = lightBgScenes.includes(scene.name_tr);
 
   return (
-    <motion.button
-      onClick={onClick}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
-      whileHover={{ scale: 1.03, y: -4 }}
-      whileTap={{ scale: 0.98 }}
-      className={`relative rounded-xl overflow-hidden transition-all group ${
+      className={`relative flex items-center gap-4 p-3 rounded-xl border transition-all cursor-pointer ${
         selected 
-          ? "ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg" 
-          : "hover:shadow-xl"
+          ? "border-primary bg-primary/5 shadow-md" 
+          : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
       }`}
+      onClick={onSelect}
     >
-      {/* Background */}
-      <div className={`aspect-[4/5] w-full bg-gradient-to-br ${bgGradient} relative`}>
+      {/* Thumbnail */}
+      <div className={`relative w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br ${bgGradient}`}>
         {scene.preview_image_url ? (
           <img 
             src={scene.preview_image_url} 
@@ -439,35 +441,58 @@ function SceneCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className={`h-10 w-10 ${isLightBg ? 'text-gray-500' : 'text-white/60'}`} />
+            <Sparkles className={`h-8 w-8 ${isLightBg ? 'text-gray-500' : 'text-white/60'}`} />
           </div>
         )}
+      </div>
 
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ opacity: 1, scale: 1 }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium text-gray-900">
-              Detayları Gör
-            </div>
-          </motion.div>
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="font-semibold text-sm md:text-base truncate">{scene.name_tr}</h3>
+          {selected && (
+            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <Check className="h-3 w-3 text-primary-foreground" />
+            </span>
+          )}
         </div>
-
-        {/* Selection indicator */}
-        {selected && (
-          <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
-            <Check className="h-4 w-4 text-primary-foreground" />
-          </div>
-        )}
+        <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
+          {scene.description_tr}
+        </p>
       </div>
 
-      {/* Title */}
-      <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 via-black/50 to-transparent">
-        <h3 className="font-medium text-white text-sm text-left">{scene.name_tr}</h3>
+      {/* Actions */}
+      <div className="flex-shrink-0 flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden md:flex text-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetails();
+          }}
+        >
+          Detaylar
+        </Button>
+        <Button
+          variant={selected ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+        >
+          {selected ? (
+            <>
+              <Check className="h-3 w-3 mr-1" />
+              Seçildi
+            </>
+          ) : (
+            "Seç"
+          )}
+        </Button>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
