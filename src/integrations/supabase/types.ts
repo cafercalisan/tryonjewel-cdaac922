@@ -104,11 +104,14 @@ export type Database = {
           description: string
           description_tr: string
           id: string
+          is_premium: boolean
           name: string
           name_tr: string
           preview_image_url: string | null
+          product_type_category: string
           prompt: string
           sort_order: number
+          sub_category: string
         }
         Insert: {
           category: string
@@ -116,11 +119,14 @@ export type Database = {
           description: string
           description_tr: string
           id?: string
+          is_premium?: boolean
           name: string
           name_tr: string
           preview_image_url?: string | null
+          product_type_category?: string
           prompt: string
           sort_order?: number
+          sub_category?: string
         }
         Update: {
           category?: string
@@ -128,11 +134,14 @@ export type Database = {
           description?: string
           description_tr?: string
           id?: string
+          is_premium?: boolean
           name?: string
           name_tr?: string
           preview_image_url?: string | null
+          product_type_category?: string
           prompt?: string
           sort_order?: number
+          sub_category?: string
         }
         Relationships: []
       }
