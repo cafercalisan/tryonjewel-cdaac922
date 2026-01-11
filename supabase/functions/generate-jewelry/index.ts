@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +19,21 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // ========================================================
 const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
 const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
+
+// Max image size in bytes (1.5MB to avoid memory issues in edge functions)
+const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
+
+// Helper: Convert ArrayBuffer to base64 in chunks to avoid stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time to minimize memory pressure
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
 
 async function callGeminiImageGeneration({
   base64Image,
@@ -217,10 +231,25 @@ serve(async (req) => {
     // Step 1: Analyze the jewelry for accurate reproduction
     console.log('Step 1: Analyzing jewelry with precision...');
     
-    // Fetch the image and convert to base64 for Gemini API (using chunked encoding to avoid stack overflow)
+    // Fetch the image and convert to base64 for Gemini API
     const imageResponse = await fetch(imageUrl);
     const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = base64Encode(imageBuffer);
+    
+    // Check image size - reject if too large to prevent memory issues
+    if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
+      console.error(`Image too large: ${imageBuffer.byteLength} bytes (max: ${MAX_IMAGE_SIZE})`);
+      await supabase
+        .from('images')
+        .update({ status: 'failed', error_message: 'Görsel boyutu çok büyük. Lütfen daha küçük bir görsel yükleyin (max 1.5MB).' })
+        .eq('id', imageRecord.id);
+      
+      return new Response(
+        JSON.stringify({ error: 'Image too large. Please upload a smaller image (max 1.5MB).' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const base64Image = arrayBufferToBase64(imageBuffer);
     
     const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
       method: 'POST',
