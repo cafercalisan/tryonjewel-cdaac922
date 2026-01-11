@@ -480,20 +480,21 @@ export default function Generate() {
                     </div>
                   </>
                 ) : (
-                  /* Scene Selection for Standard Package */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
+                  /* Scene Selection for Standard Package - Minimal List Design */
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                     {filteredScenes.map((scene) => (
                       <motion.button
                         key={scene.id}
                         onClick={() => setSelectedSceneId(scene.id)}
-                        whileHover={{ scale: 1.02 }}
-                        className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                        whileTap={{ scale: 0.99 }}
+                        className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
                           selectedSceneId === scene.id 
-                            ? 'border-primary shadow-lg' 
-                            : 'border-border hover:border-primary/30'
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/30 hover:bg-muted/50'
                         }`}
                       >
-                        <div className="aspect-[4/3] bg-muted">
+                        {/* Thumbnail */}
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                           {scene.preview_image_url ? (
                             <img 
                               src={scene.preview_image_url} 
@@ -502,15 +503,20 @@ export default function Generate() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-                              <Sparkles className="h-6 w-6 text-muted-foreground" />
+                              <Sparkles className="h-4 w-4 text-muted-foreground" />
                             </div>
                           )}
                         </div>
-                        <div className="p-2 bg-card">
-                          <p className="text-xs font-medium truncate">{scene.name_tr}</p>
+                        
+                        {/* Text */}
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm font-medium truncate">{scene.name_tr}</p>
+                          <p className="text-xs text-muted-foreground truncate">{scene.description_tr}</p>
                         </div>
+                        
+                        {/* Check indicator */}
                         {selectedSceneId === scene.id && (
-                          <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="h-3 w-3 text-primary-foreground" />
                           </div>
                         )}
