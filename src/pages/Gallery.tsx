@@ -77,8 +77,8 @@ export default function Gallery() {
     });
   };
 
+  // Only show completed images - hide processing/analyzing states
   const completedImages = images?.filter(i => i.status === 'completed') || [];
-  const pendingImages = images?.filter(i => i.status !== 'completed' && i.status !== 'failed') || [];
 
   return (
     <AppLayout>
@@ -119,28 +119,6 @@ export default function Gallery() {
           </div>
         ) : (
           <>
-            {/* Pending Images */}
-            {pendingImages.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-lg font-medium mb-4">İşleniyor</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {pendingImages.map((image) => (
-                    <div 
-                      key={image.id}
-                      className="aspect-[4/5] rounded-xl bg-muted flex items-center justify-center"
-                    >
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          {image.status === 'analyzing' ? 'Analiz ediliyor...' : 'Oluşturuluyor...'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Completed Images */}
             {completedImages.length > 0 && (
               <div>
@@ -195,7 +173,8 @@ export default function Gallery() {
                 <div>
                   <div 
                     className="aspect-[4/5] rounded-xl overflow-hidden bg-muted mb-4 cursor-zoom-in group relative"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setLightboxOpen(true);
                       setLightboxScale(1);
                     }}
@@ -239,7 +218,8 @@ export default function Gallery() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setLightboxOpen(true);
                       setLightboxScale(1);
                     }}
