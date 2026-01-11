@@ -14,19 +14,16 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // ============ FIXED MODELS - DO NOT CHANGE ============
-// Analysis: gemini-2.5-flash
-// Image Generation: gemini-3-pro-image-preview
-// ========================================================
 const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
 const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 
-// Max image size in bytes (1.5MB to avoid memory issues in edge functions)
+// Max image size in bytes (1.5MB to avoid memory issues)
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
-// Helper: Convert ArrayBuffer to base64 in chunks to avoid stack overflow
+// Helper: Convert ArrayBuffer to base64 in chunks
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  const chunkSize = 8192; // Process 8KB at a time to minimize memory pressure
+  const chunkSize = 8192;
   let binary = '';
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
@@ -42,7 +39,6 @@ async function callGeminiImageGeneration({
   base64Image: string;
   prompt: string;
 }) {
-  // Using Gemini 3 Pro Image Preview with v1alpha API
   const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
@@ -113,7 +109,83 @@ async function callLovableImageGeneration({
   const commaIndex = url.indexOf(',');
   if (commaIndex === -1) throw new Error('Invalid data URL from Lovable AI gateway');
 
-  return url.slice(commaIndex + 1); // base64
+  return url.slice(commaIndex + 1);
+}
+
+// Generate single image and return base64
+async function generateSingleImage(base64Image: string, prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
+  try {
+    if (!GOOGLE_IMAGE_API_KEY) {
+      console.error('Missing GOOGLE_API_KEY');
+      return null;
+    }
+
+    const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
+
+    if (!genResponse.ok) {
+      const errText = await genResponse.text();
+      console.error(`Generation ${index} API error (${genResponse.status}):`, errText);
+
+      // Fallback to Lovable AI
+      if (errText.includes('Image generation is not available') || errText.includes('FAILED_PRECONDITION')) {
+        try {
+          console.log('Falling back to Lovable AI...');
+          const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt });
+          const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
+          const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('jewelry-images')
+            .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('jewelry-images')
+              .getPublicUrl(filePath);
+            return publicUrl;
+          }
+        } catch (fallbackErr) {
+          console.error('Lovable AI fallback failed:', fallbackErr);
+        }
+      }
+      return null;
+    }
+
+    const genData = await genResponse.json();
+    const parts = genData.candidates?.[0]?.content?.parts || [];
+    let generatedImage: string | null = null;
+
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith('image/')) {
+        generatedImage = part.inlineData.data;
+        break;
+      }
+    }
+
+    if (!generatedImage) {
+      console.error('No image in generation response');
+      return null;
+    }
+
+    const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+    const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from('jewelry-images')
+      .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+    if (!uploadError) {
+      const { data: { publicUrl } } = supabase.storage
+        .from('jewelry-images')
+        .getPublicUrl(filePath);
+      console.log(`Image ${index} uploaded successfully`);
+      return publicUrl;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Generation ${index} error:`, error);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -122,7 +194,7 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate user from JWT
+    // Authenticate user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
@@ -138,7 +210,6 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     
     if (authError || !user) {
-      console.error('Auth error:', authError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -149,10 +220,10 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, sceneId } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, userId });
+    const { imagePath, sceneId, packageType, colorId, productType } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, userId });
 
-    // Validate imagePath format to prevent SSRF
+    // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
       return new Response(
         JSON.stringify({ error: 'Invalid image path' }),
@@ -160,9 +231,11 @@ serve(async (req) => {
       );
     }
 
-    // Validate sceneId format (UUID)
+    // Validate sceneId (required for standard, optional for master)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!sceneId || !uuidRegex.test(sceneId)) {
+    const isMasterPackage = packageType === 'master';
+    
+    if (!isMasterPackage && (!sceneId || !uuidRegex.test(sceneId))) {
       return new Response(
         JSON.stringify({ error: 'Invalid scene ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -171,13 +244,12 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Generate signed URL for the original image (valid for 1 hour)
+    // Get signed URL for image
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('jewelry-images')
       .createSignedUrl(imagePath, 3600);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
-      console.error('Signed URL error:', signedUrlError);
       return new Response(
         JSON.stringify({ error: 'Failed to access image' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -186,30 +258,30 @@ serve(async (req) => {
 
     const imageUrl = signedUrlData.signedUrl;
 
-    // Get scene details
-    const { data: scene, error: sceneError } = await supabase
-      .from('scenes')
-      .select('*')
-      .eq('id', sceneId)
-      .single();
-
-    if (sceneError || !scene) {
-      return new Response(
-        JSON.stringify({ error: 'Scene not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Get scene if provided
+    let scene = null;
+    if (sceneId && uuidRegex.test(sceneId)) {
+      const { data: sceneData } = await supabase
+        .from('scenes')
+        .select('*')
+        .eq('id', sceneId)
+        .single();
+      scene = sceneData;
     }
 
-    // Verify user has credits before processing
+    // Calculate credits needed
+    const creditsNeeded = isMasterPackage ? 2 : 1;
+
+    // Verify credits
     const { data: profile } = await supabase
       .from('profiles')
       .select('credits')
       .eq('id', userId)
       .single();
 
-    if (!profile || profile.credits <= 0) {
+    if (!profile || profile.credits < creditsNeeded) {
       return new Response(
-        JSON.stringify({ error: 'Insufficient credits' }),
+        JSON.stringify({ error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli.` }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -219,7 +291,7 @@ serve(async (req) => {
       .from('images')
       .insert({
         user_id: userId,
-        scene_id: sceneId,
+        scene_id: sceneId || null,
         original_image_url: imagePath,
         status: 'analyzing',
       })
@@ -228,29 +300,26 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    // Step 1: Analyze the jewelry for accurate reproduction
-    console.log('Step 1: Analyzing jewelry with precision...');
-    
-    // Fetch the image and convert to base64 for Gemini API
+    // Fetch and convert image to base64
+    console.log('Step 1: Analyzing jewelry...');
     const imageResponse = await fetch(imageUrl);
     const imageBuffer = await imageResponse.arrayBuffer();
     
-    // Check image size - reject if too large to prevent memory issues
     if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
-      console.error(`Image too large: ${imageBuffer.byteLength} bytes (max: ${MAX_IMAGE_SIZE})`);
       await supabase
         .from('images')
-        .update({ status: 'failed', error_message: 'Görsel boyutu çok büyük. Lütfen daha küçük bir görsel yükleyin (max 1.5MB).' })
+        .update({ status: 'failed', error_message: 'Görsel boyutu çok büyük (max 1.5MB)' })
         .eq('id', imageRecord.id);
       
       return new Response(
-        JSON.stringify({ error: 'Image too large. Please upload a smaller image (max 1.5MB).' }),
+        JSON.stringify({ error: 'Image too large. Max 1.5MB.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     const base64Image = arrayBufferToBase64(imageBuffer);
-    
+
+    // Analyze jewelry
     const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -258,31 +327,30 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: `You are an expert jewelry analyst. Analyze this jewelry image with extreme precision for accurate reproduction.
+              text: `You are an expert jewelry analyst. Analyze this jewelry with extreme precision.
 
-Return a JSON object with these exact fields:
+Return JSON:
 {
-  "type": "ring|necklace|bracelet|earring|pendant|brooch|watch",
+  "type": "ring|necklace|bracelet|earring|pendant|brooch|watch|choker|piercing",
   "metal": {
     "type": "gold|silver|platinum|rose_gold|white_gold|mixed",
     "karat": "24k|22k|18k|14k|10k|sterling|unknown",
     "finish": "polished|matte|brushed|hammered|textured|satin",
-    "color_hex": "#hex color of the metal"
+    "color_hex": "#hex"
   },
   "stones": [
     {
       "type": "diamond|ruby|emerald|sapphire|pearl|amethyst|topaz|other",
       "count": number,
       "cut": "round|princess|oval|cushion|emerald|pear|marquise|cabochon|baguette",
-      "color": "color description",
-      "size_mm": "approximate size",
+      "color": "description",
+      "size_mm": "size",
       "setting": "prong|bezel|channel|pave|tension|cluster|halo"
     }
   ],
   "dimensions": {
     "estimated_width_mm": number,
-    "estimated_height_mm": number,
-    "aspect_ratio": "width:height ratio"
+    "estimated_height_mm": number
   },
   "design_elements": {
     "style": "modern|vintage|art_deco|minimalist|ornate|classic|bohemian",
@@ -290,53 +358,39 @@ Return a JSON object with these exact fields:
     "symmetry": "symmetric|asymmetric",
     "complexity": "simple|moderate|intricate"
   },
-  "unique_identifiers": "describe any unique features, hallmarks, or distinctive elements"
+  "unique_identifiers": "unique features"
 }
 
-ONLY respond with valid JSON. No other text.`
+ONLY valid JSON.`
             },
-            {
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: base64Image
-              }
-            }
+            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
           ]
         }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 2048
-        }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
       }),
     });
 
-    let analysisResult: any;
+    let analysisResult: any = { type: 'jewelry', design_elements: { style: 'classic' } };
 
-    if (!analysisResponse.ok) {
-      const errorText = await analysisResponse.text();
-      console.error('Analysis API error (continuing with defaults):', errorText);
-      // Do NOT fail the whole job if analysis model is unavailable.
-      analysisResult = { type: 'jewelry', design_elements: { style: 'classic', patterns: ['none'] } };
-    } else {
-      const analysisData = await analysisResponse.json();
+    if (analysisResponse.ok) {
       try {
+        const analysisData = await analysisResponse.json();
         const content = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
         analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
       } catch {
-        console.error('Failed to parse analysis, using defaults');
-        analysisResult = { type: 'jewelry', design_elements: { style: 'classic', patterns: ['none'] } };
+        console.error('Failed to parse analysis');
       }
     }
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));
 
-    // Update status to generating
+    // Update status
     await supabase
       .from('images')
       .update({ status: 'generating', analysis_data: analysisResult })
       .eq('id', imageRecord.id);
 
-    // Build precision prompt for accurate reproduction
+    // Build fidelity block
     const metalDesc = analysisResult.metal 
       ? `${analysisResult.metal.finish || 'polished'} ${analysisResult.metal.type || 'gold'} (${analysisResult.metal.karat || '18k'})`
       : 'polished gold';
@@ -347,201 +401,173 @@ ONLY respond with valid JSON. No other text.`
         ).join(', ')
       : '';
 
-    const dimensionInfo = analysisResult.dimensions
-      ? `Approximate dimensions: ${analysisResult.dimensions.estimated_width_mm || 20}mm x ${analysisResult.dimensions.estimated_height_mm || 20}mm`
-      : '';
-
     const fidelityBlock = `
 JEWELRY SPECIFICATIONS (MUST BE PRESERVED EXACTLY):
 - Type: ${analysisResult.type || 'jewelry piece'}
 - Metal: ${metalDesc}
 ${stoneDesc ? `- Stones: ${stoneDesc}` : ''}
-${dimensionInfo ? `- ${dimensionInfo}` : ''}
 - Style: ${analysisResult.design_elements?.style || 'classic'}
-${analysisResult.design_elements?.patterns?.filter((p: string) => p !== 'none').join(', ') ? `- Decorative elements: ${analysisResult.design_elements.patterns.filter((p: string) => p !== 'none').join(', ')}` : ''}
 ${analysisResult.unique_identifiers ? `- Unique features: ${analysisResult.unique_identifiers}` : ''}
 
 CRITICAL FIDELITY REQUIREMENTS:
 1. EXACT stone count - no more, no less
 2. EXACT setting structure and prong positions
 3. EXACT metal color and surface finish
-4. EXACT proportions - do not enlarge or shrink the jewelry
-5. EXACT design elements - preserve all engravings, patterns, details
-6. Natural realistic scale relative to scene elements
+4. EXACT proportions - do not resize
+5. EXACT design elements - preserve all patterns
+6. Natural realistic scale
+
+DIAMOND AND GEMSTONE REALISM (CRITICAL):
+- Real diamond light behavior: fire (spectral dispersion), brilliance (white light reflection), scintillation
+- Authentic internal light refraction patterns
+- Subtle rainbow flashes from dispersion - not uniform glow
+- Natural inclusions visible in realistic diamonds
+- Depth and three-dimensionality inside the stone
+- Realistic facet edges with crisp precision
+- No artificial HDR glow, no CGI-like perfection
+
+FORBIDDEN:
+- No text, watermarks, logos
+- No design alterations
+- No additional jewelry pieces
+- No artificial CGI gemstones
 `.trim();
 
-    const fullPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. Ultra high resolution 4K quality (3840x4800 pixels).
+    const generatedUrls: string[] = [];
+
+    if (isMasterPackage) {
+      // MASTER PACKAGE: 3 images sequentially
+      console.log('Master Package: Generating 3 images sequentially...');
+
+      // Color mapping for e-commerce background
+      const colorMap: Record<string, { name: string; prompt: string }> = {
+        'white': { name: 'Beyaz', prompt: 'pure white, clean ivory, soft cream white' },
+        'cream': { name: 'Krem', prompt: 'warm cream, soft ivory, delicate beige-white' },
+        'blush': { name: 'Pudra Pembe', prompt: 'soft blush pink, delicate rose, pale pink' },
+        'lavender': { name: 'Lavanta', prompt: 'soft lavender, pale purple, gentle violet' },
+        'mint': { name: 'Nane Yeşili', prompt: 'soft mint green, pale sage, delicate seafoam' },
+        'skyblue': { name: 'Gök Mavisi', prompt: 'soft sky blue, pale azure, gentle powder blue' },
+        'peach': { name: 'Şeftali', prompt: 'soft peach, gentle apricot, warm coral tint' },
+        'champagne': { name: 'Şampanya', prompt: 'warm champagne gold, soft beige gold, elegant nude' },
+        'silver': { name: 'Gümüş', prompt: 'soft silver gray, pale platinum, gentle metallic gray' },
+        'gray': { name: 'Gri', prompt: 'soft dove gray, gentle stone, neutral warm gray' },
+      };
+
+      const selectedColor = colorMap[colorId] || colorMap['white'];
+
+      // Image 1: E-commerce clean background
+      const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+
+${fidelityBlock}
+
+SCENE: Clean, minimal e-commerce product shot
+- Background: ${selectedColor.prompt} - soft, gradient, seamless studio backdrop
+- Lighting: Soft, diffused studio lighting, no harsh shadows
+- Style: Amazon/luxury e-commerce listing quality
+- The jewelry should be the absolute focal point
+- Clean, uncluttered, professional commercial aesthetic
+- Perfect for online store product listings
+- Subtle reflection on surface, professional product photography
+
+Ultra high resolution output.`;
+
+      console.log('Generating E-commerce image...');
+      const ecomUrl = await generateSingleImage(base64Image, ecommercePrompt, userId, imageRecord.id, 1, supabase);
+      if (ecomUrl) generatedUrls.push(ecomUrl);
+
+      // Image 2: Luxury catalog shot
+      const catalogPrompt = `Professional luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+
+${fidelityBlock}
+
+SCENE: High-end jewelry catalog photography
+- Setting: Premium textured surface (marble, velvet, or brushed metal)
+- Lighting: Dramatic but controlled studio lighting with rim lights
+- Style: Vogue, Harper's Bazaar jewelry editorial quality
+- Macro-level detail visibility
+- Professional jewelry photography with artistic composition
+- Subtle props that complement without distraction
+- Rich shadows and highlights that emphasize dimensionality
+- Magazine-worthy luxury presentation
+
+Ultra high resolution output.`;
+
+      console.log('Generating Catalog image...');
+      const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
+      if (catalogUrl) generatedUrls.push(catalogUrl);
+
+      // Image 3: Model shot based on product type
+      const modelSceneMap: Record<string, string> = {
+        'yuzuk': 'Elegant feminine hand close-up with manicured nails, showcasing the ring naturally. Soft skin texture, natural hand pose, professional hand model photography.',
+        'bileklik': 'Elegant wrist and forearm shot, showcasing the bracelet. Natural pose, soft lighting on skin, fashion photography quality.',
+        'kupe': 'Side profile portrait showcasing the earring. Visible ear, styled hair, soft studio lighting, fashion editorial quality.',
+        'kolye': 'Elegant neck and décolletage portrait showcasing the necklace. Soft skin tones, professional fashion photography, romantic mood.',
+        'gerdanlik': 'Upper body portrait showcasing the choker necklace. Elegant pose, fashion editorial style, soft dramatic lighting.',
+        'piercing': 'Close-up portrait showcasing the piercing jewelry. Natural skin texture, contemporary fashion photography style.',
+      };
+
+      const modelScene = modelSceneMap[productType] || modelSceneMap['kolye'];
+
+      const modelPrompt = `Professional fashion model photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+
+${fidelityBlock}
+
+SCENE: ${modelScene}
+- Model: Professional model with realistic skin texture (NOT plastic or over-retouched)
+- Lighting: Soft key light with subtle rim light, cinematic quality
+- Style: High-end fashion advertising, editorial quality
+- The jewelry is worn naturally and becomes the focal point
+- Natural pose, confident but not forced
+- Background: Soft, out of focus, elegant
+- Skin shows natural texture and pores, not airbrushed
+- Jewelry perfectly scaled on the model
+
+Ultra high resolution output.`;
+
+      console.log('Generating Model image...');
+      const modelUrl = await generateSingleImage(base64Image, modelPrompt, userId, imageRecord.id, 3, supabase);
+      if (modelUrl) generatedUrls.push(modelUrl);
+
+    } else {
+      // STANDARD: Single image with scene
+      console.log('Standard generation with scene...');
+      
+      const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
 
 ${fidelityBlock}
 
 SCENE PLACEMENT:
-${scene.prompt}
+${scene?.prompt || 'Elegant luxury setting with soft studio lighting, premium background.'}
 
 TECHNICAL REQUIREMENTS:
 - Ultra high resolution 4K output (3840x4800 pixels minimum)
-- Macro photography quality with perfect focus on jewelry
+- Macro photography quality with perfect focus
 - Natural soft studio lighting with subtle highlights
 - Accurate metal reflections and gemstone refractions
-- Clean, uncluttered composition
-- The jewelry must look IDENTICAL to the reference - same piece, different setting
-- Maximum detail and sharpness for large format printing
+- The jewelry must look IDENTICAL to the reference
 
-DIAMOND AND GEMSTONE REALISM (CRITICAL):
-- Real diamond light behavior: natural fire (spectral dispersion into rainbow colors), brilliance (white light reflection), and scintillation (sparkle when moving)
-- Authentic internal light refraction patterns - light enters facets and bounces inside before exiting
-- Subtle rainbow flashes from dispersion - not uniform or artificial glow
-- Natural inclusions and slight imperfections visible in realistic diamonds
-- Depth and three-dimensionality inside the stone - not flat or painted appearance
-- Realistic facet edges with crisp, geometric precision
-- Table facet reflects environment naturally
-- Pavilion facets create the signature "arrows" pattern in round brilliants
-- No artificial HDR glow, no uniform white shine, no CGI-like perfection
-- Diamonds should look photographed, not rendered - with natural lighting variations across facets
+Ultra high resolution output.`;
 
-FORBIDDEN:
-- No text, watermarks, or logos
-- No design alterations or creative interpretations
-- No exaggerated proportions
-- No additional jewelry pieces
-- No artificial or CGI-looking gemstones
-- No uniform glowing stones without facet detail
-- No flat, painted-on sparkle effects`;
-
-    console.log('Generating with precision prompt...');
-
-    // Step 2: Generate 1 variation
-    const generatedUrls: string[] = [];
-    let lastGenerationError: string | null = null;
-    let lastGenerationStatus: number | null = null;
-    
-    for (let i = 0; i < 1; i++) {
-      console.log(`Generating variation ${i + 1}/1 with ${IMAGE_GEN_MODEL}...`);
-      
-      try {
-        if (!GOOGLE_IMAGE_API_KEY) {
-          console.error('Missing GOOGLE_API_KEY (for image generation)');
-          lastGenerationError = 'Missing GOOGLE_API_KEY';
-          lastGenerationStatus = 500;
-          break;
-        }
-
-        const variationHint = 'Variation A: slightly different camera angle and lighting.';
-        const prompt = `${fullPrompt}\n\n${variationHint}`;
-
-        const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
-
-        if (!genResponse.ok) {
-          const errText = await genResponse.text();
-          lastGenerationError = errText;
-          lastGenerationStatus = genResponse.status;
-          console.error(`Generation ${i + 1} API error (${genResponse.status}):`, errText);
-
-          // If Google image generation is blocked (region / project restriction), fall back to Lovable AI.
-          if (
-            errText.includes('Image generation is not available in your country') ||
-            errText.includes('FAILED_PRECONDITION')
-          ) {
-            try {
-              console.log('Falling back to Lovable AI image generation...');
-              const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt });
-              const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
-              const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
-
-              const { error: uploadError } = await supabase.storage
-                .from('jewelry-images')
-                .upload(filePath, imageBuffer, { contentType: 'image/png' });
-
-              if (uploadError) {
-                lastGenerationError = `Upload error: ${JSON.stringify(uploadError)}`;
-                lastGenerationStatus = 500;
-                console.error(`Upload error for variation ${i + 1}:`, uploadError);
-              } else {
-                const { data: { publicUrl } } = supabase.storage
-                  .from('jewelry-images')
-                  .getPublicUrl(filePath);
-                generatedUrls.push(publicUrl);
-                console.log(`Variation ${i + 1} uploaded successfully (Lovable AI)`);
-              }
-            } catch (fallbackErr) {
-              const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-              console.error('Lovable AI fallback failed:', msg);
-              lastGenerationError = `Lovable fallback failed: ${msg}`;
-              lastGenerationStatus = 500;
-            }
-          }
-
-          continue;
-        }
-
-        const genData = await genResponse.json();
-        console.log(`Generation ${i + 1} response received`);
-
-        // Extract image from Gemini response
-        const parts = genData.candidates?.[0]?.content?.parts || [];
-        let generatedImage: string | null = null;
-
-        for (const part of parts) {
-          if (part.inlineData?.mimeType?.startsWith('image/')) {
-            generatedImage = part.inlineData.data;
-            break;
-          }
-        }
-
-        if (!generatedImage) {
-          lastGenerationError = 'Model response did not include an image.';
-          lastGenerationStatus = 502;
-          console.error(`No image in generation ${i + 1} response`);
-          continue;
-        }
-
-        const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
-        const filePath = `${userId}/generated/${imageRecord.id}-${i + 1}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('jewelry-images')
-          .upload(filePath, imageBuffer, { contentType: 'image/png' });
-
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('jewelry-images')
-            .getPublicUrl(filePath);
-          generatedUrls.push(publicUrl);
-          console.log(`Variation ${i + 1} uploaded successfully`);
-        } else {
-          lastGenerationError = `Upload error: ${JSON.stringify(uploadError)}`;
-          lastGenerationStatus = 500;
-          console.error(`Upload error for variation ${i + 1}:`, uploadError);
-        }
-      } catch (genError) {
-        lastGenerationError = genError instanceof Error ? genError.message : String(genError);
-        lastGenerationStatus = 500;
-        console.error(`Generation ${i + 1} error:`, genError);
-      }
+      const url = await generateSingleImage(base64Image, standardPrompt, userId, imageRecord.id, 1, supabase);
+      if (url) generatedUrls.push(url);
     }
 
     if (generatedUrls.length === 0) {
-      const friendlyError = (() => {
-        // Known Google restriction (seen in logs)
-        if (lastGenerationError?.includes('Image generation is not available in your country')) {
-          return 'Image generation is not available in your country for this API key/project.';
-        }
-        return 'No images generated';
-      })();
-
       await supabase
         .from('images')
-        .update({ status: 'failed', error_message: friendlyError })
+        .update({ status: 'failed', error_message: 'Görsel oluşturulamadı' })
         .eq('id', imageRecord.id);
 
       return new Response(
-        JSON.stringify({ error: friendlyError, details: lastGenerationError }),
-        { status: lastGenerationStatus ?? 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'No images generated' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Deduct credit
+    // Deduct credits
     await supabase
       .from('profiles')
-      .update({ credits: profile.credits - 1 })
+      .update({ credits: profile.credits - creditsNeeded })
       .eq('id', userId);
 
     // Update image record
