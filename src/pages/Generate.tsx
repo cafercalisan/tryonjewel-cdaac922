@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight, UserPlus } from "lucide-react";
+import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight, UserPlus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { ColorPalette, colorPalette } from "@/components/generate/ColorPalette";
 import { ProductTypeSelector, productTypes } from "@/components/generate/ProductTypeSelector";
 import { ModelSelector } from "@/components/generate/ModelSelector";
+import { compressImage, formatFileSize } from "@/lib/compressImage";
 interface Scene {
   id: string;
   name: string;
@@ -71,6 +72,9 @@ export default function Generate() {
   // Form state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+  const [originalFileSize, setOriginalFileSize] = useState<number>(0);
+  const [compressedFileSize, setCompressedFileSize] = useState<number>(0);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('standard');
@@ -112,22 +116,47 @@ export default function Generate() {
     };
   }, [scenes, selectedProductType]);
 
+  const processFile = useCallback(async (file: File) => {
+    setOriginalFileSize(file.size);
+    setUploadedPreview(URL.createObjectURL(file));
+    
+    const maxSize = 1.4 * 1024 * 1024; // 1.4MB to stay under 1.5MB limit
+    
+    if (file.size > maxSize) {
+      setIsCompressing(true);
+      try {
+        const compressedFile = await compressImage(file, 1.4, 2048);
+        setUploadedFile(compressedFile);
+        setCompressedFileSize(compressedFile.size);
+        toast.success(`Görsel sıkıştırıldı: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)}`);
+      } catch (error) {
+        console.error('Compression error:', error);
+        toast.error('Görsel sıkıştırılamadı. Lütfen daha küçük bir görsel deneyin.');
+        setUploadedFile(null);
+        setUploadedPreview(null);
+      } finally {
+        setIsCompressing(false);
+      }
+    } else {
+      setUploadedFile(file);
+      setCompressedFileSize(file.size);
+    }
+  }, []);
+
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith("image/")) {
-      setUploadedFile(file);
-      setUploadedPreview(URL.createObjectURL(file));
+      processFile(file);
     }
-  }, []);
+  }, [processFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadedFile(file);
-      setUploadedPreview(URL.createObjectURL(file));
+      processFile(file);
     }
-  }, []);
+  }, [processFile]);
 
   const handleSceneClick = (scene: Scene) => {
     setExpandedScene(scene);
@@ -279,13 +308,26 @@ export default function Generate() {
                   >
                     {uploadedPreview ? (
                       <div className="text-center">
-                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3 shadow-lg">
+                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3 shadow-lg relative">
                           <img src={uploadedPreview} alt="Uploaded jewelry" className="w-full h-full object-cover" />
+                          {isCompressing && (
+                            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                              <div className="text-center">
+                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                                <span className="text-sm text-muted-foreground">Sıkıştırılıyor...</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center justify-center gap-2 text-primary mb-1">
                           <Check className="h-4 w-4" />
                           <span className="text-sm font-medium">Yüklendi</span>
                         </div>
+                        {originalFileSize > compressedFileSize && compressedFileSize > 0 && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {formatFileSize(originalFileSize)} → {formatFileSize(compressedFileSize)}
+                          </p>
+                        )}
                         <label className="cursor-pointer">
                           <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Değiştir</span>
                           <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
