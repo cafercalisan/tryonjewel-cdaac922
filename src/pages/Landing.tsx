@@ -108,7 +108,7 @@ export default function Landing() {
                 }} transition={{
                   duration: 0.3
                 }}>
-                    <img src={emeraldBracelet} alt="Profesyonel mücevher görseli" className="w-full h-full object-cover" />
+                    <img alt="Profesyonel mücevher görseli" className="w-full h-full object-cover" src="/lovable-uploads/d9abf31c-925c-4750-961f-11908e4e649a.webp" />
                   </motion.div>
                   {/* Decorative element */}
                   <motion.div className="absolute -z-10 -bottom-3 -right-3 w-full h-full rounded-3xl border-2 border-primary/20" initial={{
