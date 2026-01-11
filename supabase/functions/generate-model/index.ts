@@ -161,6 +161,7 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
+    const requestBody = await req.json();
     const { 
       name,
       skinTone, 
@@ -169,23 +170,108 @@ serve(async (req) => {
       hairColor, 
       hairTexture, 
       gender, 
-      ageRange 
-    } = await req.json();
+      ageRange,
+      // For pose generation (existing model)
+      modelData,
+      poseType,
+      poseDescription,
+    } = requestBody;
 
-    console.log('Model generation request:', { name, skinTone, skinUndertone, ethnicity, hairColor, hairTexture, gender, ageRange });
+    // Check if this is a pose generation request
+    const isPoseGeneration = !!modelData && !!poseType;
+    
+    console.log('Request type:', isPoseGeneration ? 'Pose generation' : 'New model creation');
+    
+    if (!isPoseGeneration) {
+      console.log('Model generation request:', { name, skinTone, skinUndertone, ethnicity, hairColor, hairTexture, gender, ageRange });
 
-    // Validate required fields
-    if (!name || !skinTone || !skinUndertone || !ethnicity || !hairColor || !hairTexture || !gender || !ageRange) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Validate required fields for new model
+      if (!name || !skinTone || !skinUndertone || !ethnicity || !hairColor || !hairTexture || !gender || !ageRange) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      console.log('Pose generation request:', { poseType, poseDescription });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Build the model generation prompt
-    const modelPrompt = `${MODEL_SYSTEM_PROMPT}
+    // Build the appropriate prompt based on request type
+    let modelPrompt: string;
+    
+    if (isPoseGeneration) {
+      // Pose generation for existing model
+      const posePrompts: Record<string, string> = {
+        'portrait': `Create a professional portrait shot:
+- Frame: Head and shoulders, elegant 3/4 view angle
+- Focus: Face and upper neck area, perfect for necklace display
+- Expression: Natural, confident, subtle elegance
+- Hair: Elegantly styled, showing ears
+- Neck and décolletage: Clearly visible for jewelry display`,
+        'hand-close': `Create a close-up hand shot:
+- Frame: Elegant hands in focus, fingers gracefully positioned
+- Focus: Fingers and knuckles, perfect for ring display
+- Position: Hands gently overlapping or one hand resting elegantly
+- Nails: Clean, natural manicure
+- Background: Soft neutral, shallow depth of field`,
+        'hand-elegant': `Create an elegant hand and wrist shot:
+- Frame: Hands and wrists in elegant pose
+- Focus: Wrist area, perfect for bracelet display
+- Position: Graceful hand gesture, relaxed but refined
+- Nails: Clean, neutral
+- Background: Luxury studio setting`,
+        'ear-profile': `Create a profile/side view shot:
+- Frame: Side profile of face, showing ear clearly
+- Focus: Ear and jawline, perfect for earring display
+- Hair: Pulled back or styled to fully expose ear
+- Expression: Serene, looking slightly away
+- Background: Soft gradient studio backdrop`,
+        'full-portrait': `Create a full upper body portrait:
+- Frame: Head to waist, elegant posture
+- Focus: Full jewelry display area (ears, neck, chest, hands)
+- Expression: Confident, editorial pose
+- Clothing: Simple, elegant neckline
+- Background: Professional studio setting`,
+        'neck-focus': `Create a neck and décolletage focused shot:
+- Frame: From chin to chest, elegant angle
+- Focus: Neck, collarbone, and upper chest, perfect for necklaces
+- Expression: Chin slightly raised, elegant neck extension
+- Skin: Perfect detail, natural texture
+- Background: Soft, luxurious studio lighting`,
+      };
+
+      const poseInstructions = posePrompts[poseType] || posePrompts['portrait'];
+
+      modelPrompt = `${MODEL_SYSTEM_PROMPT}
+
+EXISTING MODEL PARAMETERS (MUST MATCH EXACTLY):
+- Skin Tone: ${modelData.skinTone} (melanin level)
+- Skin Undertone: ${modelData.skinUndertone} (warm/neutral/cool)
+- Ethnicity/Background: ${modelData.ethnicity}
+- Hair Color: ${modelData.hairColor}
+- Hair Texture: ${modelData.hairTexture}
+- Gender Presentation: ${modelData.gender}
+- Age Range: ${modelData.ageRange}
+
+CRITICAL: This is the SAME person as before. Face, bone structure, skin characteristics MUST be identical.
+Only the pose and framing changes.
+
+POSE GENERATION TASK:
+${poseInstructions}
+
+ADDITIONAL REQUIREMENTS:
+- ${poseDescription}
+- Lighting: Professional studio lighting optimized for jewelry photography
+- Skin: Hyperrealistic with visible pores, natural texture, NO plastic appearance
+- Resolution: 4K ultra-high quality
+- Style: Editorial, luxury campaign grade
+
+Ultra high resolution. Maximum photorealism. Consistent identity. Editorial magazine quality.`;
+    } else {
+      // New model creation
+      modelPrompt = `${MODEL_SYSTEM_PROMPT}
 
 USER-DEFINED MODEL PARAMETERS:
 - Name: ${name}
@@ -215,6 +301,7 @@ OUTPUT: 4K resolution portrait, photorealistic, suitable for luxury jewelry camp
 This image will be used as the model's identity reference for all future jewelry photoshoots.
 
 Ultra high resolution. Maximum photorealism. Editorial magazine quality.`;
+    }
 
     console.log('Generating model with Lovable AI...');
 
@@ -291,9 +378,18 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality.`;
       .from('jewelry-images')
       .getPublicUrl(filePath);
 
-    console.log('Model image uploaded:', publicUrl);
+    console.log('Image uploaded:', publicUrl);
 
-    // Save model to database
+    if (isPoseGeneration) {
+      // For pose generation, just return the image URL
+      console.log('Pose generated successfully');
+      return new Response(
+        JSON.stringify({ success: true, imageUrl: publicUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Save new model to database
     const { data: modelRecord, error: insertError } = await supabase
       .from('user_models')
       .insert({
