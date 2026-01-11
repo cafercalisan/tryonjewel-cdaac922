@@ -1,3 +1,51 @@
+export async function downloadImage(url: string, filename: string) {
+  try {
+    // Try canvas approach for CORS compatibility
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = url;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported');
+
+    ctx.drawImage(img, 0, 0);
+
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Export failed'))),
+        'image/png',
+        1.0
+      );
+    });
+
+    const downloadUrl = URL.createObjectURL(blob);
+    triggerDownload(downloadUrl, filename);
+    URL.revokeObjectURL(downloadUrl);
+    return;
+  } catch {
+    // Fallback: try fetch
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      triggerDownload(downloadUrl, filename);
+      URL.revokeObjectURL(downloadUrl);
+    } catch {
+      // Last resort: open image in new tab
+      window.open(url, '_blank');
+    }
+  }
+}
+
 export async function downloadImageAs4kJpeg(params: {
   url: string;
   filenameBase: string;
