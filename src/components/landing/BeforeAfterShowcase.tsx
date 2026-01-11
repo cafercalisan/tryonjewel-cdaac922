@@ -13,6 +13,10 @@ import blueSapphireBraceletOriginal from '@/assets/showcase/blue-sapphire-bracel
 import blueSapphireBraceletResult from '@/assets/showcase/blue-sapphire-bracelet-result.webp';
 import ringOriginal from '@/assets/showcase/ring-original.webp';
 import ringResult from '@/assets/showcase/ring-result.webp';
+import diamondSetOriginal from '@/assets/showcase/diamond-set-original.webp';
+
+// Mannequin result image
+const mannequinResult = '/lovable-uploads/d9abf31c-925c-4750-961f-11908e4e649a.webp';
 
 interface ShowcaseItem {
   id: string;
@@ -22,6 +26,12 @@ interface ShowcaseItem {
 }
 
 const showcaseItems: ShowcaseItem[] = [
+  {
+    id: 'diamond-set-mannequin',
+    name: 'Pırlanta Set - Manken Çekimi',
+    original: diamondSetOriginal,
+    result: mannequinResult,
+  },
   {
     id: 'earring',
     name: 'Pırlanta Küpe',
