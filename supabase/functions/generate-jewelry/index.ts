@@ -456,7 +456,7 @@ FORBIDDEN:
       const selectedColor = colorMap[colorId] || colorMap['white'];
 
       // Image 1: E-commerce clean background
-      const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
@@ -469,6 +469,7 @@ SCENE: Clean, minimal e-commerce product shot
 - Perfect for online store product listings
 - Subtle reflection on surface, professional product photography
 
+OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
       console.log('Generating E-commerce image...');
@@ -476,7 +477,7 @@ Ultra high resolution output.`;
       if (ecomUrl) generatedUrls.push(ecomUrl);
 
       // Image 2: Luxury catalog shot
-      const catalogPrompt = `Professional luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const catalogPrompt = `Professional luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
@@ -490,41 +491,68 @@ SCENE: High-end jewelry catalog photography
 - Rich shadows and highlights that emphasize dimensionality
 - Magazine-worthy luxury presentation
 
+OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
       console.log('Generating Catalog image...');
       const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
       if (catalogUrl) generatedUrls.push(catalogUrl);
 
-      // Image 3: Model shot based on product type
+      // Image 3: Model shot based on detected product type from analysis
+      // AUTO-DETECT: Use analysis result type, fallback to provided productType
+      const detectedType = analysisResult.type?.toLowerCase() || '';
+      const typeMapping: Record<string, string> = {
+        'ring': 'yuzuk',
+        'bracelet': 'bileklik',
+        'earring': 'kupe',
+        'necklace': 'kolye',
+        'pendant': 'kolye',
+        'choker': 'gerdanlik',
+        'piercing': 'piercing',
+        'watch': 'bileklik',
+        'brooch': 'kolye',
+      };
+      
+      const autoDetectedProductType = typeMapping[detectedType] || productType || 'kolye';
+      console.log(`Auto-detected product type: ${detectedType} -> ${autoDetectedProductType}`);
+
       const modelSceneMap: Record<string, string> = {
-        'yuzuk': 'Elegant feminine hand close-up with manicured nails, showcasing the ring naturally. Soft skin texture, natural hand pose, professional hand model photography.',
-        'bileklik': 'Elegant wrist and forearm shot, showcasing the bracelet. Natural pose, soft lighting on skin, fashion photography quality.',
-        'kupe': 'Side profile portrait showcasing the earring. Visible ear, styled hair, soft studio lighting, fashion editorial quality.',
-        'kolye': 'Elegant neck and décolletage portrait showcasing the necklace. Soft skin tones, professional fashion photography, romantic mood.',
-        'gerdanlik': 'Upper body portrait showcasing the choker necklace. Elegant pose, fashion editorial style, soft dramatic lighting.',
-        'piercing': 'Close-up portrait showcasing the piercing jewelry. Natural skin texture, contemporary fashion photography style.',
+        'yuzuk': 'Elegant feminine hand close-up with manicured nails, showcasing the RING naturally worn on the finger. Soft skin texture, natural hand pose, professional hand model photography. The RING must be on the finger, NOT on ear or other body parts.',
+        'bileklik': 'Elegant wrist and forearm shot, showcasing the BRACELET worn around the wrist. Natural pose, soft lighting on skin, fashion photography quality. The BRACELET must be on the wrist, NOT on other body parts.',
+        'kupe': 'Side profile portrait showcasing the EARRING on the ear. Visible ear with the earring properly attached, styled hair, soft studio lighting, fashion editorial quality. The EARRING must be on the ear.',
+        'kolye': 'Elegant neck and décolletage portrait showcasing the NECKLACE worn around the neck. Soft skin tones, professional fashion photography, romantic mood. The NECKLACE must be around the neck.',
+        'gerdanlik': 'Upper body portrait showcasing the CHOKER necklace worn tightly around the neck. Elegant pose, fashion editorial style, soft dramatic lighting. The CHOKER must be around the neck.',
+        'piercing': 'Close-up portrait showcasing the PIERCING jewelry in its proper placement. Natural skin texture, contemporary fashion photography style.',
       };
 
-      const modelScene = modelSceneMap[productType] || modelSceneMap['kolye'];
+      const modelScene = modelSceneMap[autoDetectedProductType] || modelSceneMap['kolye'];
 
-      const modelPrompt = `Professional fashion model photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const modelPrompt = `Professional fashion model photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality.
 
 ${fidelityBlock}
+
+CRITICAL PLACEMENT RULE:
+- Detected jewelry type: ${analysisResult.type || 'jewelry'}
+- This ${analysisResult.type || 'jewelry'} MUST be placed on the correct body part for its type
+- RINGS go on FINGERS only
+- BRACELETS go on WRISTS only  
+- EARRINGS go on EARS only
+- NECKLACES go around the NECK only
+- NEVER place a ring on an ear or a necklace on a wrist
 
 SCENE: ${modelScene}
 - Model: Professional model with realistic skin texture (NOT plastic or over-retouched)
 - Lighting: Soft key light with subtle rim light, cinematic quality
 - Style: High-end fashion advertising, editorial quality
-- The jewelry is worn naturally and becomes the focal point
+- The jewelry is worn naturally on the CORRECT body part and becomes the focal point
 - Natural pose, confident but not forced
 - Background: Soft, out of focus, elegant
 - Skin shows natural texture and pores, not airbrushed
 - Jewelry perfectly scaled on the model
 
-Ultra high resolution output.`;
+Ultra high resolution output. Maximum image quality.`;
 
-      console.log('Generating Model image...');
+      console.log('Generating Model image with auto-detected type:', autoDetectedProductType);
       const modelUrl = await generateSingleImage(base64Image, modelPrompt, userId, imageRecord.id, 3, supabase);
       if (modelUrl) generatedUrls.push(modelUrl);
 
