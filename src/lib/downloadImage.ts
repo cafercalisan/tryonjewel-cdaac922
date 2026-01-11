@@ -7,8 +7,7 @@ export async function downloadImageAs4kJpeg(params: {
 }) {
   const { url, filenameBase, width = 3840, height = 4800, quality = 0.95 } = params;
 
-  // Prefer a real 4K JPEG export via canvas.
-  // If CORS/canvas fails, fall back to direct download.
+  // Try canvas approach first for 4K export
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -26,7 +25,6 @@ export async function downloadImageAs4kJpeg(params: {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not supported');
 
-    // Cover crop to 4:5 while keeping subject centered
     const srcW = img.naturalWidth || img.width;
     const srcH = img.naturalHeight || img.height;
     const targetRatio = width / height;
@@ -38,11 +36,9 @@ export async function downloadImageAs4kJpeg(params: {
     let sHeight = srcH;
 
     if (srcRatio > targetRatio) {
-      // source is wider: crop width
       sWidth = Math.round(srcH * targetRatio);
       sx = Math.round((srcW - sWidth) / 2);
     } else if (srcRatio < targetRatio) {
-      // source is taller: crop height
       sHeight = Math.round(srcW / targetRatio);
       sy = Math.round((srcH - sHeight) / 2);
     }
@@ -60,25 +56,33 @@ export async function downloadImageAs4kJpeg(params: {
     });
 
     const downloadUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = `${filenameBase}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    triggerDownload(downloadUrl, `${filenameBase}.jpg`);
     URL.revokeObjectURL(downloadUrl);
     return;
   } catch {
-    // Fallback: direct download (keeps original format)
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = `${filenameBase}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(downloadUrl);
+    // Fallback: open in new tab for manual save
+    try {
+      // Try fetch with no-cors fallback
+      const response = await fetch(url, { mode: 'cors' });
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      triggerDownload(downloadUrl, `${filenameBase}.jpg`);
+      URL.revokeObjectURL(downloadUrl);
+    } catch {
+      // Last resort: open image in new tab
+      window.open(url, '_blank');
+    }
   }
+}
+
+function triggerDownload(url: string, filename: string) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+  }, 100);
 }

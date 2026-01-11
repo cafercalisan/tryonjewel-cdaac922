@@ -53,12 +53,6 @@ export function Header() {
             >
               Görsellerim
             </Link>
-            <Link 
-              to="/sahneler" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sahneler
-            </Link>
 
             {/* Credits Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-sm font-medium">
@@ -138,14 +132,7 @@ export function Header() {
                 >
                   Görsellerim
                 </Link>
-                <Link 
-                  to="/sahneler" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Sahneler
-                </Link>
-                <Link 
+                <Link
                   to="/hesap" 
                   className="py-2 text-sm font-medium"
                   onClick={() => setMobileMenuOpen(false)}
