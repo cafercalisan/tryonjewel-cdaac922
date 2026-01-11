@@ -146,11 +146,15 @@ export default function Gallery() {
                           Görüntüle
                         </Button>
                       </div>
-                      {image.scenes && (
-                        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent">
-                          <p className="text-sm text-background font-medium">{image.scenes.name_tr}</p>
-                        </div>
-                      )}
+                      {/* Scene name or Master Package indicator */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent">
+                        <p className="text-sm text-background font-medium">
+                          {image.scenes?.name_tr || (image.generated_image_urls?.length === 3 ? 'Master Paket' : 'Özel Görsel')}
+                        </p>
+                        {image.generated_image_urls?.length > 1 && (
+                          <p className="text-xs text-background/70">{image.generated_image_urls.length} varyasyon</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
