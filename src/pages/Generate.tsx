@@ -3,19 +3,29 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight, UserPlus, AlertCircle } from "lucide-react";
+import { 
+  Upload, 
+  Check, 
+  Sparkles, 
+  ChevronRight, 
+  ChevronLeft,
+  Crown,
+  Image as ImageIcon,
+  Palette,
+  User,
+  Box
+} from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
-import { ColorPalette, colorPalette } from "@/components/generate/ColorPalette";
-import { ProductTypeSelector, productTypes } from "@/components/generate/ProductTypeSelector";
+import { colorPalette } from "@/components/generate/ColorPalette";
+import { productTypes } from "@/components/generate/ProductTypeSelector";
 import { ModelSelector } from "@/components/generate/ModelSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
+
 interface Scene {
   id: string;
   name: string;
@@ -33,34 +43,8 @@ interface Scene {
 type PackageType = 'standard' | 'master';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
-const sceneBackgrounds: Record<string, string> = {
-  "Siyah Kadife": "from-gray-900 via-gray-800 to-black",
-  "Şampanya İpek": "from-amber-100 via-yellow-50 to-orange-100",
-  "Bordo Kadife": "from-rose-900 via-red-800 to-rose-950",
-  "Fildişi Saten": "from-amber-50 via-orange-50 to-yellow-50",
-  "Beyaz Carrara Mermer": "from-gray-100 via-white to-gray-200",
-  "Siyah Mermer": "from-gray-900 via-zinc-800 to-black",
-  "Gri Granit": "from-gray-400 via-gray-300 to-gray-500",
-  "Lüks Hediye Kutusu": "from-amber-900 via-yellow-800 to-amber-950",
-  "Yüzük Standı": "from-gray-200 via-gray-100 to-gray-300",
-  "Takı Büstü": "from-gray-800 via-gray-700 to-gray-900",
-  "Cam Vitrin": "from-blue-100 via-cyan-50 to-teal-100",
-  "Gül Yaprakları": "from-rose-200 via-pink-100 to-rose-300",
-  "Doğal Taş": "from-stone-400 via-stone-300 to-stone-500",
-  "Boyun Portresi": "from-rose-100 via-pink-50 to-rose-200",
-  "El Yakın Çekim": "from-amber-100 via-orange-50 to-amber-200",
-  "Kulak Portresi": "from-purple-100 via-violet-50 to-purple-200",
-  "Bilek Çekimi": "from-amber-50 via-yellow-50 to-orange-100",
-  "Dekolte Çekimi": "from-rose-50 via-pink-50 to-rose-100",
-  "Tam Portre": "from-gray-100 via-slate-50 to-gray-200",
-};
-
-const lightBgScenes = [
-  "Şampanya İpek", "Fildişi Saten", "Beyaz Carrara Mermer", "Gri Granit",
-  "Yüzük Standı", "Cam Vitrin", "Gül Yaprakları", "Doğal Taş",
-  "Boyun Portresi", "El Yakın Çekim", "Kulak Portresi", "Bilek Çekimi",
-  "Dekolte Çekimi", "Tam Portre"
-];
+// Wizard steps
+type WizardStep = 1 | 2 | 3 | 4;
 
 export default function Generate() {
   const { user } = useAuth();
@@ -68,6 +52,9 @@ export default function Generate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
+
+  // Wizard state
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
   // Form state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -77,7 +64,7 @@ export default function Generate() {
   const [isCompressing, setIsCompressing] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
-  const [packageType, setPackageType] = useState<PackageType>('standard');
+  const [packageType, setPackageType] = useState<PackageType>('master');
   const [selectedColorId, setSelectedColorId] = useState<string>('white');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   
@@ -85,7 +72,6 @@ export default function Generate() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   const [currentImageIndex, setCurrentImageIndex] = useState(1);
-  const [expandedScene, setExpandedScene] = useState<Scene | null>(null);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -98,11 +84,10 @@ export default function Generate() {
 
   // Filter scenes based on selected product type
   const filteredScenes = useMemo(() => {
-    if (!scenes) return { urun: [], manken: [] };
+    if (!scenes) return [];
     
     let filtered = scenes;
     
-    // If product type is selected, filter by it
     if (selectedProductType && selectedProductType !== 'genel') {
       filtered = scenes.filter(s => 
         s.product_type_category === selectedProductType || 
@@ -110,17 +95,14 @@ export default function Generate() {
       );
     }
 
-    return {
-      urun: filtered.filter(s => s.category === 'urun' || s.sub_category === 'urun'),
-      manken: filtered.filter(s => s.category === 'manken' || s.sub_category === 'manken'),
-    };
+    return filtered;
   }, [scenes, selectedProductType]);
 
   const processFile = useCallback(async (file: File) => {
     setOriginalFileSize(file.size);
     setUploadedPreview(URL.createObjectURL(file));
     
-    const maxSize = 1.4 * 1024 * 1024; // 1.4MB to stay under 1.5MB limit
+    const maxSize = 1.4 * 1024 * 1024;
     
     if (file.size > maxSize) {
       setIsCompressing(true);
@@ -158,23 +140,33 @@ export default function Generate() {
     }
   }, [processFile]);
 
-  const handleSceneClick = (scene: Scene) => {
-    setExpandedScene(scene);
-  };
-
-  const handleSelectScene = (scene: Scene) => {
-    setSelectedSceneId(scene.id);
-    setExpandedScene(null);
-  };
-
   const creditsNeeded = packageType === 'master' ? 2 : 1;
   const totalImages = packageType === 'master' ? 3 : 1;
 
+  const canProceedFromStep = (step: WizardStep): boolean => {
+    switch (step) {
+      case 1:
+        return !!uploadedFile && !isCompressing;
+      case 2:
+        return !!selectedProductType;
+      case 3:
+        if (packageType === 'master') {
+          return !!selectedColorId;
+        }
+        return !!selectedSceneId;
+      case 4:
+        return true;
+      default:
+        return false;
+    }
+  };
+
   const canGenerate = useMemo(() => {
     if (!uploadedFile || !user || !profile || profile.credits < creditsNeeded) return false;
+    if (!selectedProductType) return false;
     
     if (packageType === 'master') {
-      return !!selectedProductType && !!selectedColorId;
+      return !!selectedColorId;
     }
     
     return !!selectedSceneId;
@@ -188,24 +180,22 @@ export default function Generate() {
     setCurrentImageIndex(1);
 
     try {
-      // Upload image
       const fileExt = uploadedFile!.name.split(".").pop();
       const filePath = `${user!.id}/originals/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, uploadedFile!);
       if (uploadError) throw uploadError;
 
-      // Call generate edge function
       setGenerationStep("generating");
 
       const body: any = {
         imagePath: filePath,
         packageType,
+        productType: selectedProductType,
       };
 
       if (packageType === 'master') {
         body.colorId = selectedColorId;
-        body.productType = selectedProductType;
         body.modelId = selectedModelId;
       } else {
         body.sceneId = selectedSceneId;
@@ -226,429 +216,444 @@ export default function Generate() {
     }
   };
 
-  const selectedScene = scenes?.find((s) => s.id === selectedSceneId);
+  const goToNextStep = () => {
+    if (currentStep < 4 && canProceedFromStep(currentStep)) {
+      setCurrentStep((prev) => (prev + 1) as WizardStep);
+    }
+  };
+
+  const goToPrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => (prev - 1) as WizardStep);
+    }
+  };
+
+  // Step titles
+  const stepTitles = {
+    1: 'Ürün Fotoğrafı',
+    2: 'Ürün Tipi',
+    3: packageType === 'master' ? 'Renk & Model' : 'Sahne Seçimi',
+    4: 'Önizleme',
+  };
+
+  if (isGenerating) {
+    return (
+      <AppLayout showFooter={false}>
+        <div className="container py-10 max-w-2xl mx-auto">
+          <GeneratingPanel 
+            step={generationStep} 
+            currentImageIndex={currentImageIndex}
+            totalImages={totalImages}
+            packageType={packageType}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout showFooter={false}>
-      {/* Scene Detail Modal */}
-      <Dialog open={!!expandedScene} onOpenChange={() => setExpandedScene(null)}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden">
-          {expandedScene && (
-            <div>
-              <div className={`aspect-video w-full bg-gradient-to-br ${sceneBackgrounds[expandedScene.name_tr] || "from-gray-200 to-gray-400"} flex items-center justify-center relative`}>
-                {expandedScene.preview_image_url ? (
-                  <img 
-                    src={expandedScene.preview_image_url} 
-                    alt={expandedScene.name_tr}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Sparkles className={`h-16 w-16 ${lightBgScenes.includes(expandedScene.name_tr) ? 'text-gray-600' : 'text-white'}`} />
-                )}
-                <button
-                  onClick={() => setExpandedScene(null)}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+      <div className="container py-6 md:py-10 max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl md:text-3xl font-semibold mb-2">Görsel Oluştur</h1>
+          <p className="text-muted-foreground text-sm">
+            4 adımda profesyonel mücevher görselleri oluşturun
+          </p>
+        </div>
 
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    expandedScene.category === 'urun' 
-                      ? 'bg-amber-100 text-amber-800' 
-                      : 'bg-rose-100 text-rose-800'
-                  }`}>
-                    {expandedScene.category === 'urun' ? 'Ürün Sahnesi' : 'Manken Sahnesi'}
-                  </span>
-                </div>
-                <h2 className="text-2xl font-semibold mb-2">{expandedScene.name_tr}</h2>
-                <p className="text-muted-foreground mb-6">{expandedScene.description_tr}</p>
-
-                <div className="flex gap-3">
-                  <Button size="lg" className="flex-1" onClick={() => handleSelectScene(expandedScene)}>
-                    <Check className="mr-2 h-5 w-5" />
-                    Bu Sahneyi Seç
-                  </Button>
-                  <Button size="lg" variant="outline" onClick={() => setExpandedScene(null)}>
-                    İptal
-                  </Button>
-                </div>
-              </div>
+        {/* Progress Steps */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {[1, 2, 3, 4].map((step) => (
+            <div key={step} className="flex items-center">
+              <button
+                onClick={() => step < currentStep && setCurrentStep(step as WizardStep)}
+                disabled={step > currentStep}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                  step === currentStep
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : step < currentStep
+                    ? 'bg-primary/20 text-primary cursor-pointer hover:bg-primary/30'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {step < currentStep ? <Check className="h-4 w-4" /> : step}
+              </button>
+              {step < 4 && (
+                <div className={`w-8 md:w-12 h-0.5 mx-1 ${
+                  step < currentStep ? 'bg-primary/40' : 'bg-muted'
+                }`} />
+              )}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          ))}
+        </div>
 
-      <div className="container py-6 md:py-10 animate-fade-in">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-semibold mb-2">Görsel Oluştur</h1>
-            <p className="text-muted-foreground">Mücevherinizi profesyonel sahnelerde sergileyin</p>
-          </div>
+        {/* Step Title */}
+        <div className="text-center mb-6">
+          <h2 className="text-lg font-medium">{stepTitles[currentStep]}</h2>
+        </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left: Upload & Settings */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-24 space-y-6">
-                {/* Upload Area */}
-                <div className="bg-card rounded-2xl p-6 border border-border shadow-luxury">
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Upload className="h-5 w-5 text-primary" />
-                    Ürün Fotoğrafı
-                  </h2>
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleFileDrop}
-                    className={`relative border-2 border-dashed rounded-xl p-4 transition-all ${
-                      uploadedPreview ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 bg-muted/30"
-                    }`}
-                  >
-                    {uploadedPreview ? (
-                      <div className="text-center">
-                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3 shadow-lg relative">
-                          <img src={uploadedPreview} alt="Uploaded jewelry" className="w-full h-full object-cover" />
-                          {isCompressing && (
-                            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                              <div className="text-center">
-                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                                <span className="text-sm text-muted-foreground">Sıkıştırılıyor...</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-center gap-2 text-primary mb-1">
-                          <Check className="h-4 w-4" />
-                          <span className="text-sm font-medium">Yüklendi</span>
-                        </div>
-                        {originalFileSize > compressedFileSize && compressedFileSize > 0 && (
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {formatFileSize(originalFileSize)} → {formatFileSize(compressedFileSize)}
-                          </p>
+        {/* Step Content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-card rounded-2xl border border-border p-6 mb-6"
+          >
+            {/* Step 1: Upload */}
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFileDrop}
+                  className={`relative border-2 border-dashed rounded-xl p-8 transition-all ${
+                    uploadedPreview 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/50 bg-muted/30"
+                  }`}
+                >
+                  {uploadedPreview ? (
+                    <div className="text-center">
+                      <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden bg-muted mb-4 shadow-lg relative">
+                        <img src={uploadedPreview} alt="Uploaded" className="w-full h-full object-cover" />
+                        {isCompressing && (
+                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          </div>
                         )}
-                        <label className="cursor-pointer">
-                          <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Değiştir</span>
-                          <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-                        </label>
                       </div>
-                    ) : (
-                      <label className="cursor-pointer block text-center py-6">
-                        <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium text-sm mb-1">Fotoğraf yükleyin</p>
-                        <p className="text-xs text-muted-foreground">veya sürükleyip bırakın</p>
+                      <div className="flex items-center justify-center gap-2 text-primary mb-2">
+                        <Check className="h-4 w-4" />
+                        <span className="font-medium">Yüklendi</span>
+                      </div>
+                      {originalFileSize > compressedFileSize && compressedFileSize > 0 && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Sıkıştırıldı: {formatFileSize(originalFileSize)} → {formatFileSize(compressedFileSize)}
+                        </p>
+                      )}
+                      <label className="cursor-pointer text-sm text-muted-foreground hover:text-primary transition-colors">
+                        Değiştir
                         <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                       </label>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block text-center py-8">
+                      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="font-medium mb-1">Mücevher fotoğrafınızı yükleyin</p>
+                      <p className="text-sm text-muted-foreground">veya sürükleyip bırakın</p>
+                      <p className="text-xs text-muted-foreground mt-2">Max 1.5MB • JPG, PNG, WebP</p>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                    </label>
+                  )}
                 </div>
 
                 {/* Package Type Selection */}
-                <div className="bg-card rounded-2xl p-6 border border-border shadow-luxury">
-                  <h2 className="text-lg font-semibold mb-4">Paket Seçimi</h2>
-                  <div className="space-y-3">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-center">Paket Seçin</p>
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setPackageType('standard')}
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
                         packageType === 'standard' 
                           ? 'border-primary bg-primary/5' 
                           : 'border-border hover:border-primary/30'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Standart</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Tek sahne, 1 görsel</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">1 Kredi</span>
-                          {packageType === 'standard' && (
-                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="h-3 w-3 text-primary-foreground" />
-                            </div>
-                          )}
+                          <p className="font-medium text-sm">Standart</p>
+                          <p className="text-xs text-muted-foreground">1 görsel • 1 kredi</p>
                         </div>
                       </div>
                     </button>
 
                     <button
                       onClick={() => setPackageType('master')}
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden ${
+                      className={`p-4 rounded-xl border-2 transition-all text-left relative ${
                         packageType === 'master' 
                           ? 'border-primary bg-primary/5' 
                           : 'border-border hover:border-primary/30'
                       }`}
                     >
-                      <div className="absolute top-0 right-0 bg-gradient-to-l from-primary to-primary/80 text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
-                        POPÜLER
+                      <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        ÖNERİLEN
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Crown className="h-5 w-5 text-primary" />
                         <div>
-                          <div className="flex items-center gap-2">
-                            <Crown className="h-4 w-4 text-primary" />
-                            <p className="font-medium">Master Paket</p>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">E-ticaret + Katalog + Manken</p>
+                          <p className="font-medium text-sm">Master</p>
+                          <p className="text-xs text-muted-foreground">3 görsel • 2 kredi</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">2 Kredi</span>
-                          {packageType === 'master' && (
-                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="h-3 w-3 text-primary-foreground" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 flex gap-1">
-                        {['E-Ticaret', 'Katalog', 'Manken'].map((label) => (
-                          <span key={label} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            {label}
-                          </span>
-                        ))}
                       </div>
                     </button>
                   </div>
                 </div>
-
-                {/* Generate Button */}
-                <Button
-                  size="lg"
-                  disabled={!canGenerate || isGenerating}
-                  onClick={handleGenerate}
-                  className="w-full h-14 text-base"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  {packageType === 'master' ? '3 Görsel Oluştur (2 Kredi)' : 'Görsel Oluştur (1 Kredi)'}
-                </Button>
-                
-                {profile && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    Mevcut krediniz: <span className="font-semibold text-foreground">{profile.credits}</span>
-                  </p>
-                )}
               </div>
-            </div>
+            )}
 
-            {/* Right: Scene Selection or Generating Panel */}
-            <div className="lg:col-span-2">
-              <AnimatePresence mode="wait">
-                {isGenerating ? (
-                  <motion.div
-                    key="generating"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="h-full min-h-[500px]"
+            {/* Step 2: Product Type */}
+            {currentStep === 2 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {productTypes.map((type) => (
+                  <motion.button
+                    key={type.id}
+                    onClick={() => setSelectedProductType(type.id)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`relative p-5 rounded-xl border-2 transition-all text-center ${
+                      selectedProductType === type.id
+                        ? 'border-primary bg-primary/5 shadow-md'
+                        : 'border-border hover:border-primary/30'
+                    }`}
                   >
-                    <GeneratingPanel 
-                      step={generationStep} 
-                      currentImageIndex={currentImageIndex}
-                      totalImages={totalImages}
-                      packageType={packageType}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="selection"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                  >
-                    {/* Product Type Selector */}
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium mb-3 text-muted-foreground">Ürün Tipi Seçin</h3>
-                      <ProductTypeSelector 
-                        selectedType={selectedProductType} 
-                        onSelectType={setSelectedProductType} 
-                      />
-                    </div>
-
-                    {/* Master Package: Color Selection & Model Selection */}
-                    {packageType === 'master' && (
-                      <div className="space-y-6 mb-6">
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          className="bg-card rounded-2xl p-6 border border-border shadow-luxury"
-                        >
-                          <ColorPalette 
-                            selectedColor={selectedColorId}
-                            onSelectColor={setSelectedColorId}
-                          />
-                        </motion.div>
-
-                        {/* Model Selection for Master Package */}
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          className="bg-card rounded-2xl p-6 border border-border shadow-luxury"
-                        >
-                          <ModelSelector
-                            selectedModelId={selectedModelId}
-                            onSelectModel={setSelectedModelId}
-                          />
-                        </motion.div>
-                      </div>
-                    )}
-
-                    {/* Standard Package: Scene Selection */}
-                    {packageType === 'standard' && (
-                      <div>
-                        <Tabs defaultValue="urun" className="w-full">
-                          <TabsList className="w-full grid grid-cols-2 mb-6">
-                            <TabsTrigger value="urun" className="flex items-center gap-2">
-                              <Box className="h-4 w-4" />
-                              Ürün ({filteredScenes.urun.length})
-                            </TabsTrigger>
-                            <TabsTrigger value="manken" className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              Manken ({filteredScenes.manken.length})
-                            </TabsTrigger>
-                          </TabsList>
-
-                          <TabsContent value="urun">
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {filteredScenes.urun.map((scene, index) => (
-                                <SceneCard
-                                  key={scene.id}
-                                  scene={scene}
-                                  selected={selectedSceneId === scene.id}
-                                  onSelect={() => setSelectedSceneId(scene.id)}
-                                  onViewDetails={() => handleSceneClick(scene)}
-                                  delay={index * 0.03}
-                                />
-                              ))}
-                            </div>
-                          </TabsContent>
-
-                          <TabsContent value="manken">
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {filteredScenes.manken.map((scene, index) => (
-                                <SceneCard
-                                  key={scene.id}
-                                  scene={scene}
-                                  selected={selectedSceneId === scene.id}
-                                  onSelect={() => setSelectedSceneId(scene.id)}
-                                  onViewDetails={() => handleSceneClick(scene)}
-                                  delay={index * 0.03}
-                                />
-                              ))}
-                            </div>
-                          </TabsContent>
-                        </Tabs>
-                      </div>
-                    )}
-
-                    {/* Master Package Info */}
-                    {packageType === 'master' && (
+                    <div className="text-3xl mb-2">{type.icon}</div>
+                    <p className="font-medium">{type.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
+                    
+                    {selectedProductType === type.id && (
                       <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6 border border-primary/20"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center"
                       >
-                        <h3 className="font-semibold mb-4 flex items-center gap-2">
-                          <Crown className="h-5 w-5 text-primary" />
-                          Master Paket İçeriği
-                        </h3>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="bg-background/50 rounded-xl p-4">
-                            <div className="text-2xl mb-2">🛒</div>
-                            <h4 className="font-medium text-sm mb-1">E-Ticaret Görseli</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Seçtiğiniz renk paletinde temiz arka plan, e-ticaret platformlarına uygun
-                            </p>
-                          </div>
-                          <div className="bg-background/50 rounded-xl p-4">
-                            <div className="text-2xl mb-2">📸</div>
-                            <h4 className="font-medium text-sm mb-1">Lüks Katalog</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Premium dokular, dramatik aydınlatma, dergi kalitesinde çekim
-                            </p>
-                          </div>
-                          <div className="bg-background/50 rounded-xl p-4">
-                            <div className="text-2xl mb-2">👤</div>
-                            <h4 className="font-medium text-sm mb-1">Manken Çekimi</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Ürün tipinize uygun doğal poz, gerçekçi cilt dokusu
-                            </p>
-                          </div>
-                        </div>
+                        <Check className="h-3.5 w-3.5 text-primary-foreground" />
                       </motion.div>
                     )}
-                  </motion.div>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+
+            {/* Step 3: Color/Scene Selection */}
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                {packageType === 'master' ? (
+                  <>
+                    {/* Color Selection */}
+                    <div>
+                      <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Palette className="h-4 w-4 text-primary" />
+                        Arka Plan Rengi
+                      </p>
+                      <div className="grid grid-cols-5 gap-3">
+                        {colorPalette.map((color) => (
+                          <motion.button
+                            key={color.id}
+                            onClick={() => setSelectedColorId(color.id)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`relative aspect-square rounded-xl border-2 transition-all ${
+                              selectedColorId === color.id
+                                ? 'border-primary shadow-lg ring-2 ring-primary/20'
+                                : 'border-border/50 hover:border-border'
+                            }`}
+                            style={{ backgroundColor: color.hex }}
+                            title={color.name}
+                          >
+                            {selectedColorId === color.id && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                                </div>
+                              </div>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                      {selectedColorId && (
+                        <p className="text-xs text-center text-muted-foreground mt-2">
+                          {colorPalette.find(c => c.id === selectedColorId)?.name}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Model Selection */}
+                    <div className="pt-4 border-t border-border">
+                      <ModelSelector
+                        selectedModelId={selectedModelId}
+                        onSelectModel={setSelectedModelId}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* Scene Selection for Standard Package */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
+                    {filteredScenes.map((scene) => (
+                      <motion.button
+                        key={scene.id}
+                        onClick={() => setSelectedSceneId(scene.id)}
+                        whileHover={{ scale: 1.02 }}
+                        className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                          selectedSceneId === scene.id 
+                            ? 'border-primary shadow-lg' 
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="aspect-[4/3] bg-muted">
+                          {scene.preview_image_url ? (
+                            <img 
+                              src={scene.preview_image_url} 
+                              alt={scene.name_tr}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                              <Sparkles className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 bg-card">
+                          <p className="text-xs font-medium truncate">{scene.name_tr}</p>
+                        </div>
+                        {selectedSceneId === scene.id && (
+                          <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-3 w-3 text-primary-foreground" />
+                          </div>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
-          </div>
+              </div>
+            )}
+
+            {/* Step 4: Preview & Generate */}
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                {/* Summary */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-muted/50 rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Ürün</p>
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
+                      {uploadedPreview && (
+                        <img src={uploadedPreview} alt="Product" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Ürün Tipi</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">
+                        {productTypes.find(t => t.id === selectedProductType)?.icon}
+                      </span>
+                      <span className="font-medium">
+                        {productTypes.find(t => t.id === selectedProductType)?.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {packageType === 'master' ? (
+                  <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Crown className="h-5 w-5 text-primary" />
+                      <p className="font-semibold">Master Paket</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-background/50 rounded-lg p-3">
+                        <div className="text-xl mb-1">🛒</div>
+                        <p className="text-xs font-medium">E-Ticaret</p>
+                      </div>
+                      <div className="bg-background/50 rounded-lg p-3">
+                        <div className="text-xl mb-1">📸</div>
+                        <p className="text-xs font-medium">Katalog</p>
+                      </div>
+                      <div className="bg-background/50 rounded-lg p-3">
+                        <div className="text-xl mb-1">👤</div>
+                        <p className="text-xs font-medium">Manken</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-primary/20">
+                      <span className="text-sm">Seçilen renk:</span>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-5 h-5 rounded-full border border-border"
+                          style={{ backgroundColor: colorPalette.find(c => c.id === selectedColorId)?.hex }}
+                        />
+                        <span className="text-sm font-medium">
+                          {colorPalette.find(c => c.id === selectedColorId)?.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-muted/50 rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Seçilen Sahne</p>
+                    <p className="font-medium">
+                      {scenes?.find(s => s.id === selectedSceneId)?.name_tr}
+                    </p>
+                  </div>
+                )}
+
+                {/* Credits Info */}
+                <div className="flex items-center justify-between bg-muted/30 rounded-xl p-4">
+                  <div>
+                    <p className="text-sm font-medium">Toplam Maliyet</p>
+                    <p className="text-xs text-muted-foreground">
+                      {totalImages} görsel oluşturulacak
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">{creditsNeeded}</p>
+                    <p className="text-xs text-muted-foreground">kredi</p>
+                  </div>
+                </div>
+
+                {profile && profile.credits < creditsNeeded && (
+                  <div className="bg-destructive/10 text-destructive rounded-xl p-4 text-center">
+                    <p className="text-sm font-medium">Yetersiz kredi</p>
+                    <p className="text-xs">Mevcut: {profile.credits} kredi</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            onClick={goToPrevStep}
+            disabled={currentStep === 1}
+            className="gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Geri
+          </Button>
+
+          {currentStep < 4 ? (
+            <Button
+              onClick={goToNextStep}
+              disabled={!canProceedFromStep(currentStep)}
+              className="gap-2"
+            >
+              İleri
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className="gap-2 min-w-[180px]"
+            >
+              <Sparkles className="h-4 w-4" />
+              Oluştur ({creditsNeeded} Kredi)
+            </Button>
+          )}
         </div>
+
+        {/* Credits Display */}
+        {profile && (
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            Mevcut krediniz: <span className="font-semibold text-foreground">{profile.credits}</span>
+          </p>
+        )}
       </div>
     </AppLayout>
-  );
-}
-
-function SceneCard({
-  scene,
-  selected,
-  onSelect,
-  onViewDetails,
-  delay = 0,
-}: {
-  scene: Scene;
-  selected: boolean;
-  onSelect: () => void;
-  onViewDetails: () => void;
-  delay?: number;
-}) {
-  const bgGradient = sceneBackgrounds[scene.name_tr] || "from-gray-200 via-gray-100 to-gray-300";
-  const isLightBg = lightBgScenes.includes(scene.name_tr);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay }}
-      className={`group relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
-        selected ? 'border-primary shadow-lg ring-2 ring-primary/20' : 'border-transparent hover:border-primary/30'
-      }`}
-      onClick={onSelect}
-    >
-      <div className={`aspect-[4/3] bg-gradient-to-br ${bgGradient} flex items-center justify-center relative`}>
-        {scene.preview_image_url ? (
-          <img 
-            src={scene.preview_image_url} 
-            alt={scene.name_tr}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <Sparkles className={`h-8 w-8 ${isLightBg ? 'text-gray-500' : 'text-white/70'}`} />
-        )}
-        
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetails();
-            }}
-            className="bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
-          >
-            Detay <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
-
-        {/* Selected indicator */}
-        {selected && (
-          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-            <Check className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
-        )}
-      </div>
-      
-      <div className="p-3 bg-card">
-        <p className="text-sm font-medium truncate">{scene.name_tr}</p>
-        <p className="text-xs text-muted-foreground truncate">{scene.description_tr}</p>
-      </div>
-    </motion.div>
   );
 }
