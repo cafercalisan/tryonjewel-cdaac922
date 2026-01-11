@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Landing from "./pages/Landing";
+import Examples from "./pages/Examples";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
@@ -30,6 +31,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/ornekler" element={<Examples />} />
             <Route path="/giris" element={<Login />} />
             <Route path="/kayit" element={<Signup />} />
             <Route path="/sahneler" element={<Scenes />} />
