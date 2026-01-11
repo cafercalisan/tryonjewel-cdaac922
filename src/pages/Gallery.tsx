@@ -159,91 +159,100 @@ export default function Gallery() {
           </>
         )}
 
-        {/* Detail Modal */}
+        {/* Detail Modal - Compact */}
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-base">
                 {selectedImage?.scenes?.name_tr || 'Görsel Detayı'}
               </DialogTitle>
             </DialogHeader>
             
             {selectedImage && (
-              <div className="grid md:grid-cols-[1fr,200px] gap-6">
-                <div>
-                  <div 
-                    className="aspect-[4/5] rounded-xl overflow-hidden bg-muted mb-4 cursor-zoom-in group relative"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxOpen(true);
-                      setLightboxScale(1);
-                    }}
-                  >
-                    {selectedImage.generated_image_urls?.[selectedVariation] && (
-                      <img 
-                        src={selectedImage.generated_image_urls[selectedVariation]} 
-                        alt="Generated jewelry"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <ZoomIn className="h-8 w-8 text-white drop-shadow-lg" />
-                    </div>
+              <div className="space-y-4">
+                {/* Main Image - Smaller */}
+                <div 
+                  className="aspect-[4/5] max-h-[50vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative mx-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxOpen(true);
+                    setLightboxScale(1);
+                  }}
+                >
+                  {selectedImage.generated_image_urls?.[selectedVariation] && (
+                    <img 
+                      src={selectedImage.generated_image_urls[selectedVariation]} 
+                      alt="Generated jewelry"
+                      className="w-full h-full object-contain"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
                   </div>
-                  
-                  {/* Thumbnails */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {selectedImage.generated_image_urls?.map((url, index) => (
+                </div>
+                
+                {/* Thumbnails - Horizontal */}
+                {selectedImage.generated_image_urls?.length > 1 && (
+                  <div className="flex justify-center gap-2">
+                    {selectedImage.generated_image_urls.map((url, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedVariation(index)}
-                        className={`aspect-[4/5] rounded-lg overflow-hidden ${
-                          selectedVariation === index ? 'ring-2 ring-primary' : 'opacity-70'
+                        className={`w-16 h-20 rounded-md overflow-hidden transition-all ${
+                          selectedVariation === index ? 'ring-2 ring-primary scale-105' : 'opacity-60 hover:opacity-100'
                         }`}
                       >
-                        <img src={url} alt={`Var ${index + 1}`} className="w-full h-full object-cover" />
+                        <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-3">
+                {/* Actions - Horizontal */}
+                <div className="flex items-center justify-center gap-2 pt-2">
                   <Button 
-                    className="w-full"
-                    onClick={() => handleDownload(selectedImage.generated_image_urls[selectedVariation], selectedVariation)}
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(selectedImage.generated_image_urls[selectedVariation], selectedVariation);
+                    }}
                   >
-                    <Download className="mr-2 h-4 w-4" />
+                    <Download className="mr-1.5 h-4 w-4" />
                     İndir
                   </Button>
                   <Button
+                    size="sm"
                     variant="outline"
-                    className="w-full"
                     onClick={(e) => {
                       e.stopPropagation();
                       setLightboxOpen(true);
                       setLightboxScale(1);
                     }}
                   >
-                    <ZoomIn className="mr-2 h-4 w-4" />
+                    <ZoomIn className="mr-1.5 h-4 w-4" />
                     Büyüt
                   </Button>
                   <Button 
+                    size="sm"
                     variant="destructive" 
-                    className="w-full"
-                    onClick={() => deleteMutation.mutate(selectedImage.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMutation.mutate(selectedImage.id);
+                    }}
                     disabled={deleteMutation.isPending}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Trash2 className="mr-1.5 h-4 w-4" />
                     Sil
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
                 </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
               </div>
             )}
           </DialogContent>
