@@ -390,10 +390,23 @@ ONLY valid JSON.`
       .update({ status: 'generating', analysis_data: analysisResult })
       .eq('id', imageRecord.id);
 
-    // Build fidelity block
-    const metalDesc = analysisResult.metal 
-      ? `${analysisResult.metal.finish || 'polished'} ${analysisResult.metal.type || 'gold'} (${analysisResult.metal.karat || '18k'})`
-      : 'polished gold';
+    // Build fidelity block with STRONG metal color preservation
+    const metalType = analysisResult.metal?.type || 'gold';
+    const metalFinish = analysisResult.metal?.finish || 'polished';
+    const metalKarat = analysisResult.metal?.karat || '18k';
+    const metalColorHex = analysisResult.metal?.color_hex || '';
+    
+    // Determine metal color category for strict enforcement
+    let metalColorCategory = 'yellow gold';
+    if (metalType === 'white_gold' || metalType === 'platinum' || metalType === 'silver') {
+      metalColorCategory = 'white/silver metal';
+    } else if (metalType === 'rose_gold') {
+      metalColorCategory = 'rose gold';
+    } else if (metalType === 'gold') {
+      metalColorCategory = 'yellow gold';
+    }
+    
+    const metalDesc = `${metalFinish} ${metalType.replace('_', ' ')} (${metalKarat})`;
     
     const stoneDesc = analysisResult.stones?.length > 0
       ? analysisResult.stones.map((s: any) => 
@@ -405,17 +418,35 @@ ONLY valid JSON.`
 JEWELRY SPECIFICATIONS (MUST BE PRESERVED EXACTLY):
 - Type: ${analysisResult.type || 'jewelry piece'}
 - Metal: ${metalDesc}
+- Metal Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Exact Metal Color Hex: ${metalColorHex}` : ''}
 ${stoneDesc ? `- Stones: ${stoneDesc}` : ''}
 - Style: ${analysisResult.design_elements?.style || 'classic'}
 ${analysisResult.unique_identifiers ? `- Unique features: ${analysisResult.unique_identifiers}` : ''}
 
+⚠️ ABSOLUTE METAL COLOR PRESERVATION (HIGHEST PRIORITY) ⚠️
+THE METAL COLOR MUST REMAIN EXACTLY AS IN THE ORIGINAL IMAGE:
+- Original metal type: ${metalType.replace('_', ' ').toUpperCase()}
+- Original metal color: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original hex color: ${metalColorHex}` : ''}
+
+STRICT METAL RULES:
+- If the original is YELLOW GOLD → output MUST be YELLOW GOLD (warm golden hue)
+- If the original is WHITE GOLD/PLATINUM/SILVER → output MUST be WHITE/SILVER metal (cool silver/platinum hue)
+- If the original is ROSE GOLD → output MUST be ROSE GOLD (pinkish golden hue)
+- NEVER convert yellow gold to white gold or vice versa
+- NEVER change the metal's warmth or coolness
+- NEVER alter the metal's reflective properties or surface finish
+- The metal must have IDENTICAL color temperature to the original
+
 CRITICAL FIDELITY REQUIREMENTS:
-1. EXACT stone count - no more, no less
-2. EXACT setting structure and prong positions
-3. EXACT metal color and surface finish
-4. EXACT proportions - do not resize
-5. EXACT design elements - preserve all patterns
-6. Natural realistic scale
+1. EXACT metal color - THIS IS THE MOST IMPORTANT RULE
+2. EXACT stone count - no more, no less
+3. EXACT setting structure and prong positions
+4. EXACT metal surface finish (${metalFinish})
+5. EXACT proportions - do not resize
+6. EXACT design elements - preserve all patterns
+7. Natural realistic scale
 
 DIAMOND AND GEMSTONE REALISM (CRITICAL):
 - Real diamond light behavior: fire (spectral dispersion), brilliance (white light reflection), scintillation
@@ -427,6 +458,8 @@ DIAMOND AND GEMSTONE REALISM (CRITICAL):
 - No artificial HDR glow, no CGI-like perfection
 
 FORBIDDEN:
+- ❌ CHANGING METAL COLOR (yellow↔white↔rose) - ABSOLUTELY FORBIDDEN
+- ❌ Altering metal warmth/coolness
 - No text, watermarks, logos
 - No design alterations
 - No additional jewelry pieces
