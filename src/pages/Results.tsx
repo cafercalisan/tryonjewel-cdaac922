@@ -1,17 +1,20 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
-import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
+import { downloadOriginalImage } from '@/lib/downloadImage';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Results() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const imageId = searchParams.get('id');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
 
   const { data: image, isLoading } = useQuery({
     queryKey: ['image', imageId],
@@ -39,13 +42,13 @@ export default function Results() {
 
   const handleDownload = async (url: string, index: number) => {
     if (!imageId) return;
-    await downloadImageAs4kJpeg({
-      url,
-      filenameBase: `jewelry-${imageId}-${index + 1}-4k`,
-      width: 3840,
-      height: 4800,
-      quality: 0.95,
-    });
+    // Download at original resolution for maximum quality
+    await downloadOriginalImage(url, `jewelry-${imageId}-${index + 1}-hd`);
+  };
+
+  const openLightbox = () => {
+    setZoomScale(1);
+    setLightboxOpen(true);
   };
 
   if (isLoading) {
@@ -141,13 +144,23 @@ export default function Results() {
           <div className="grid md:grid-cols-[1fr,300px] gap-8">
             {/* Main Image */}
             <div>
-              <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted shadow-luxury-lg mb-4">
+              <div 
+                className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted shadow-luxury-lg mb-4 cursor-zoom-in relative group"
+                onClick={openLightbox}
+              >
                 {selectedUrl && (
-                  <img 
-                    src={selectedUrl} 
-                    alt="Generated jewelry" 
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <img 
+                      src={selectedUrl} 
+                      alt="Generated jewelry" 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="bg-background/80 backdrop-blur-sm rounded-full p-3">
+                        <Maximize2 className="h-6 w-6 text-foreground" />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
               
@@ -228,6 +241,86 @@ export default function Results() {
           </div>
         </div>
       </div>
+
+      {/* Full-screen Lightbox for HD viewing */}
+      <AnimatePresence>
+        {lightboxOpen && selectedUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-background/98 backdrop-blur-xl flex items-center justify-center"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Controls */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+              <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full mr-2">
+                <span className="text-sm font-medium">{Math.round(zoomScale * 100)}%</span>
+              </div>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomScale(s => Math.max(0.5, s - 0.25));
+                }}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomScale(s => Math.min(4, s + 0.25));
+                }}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(selectedUrl, selectedIndex);
+                }}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={() => setLightboxOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* HD Image with zoom */}
+            <motion.img
+              src={selectedUrl}
+              alt="High resolution jewelry view"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: zoomScale, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl cursor-grab active:cursor-grabbing"
+              onClick={(e) => e.stopPropagation()}
+              drag
+              dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+              dragElastic={0.1}
+              style={{ imageRendering: zoomScale > 1 ? 'auto' : 'auto' }}
+            />
+
+            {/* Instructions */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-4 py-2 rounded-full">
+              <span className="text-sm text-muted-foreground">
+                Yakınlaştırmak için + / - kullanın • Sürükleyerek hareket ettirin
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
