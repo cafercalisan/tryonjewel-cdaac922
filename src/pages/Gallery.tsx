@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ImageRecord {
   id: string;
@@ -26,6 +27,8 @@ export default function Gallery() {
   const queryClient = useQueryClient();
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null);
   const [selectedVariation, setSelectedVariation] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxScale, setLightboxScale] = useState(1);
 
   const { data: images, isLoading } = useQuery({
     queryKey: ['images', user?.id],
@@ -190,7 +193,13 @@ export default function Gallery() {
             {selectedImage && (
               <div className="grid md:grid-cols-[1fr,200px] gap-6">
                 <div>
-                  <div className="aspect-[4/5] rounded-xl overflow-hidden bg-muted mb-4">
+                  <div 
+                    className="aspect-[4/5] rounded-xl overflow-hidden bg-muted mb-4 cursor-zoom-in group relative"
+                    onClick={() => {
+                      setLightboxOpen(true);
+                      setLightboxScale(1);
+                    }}
+                  >
                     {selectedImage.generated_image_urls?.[selectedVariation] && (
                       <img 
                         src={selectedImage.generated_image_urls[selectedVariation]} 
@@ -198,6 +207,9 @@ export default function Gallery() {
                         className="w-full h-full object-cover"
                       />
                     )}
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <ZoomIn className="h-8 w-8 text-white drop-shadow-lg" />
+                    </div>
                   </div>
                   
                   {/* Thumbnails */}
@@ -224,6 +236,17 @@ export default function Gallery() {
                     <Download className="mr-2 h-4 w-4" />
                     İndir
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setLightboxOpen(true);
+                      setLightboxScale(1);
+                    }}
+                  >
+                    <ZoomIn className="mr-2 h-4 w-4" />
+                    Büyüt
+                  </Button>
                   <Button 
                     variant="destructive" 
                     className="w-full"
@@ -245,6 +268,79 @@ export default function Gallery() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Fullscreen Lightbox */}
+        <AnimatePresence>
+          {lightboxOpen && selectedImage?.generated_image_urls?.[selectedVariation] && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
+              onClick={() => setLightboxOpen(false)}
+            >
+              {/* Controls */}
+              <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxScale(s => Math.max(0.5, s - 0.25));
+                  }}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxScale(s => Math.min(3, s + 0.25));
+                  }}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(selectedImage.generated_image_urls[selectedVariation], selectedVariation);
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={() => setLightboxOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Image */}
+              <motion.img
+                src={selectedImage.generated_image_urls[selectedVariation]}
+                alt="Generated jewelry fullscreen"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: lightboxScale }}
+                exit={{ scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+                drag
+                dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              />
+
+              {/* Scale indicator */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </AppLayout>
   );

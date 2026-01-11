@@ -1,16 +1,19 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Upload, Check, Loader2, AlertCircle, Sparkles, X, Box, User, Gem } from "lucide-react";
+import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
+import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
+import { ColorPalette, colorPalette } from "@/components/generate/ColorPalette";
+import { ProductTypeSelector, productTypes } from "@/components/generate/ProductTypeSelector";
 
 interface Scene {
   id: string;
@@ -22,9 +25,13 @@ interface Scene {
   prompt: string;
   preview_image_url: string | null;
   sort_order: number;
+  product_type_category: string;
+  sub_category: string;
 }
 
-// Scene background gradients for visual appeal
+type PackageType = 'standard' | 'master';
+type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
+
 const sceneBackgrounds: Record<string, string> = {
   "Siyah Kadife": "from-gray-900 via-gray-800 to-black",
   "Şampanya İpek": "from-amber-100 via-yellow-50 to-orange-100",
@@ -61,25 +68,48 @@ export default function Generate() {
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
+  // Form state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+  const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
+  const [packageType, setPackageType] = useState<PackageType>('standard');
+  const [selectedColorId, setSelectedColorId] = useState<string>('white');
+  
+  // UI state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStep, setGenerationStep] = useState<"idle" | "analyzing" | "generating">("idle");
+  const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
+  const [currentImageIndex, setCurrentImageIndex] = useState(1);
   const [expandedScene, setExpandedScene] = useState<Scene | null>(null);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
     queryFn: async (): Promise<Scene[]> => {
       const { data, error } = await supabase.from("scenes").select("*").order("sort_order");
-
       if (error) throw error;
-      return data;
+      return data as Scene[];
     },
   });
 
-  const urunScenes = scenes?.filter((s) => s.category === "urun") || [];
-  const mankenScenes = scenes?.filter((s) => s.category === "manken") || [];
+  // Filter scenes based on selected product type
+  const filteredScenes = useMemo(() => {
+    if (!scenes) return { urun: [], manken: [] };
+    
+    let filtered = scenes;
+    
+    // If product type is selected, filter by it
+    if (selectedProductType && selectedProductType !== 'genel') {
+      filtered = scenes.filter(s => 
+        s.product_type_category === selectedProductType || 
+        s.product_type_category === 'genel'
+      );
+    }
+
+    return {
+      urun: filtered.filter(s => s.category === 'urun' || s.sub_category === 'urun'),
+      manken: filtered.filter(s => s.category === 'manken' || s.sub_category === 'manken'),
+    };
+  }, [scenes, selectedProductType]);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -107,35 +137,50 @@ export default function Generate() {
     setExpandedScene(null);
   };
 
-  const handleGenerate = async () => {
-    if (!uploadedFile || !selectedSceneId || !user) return;
+  const creditsNeeded = packageType === 'master' ? 2 : 1;
+  const totalImages = packageType === 'master' ? 3 : 1;
 
-    if (!profile || profile.credits <= 0) {
-      toast.error("Yetersiz kredi. Lütfen kredi satın alın.");
-      return;
+  const canGenerate = useMemo(() => {
+    if (!uploadedFile || !user || !profile || profile.credits < creditsNeeded) return false;
+    
+    if (packageType === 'master') {
+      return !!selectedProductType && !!selectedColorId;
     }
+    
+    return !!selectedSceneId;
+  }, [uploadedFile, user, profile, creditsNeeded, packageType, selectedProductType, selectedColorId, selectedSceneId]);
+
+  const handleGenerate = async () => {
+    if (!canGenerate) return;
 
     setIsGenerating(true);
     setGenerationStep("analyzing");
+    setCurrentImageIndex(1);
 
     try {
-      // 1. Upload image to storage
-      const fileExt = uploadedFile.name.split(".").pop();
-      const filePath = `${user.id}/originals/${Date.now()}.${fileExt}`;
+      // Upload image
+      const fileExt = uploadedFile!.name.split(".").pop();
+      const filePath = `${user!.id}/originals/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, uploadedFile);
-
+      const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, uploadedFile!);
       if (uploadError) throw uploadError;
 
-      // 2. Call generate edge function with file path
+      // Call generate edge function
       setGenerationStep("generating");
 
-      const { data, error } = await supabase.functions.invoke("generate-jewelry", {
-        body: {
-          imagePath: filePath,
-          sceneId: selectedSceneId,
-        },
-      });
+      const body: any = {
+        imagePath: filePath,
+        packageType,
+      };
+
+      if (packageType === 'master') {
+        body.colorId = selectedColorId;
+        body.productType = selectedProductType;
+      } else {
+        body.sceneId = selectedSceneId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
 
       if (error) throw error;
 
@@ -154,54 +199,11 @@ export default function Generate() {
 
   return (
     <AppLayout showFooter={false}>
-      {/* Generation Overlay */}
-      <AnimatePresence>
-        {isGenerating && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center"
-          >
-            <div className="text-center space-y-6 max-w-md px-6">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-primary via-purple-500 to-pink-500 flex items-center justify-center shadow-2xl"
-              >
-                <Gem className="h-12 w-12 text-white" />
-              </motion.div>
-              <div>
-                <h2 className="text-2xl font-bold mb-2">
-                  {generationStep === "analyzing" ? "Ürün Analiz Ediliyor" : "Görseller Oluşturuluyor"}
-                </h2>
-                <p className="text-muted-foreground">
-                  {generationStep === "analyzing" 
-                    ? "AI mücevherinizin detaylarını analiz ediyor..." 
-                    : "2 farklı varyasyon oluşturuluyor..."}
-                </p>
-              </div>
-              <div className="flex justify-center gap-1.5">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-2.5 h-2.5 rounded-full bg-primary"
-                    animate={{ y: [0, -12, 0], opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
-                  />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Scene Detail Modal */}
       <Dialog open={!!expandedScene} onOpenChange={() => setExpandedScene(null)}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden">
           {expandedScene && (
             <div>
-              {/* Scene Preview */}
               <div className={`aspect-video w-full bg-gradient-to-br ${sceneBackgrounds[expandedScene.name_tr] || "from-gray-200 to-gray-400"} flex items-center justify-center relative`}>
                 {expandedScene.preview_image_url ? (
                   <img 
@@ -210,9 +212,7 @@ export default function Generate() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-center">
-                    <Sparkles className={`h-16 w-16 mx-auto mb-2 ${lightBgScenes.includes(expandedScene.name_tr) ? 'text-gray-600' : 'text-white'}`} />
-                  </div>
+                  <Sparkles className={`h-16 w-16 ${lightBgScenes.includes(expandedScene.name_tr) ? 'text-gray-600' : 'text-white'}`} />
                 )}
                 <button
                   onClick={() => setExpandedScene(null)}
@@ -222,7 +222,6 @@ export default function Generate() {
                 </button>
               </div>
 
-              {/* Scene Info */}
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -237,19 +236,11 @@ export default function Generate() {
                 <p className="text-muted-foreground mb-6">{expandedScene.description_tr}</p>
 
                 <div className="flex gap-3">
-                  <Button
-                    size="lg"
-                    className="flex-1"
-                    onClick={() => handleSelectScene(expandedScene)}
-                  >
+                  <Button size="lg" className="flex-1" onClick={() => handleSelectScene(expandedScene)}>
                     <Check className="mr-2 h-5 w-5" />
                     Bu Sahneyi Seç
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setExpandedScene(null)}
-                  >
+                  <Button size="lg" variant="outline" onClick={() => setExpandedScene(null)}>
                     İptal
                   </Button>
                 </div>
@@ -260,27 +251,19 @@ export default function Generate() {
       </Dialog>
 
       <div className="container py-6 md:py-10 animate-fade-in">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-semibold mb-2">Görsel Oluştur</h1>
             <p className="text-muted-foreground">Mücevherinizi profesyonel sahnelerde sergileyin</p>
           </div>
 
-          {/* Credits Warning */}
-          {profile && profile.credits <= 0 && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 mb-6 flex items-center gap-3 max-w-2xl mx-auto">
-              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
-              <p className="text-sm">Krediniz kalmadı. Görsel oluşturmak için kredi satın alın.</p>
-            </div>
-          )}
-
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left: Upload Section */}
+            {/* Left: Upload & Settings */}
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-6">
                 {/* Upload Area */}
-                <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
+                <div className="bg-card rounded-2xl p-6 border border-border shadow-luxury">
                   <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Upload className="h-5 w-5 text-primary" />
                     Ürün Fotoğrafı
@@ -288,16 +271,16 @@ export default function Generate() {
                   <div
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleFileDrop}
-                    className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+                    className={`relative border-2 border-dashed rounded-xl p-4 transition-all ${
                       uploadedPreview ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 bg-muted/30"
                     }`}
                   >
                     {uploadedPreview ? (
                       <div className="text-center">
-                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-4 shadow-lg">
+                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3 shadow-lg">
                           <img src={uploadedPreview} alt="Uploaded jewelry" className="w-full h-full object-cover" />
                         </div>
-                        <div className="flex items-center justify-center gap-2 text-primary mb-2">
+                        <div className="flex items-center justify-center gap-2 text-primary mb-1">
                           <Check className="h-4 w-4" />
                           <span className="text-sm font-medium">Yüklendi</span>
                         </div>
@@ -307,7 +290,7 @@ export default function Generate() {
                         </label>
                       </div>
                     ) : (
-                      <label className="cursor-pointer block text-center py-4">
+                      <label className="cursor-pointer block text-center py-6">
                         <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                         <p className="font-medium text-sm mb-1">Fotoğraf yükleyin</p>
                         <p className="text-xs text-muted-foreground">veya sürükleyip bırakın</p>
@@ -317,84 +300,227 @@ export default function Generate() {
                   </div>
                 </div>
 
-                {/* Selected Scene & Generate */}
-                <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
-                  <h2 className="text-lg font-semibold mb-4">Özet</h2>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Seçilen Sahne</p>
-                      <p className="font-medium text-sm">{selectedScene ? selectedScene.name_tr : "Henüz seçilmedi"}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Çıktı</p>
-                      <p className="font-medium text-sm">2 Varyasyon</p>
-                    </div>
-
-                    <div className="pt-2 border-t border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Maliyet</p>
-                      <p className="font-semibold">1 Kredi</p>
-                    </div>
-
-                    <Button
-                      size="lg"
-                      disabled={!uploadedFile || !selectedSceneId || isGenerating || !profile || profile.credits <= 0}
-                      onClick={handleGenerate}
-                      className="w-full"
+                {/* Package Type Selection */}
+                <div className="bg-card rounded-2xl p-6 border border-border shadow-luxury">
+                  <h2 className="text-lg font-semibold mb-4">Paket Seçimi</h2>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setPackageType('standard')}
+                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                        packageType === 'standard' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/30'
+                      }`}
                     >
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Görsel Oluştur
-                    </Button>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Standart</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Tek sahne, 1 görsel</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">1 Kredi</span>
+                          {packageType === 'standard' && (
+                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPackageType('master')}
+                      className={`w-full p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden ${
+                        packageType === 'master' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-primary to-primary/80 text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                        POPÜLER
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Crown className="h-4 w-4 text-primary" />
+                            <p className="font-medium">Master Paket</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">E-ticaret + Katalog + Manken</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">2 Kredi</span>
+                          {packageType === 'master' && (
+                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex gap-1">
+                        {['E-Ticaret', 'Katalog', 'Manken'].map((label) => (
+                          <span key={label} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
                   </div>
                 </div>
+
+                {/* Generate Button */}
+                <Button
+                  size="lg"
+                  disabled={!canGenerate || isGenerating}
+                  onClick={handleGenerate}
+                  className="w-full h-14 text-base"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  {packageType === 'master' ? '3 Görsel Oluştur (2 Kredi)' : 'Görsel Oluştur (1 Kredi)'}
+                </Button>
+                
+                {profile && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Mevcut krediniz: <span className="font-semibold text-foreground">{profile.credits}</span>
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Right: Scene Selection */}
+            {/* Right: Scene Selection or Generating Panel */}
             <div className="lg:col-span-2">
-              <Tabs defaultValue="urun" className="w-full">
-                <TabsList className="w-full grid grid-cols-2 mb-6">
-                  <TabsTrigger value="urun" className="flex items-center gap-2">
-                    <Box className="h-4 w-4" />
-                    Ürün ({urunScenes.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="manken" className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Manken ({mankenScenes.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="urun">
-                  <div className="space-y-3">
-                    {urunScenes.map((scene, index) => (
-                      <SceneListItem
-                        key={scene.id}
-                        scene={scene}
-                        selected={selectedSceneId === scene.id}
-                        onSelect={() => setSelectedSceneId(scene.id)}
-                        onViewDetails={() => handleSceneClick(scene)}
-                        delay={index * 0.03}
+              <AnimatePresence mode="wait">
+                {isGenerating ? (
+                  <motion.div
+                    key="generating"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="h-full min-h-[500px]"
+                  >
+                    <GeneratingPanel 
+                      step={generationStep} 
+                      currentImageIndex={currentImageIndex}
+                      totalImages={totalImages}
+                      packageType={packageType}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="selection"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                  >
+                    {/* Product Type Selector */}
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium mb-3 text-muted-foreground">Ürün Tipi Seçin</h3>
+                      <ProductTypeSelector 
+                        selectedType={selectedProductType} 
+                        onSelectType={setSelectedProductType} 
                       />
-                    ))}
-                  </div>
-                </TabsContent>
+                    </div>
 
-                <TabsContent value="manken">
-                  <div className="space-y-3">
-                    {mankenScenes.map((scene, index) => (
-                      <SceneListItem
-                        key={scene.id}
-                        scene={scene}
-                        selected={selectedSceneId === scene.id}
-                        onSelect={() => setSelectedSceneId(scene.id)}
-                        onViewDetails={() => handleSceneClick(scene)}
-                        delay={index * 0.03}
-                      />
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
+                    {/* Master Package: Color Selection */}
+                    {packageType === 'master' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mb-6 bg-card rounded-2xl p-6 border border-border shadow-luxury"
+                      >
+                        <ColorPalette 
+                          selectedColor={selectedColorId}
+                          onSelectColor={setSelectedColorId}
+                        />
+                      </motion.div>
+                    )}
+
+                    {/* Standard Package: Scene Selection */}
+                    {packageType === 'standard' && (
+                      <div>
+                        <Tabs defaultValue="urun" className="w-full">
+                          <TabsList className="w-full grid grid-cols-2 mb-6">
+                            <TabsTrigger value="urun" className="flex items-center gap-2">
+                              <Box className="h-4 w-4" />
+                              Ürün ({filteredScenes.urun.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="manken" className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              Manken ({filteredScenes.manken.length})
+                            </TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="urun">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {filteredScenes.urun.map((scene, index) => (
+                                <SceneCard
+                                  key={scene.id}
+                                  scene={scene}
+                                  selected={selectedSceneId === scene.id}
+                                  onSelect={() => setSelectedSceneId(scene.id)}
+                                  onViewDetails={() => handleSceneClick(scene)}
+                                  delay={index * 0.03}
+                                />
+                              ))}
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent value="manken">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {filteredScenes.manken.map((scene, index) => (
+                                <SceneCard
+                                  key={scene.id}
+                                  scene={scene}
+                                  selected={selectedSceneId === scene.id}
+                                  onSelect={() => setSelectedSceneId(scene.id)}
+                                  onViewDetails={() => handleSceneClick(scene)}
+                                  delay={index * 0.03}
+                                />
+                              ))}
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    )}
+
+                    {/* Master Package Info */}
+                    {packageType === 'master' && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6 border border-primary/20"
+                      >
+                        <h3 className="font-semibold mb-4 flex items-center gap-2">
+                          <Crown className="h-5 w-5 text-primary" />
+                          Master Paket İçeriği
+                        </h3>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="bg-background/50 rounded-xl p-4">
+                            <div className="text-2xl mb-2">🛒</div>
+                            <h4 className="font-medium text-sm mb-1">E-Ticaret Görseli</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Seçtiğiniz renk paletinde temiz arka plan, e-ticaret platformlarına uygun
+                            </p>
+                          </div>
+                          <div className="bg-background/50 rounded-xl p-4">
+                            <div className="text-2xl mb-2">📸</div>
+                            <h4 className="font-medium text-sm mb-1">Lüks Katalog</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Premium dokular, dramatik aydınlatma, dergi kalitesinde çekim
+                            </p>
+                          </div>
+                          <div className="bg-background/50 rounded-xl p-4">
+                            <div className="text-2xl mb-2">👤</div>
+                            <h4 className="font-medium text-sm mb-1">Manken Çekimi</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Ürün tipinize uygun doğal poz, gerçekçi cilt dokusu
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -403,7 +529,7 @@ export default function Generate() {
   );
 }
 
-function SceneListItem({
+function SceneCard({
   scene,
   selected,
   onSelect,
@@ -424,15 +550,12 @@ function SceneListItem({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
-      className={`relative flex items-center gap-4 p-3 rounded-xl border transition-all cursor-pointer ${
-        selected 
-          ? "border-primary bg-primary/5 shadow-md" 
-          : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
+      className={`group relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
+        selected ? 'border-primary shadow-lg ring-2 ring-primary/20' : 'border-transparent hover:border-primary/30'
       }`}
       onClick={onSelect}
     >
-      {/* Thumbnail */}
-      <div className={`relative w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br ${bgGradient}`}>
+      <div className={`aspect-[4/3] bg-gradient-to-br ${bgGradient} flex items-center justify-center relative`}>
         {scene.preview_image_url ? (
           <img 
             src={scene.preview_image_url} 
@@ -440,58 +563,33 @@ function SceneListItem({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className={`h-8 w-8 ${isLightBg ? 'text-gray-500' : 'text-white/60'}`} />
+          <Sparkles className={`h-8 w-8 ${isLightBg ? 'text-gray-500' : 'text-white/70'}`} />
+        )}
+        
+        {/* Overlay on hover */}
+        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails();
+            }}
+            className="bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
+          >
+            Detay <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        {/* Selected indicator */}
+        {selected && (
+          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+            <Check className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
         )}
       </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-semibold text-sm md:text-base truncate">{scene.name_tr}</h3>
-          {selected && (
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-              <Check className="h-3 w-3 text-primary-foreground" />
-            </span>
-          )}
-        </div>
-        <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
-          {scene.description_tr}
-        </p>
-      </div>
-
-      {/* Actions */}
-      <div className="flex-shrink-0 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="hidden md:flex text-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetails();
-          }}
-        >
-          Detaylar
-        </Button>
-        <Button
-          variant={selected ? "default" : "outline"}
-          size="sm"
-          className="text-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-        >
-          {selected ? (
-            <>
-              <Check className="h-3 w-3 mr-1" />
-              Seçildi
-            </>
-          ) : (
-            "Seç"
-          )}
-        </Button>
+      
+      <div className="p-3 bg-card">
+        <p className="text-sm font-medium truncate">{scene.name_tr}</p>
+        <p className="text-xs text-muted-foreground truncate">{scene.description_tr}</p>
       </div>
     </motion.div>
   );

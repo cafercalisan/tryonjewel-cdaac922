@@ -4,7 +4,8 @@ import { Gem, Sparkles, Lightbulb } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
-  step: 'analyzing' | 'generating' | 'finalizing';
+  step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
+  
   currentImageIndex?: number;
   totalImages?: number;
   packageType?: 'standard' | 'master';
