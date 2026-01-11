@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, ZoomIn, X, ZoomOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Import showcase images
 import earringOriginal from '@/assets/showcase/earring-original.webp';
@@ -67,6 +68,9 @@ const showcaseItems: ShowcaseItem[] = [
 export function BeforeAfterShowcase() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string; type: 'before' | 'after' } | null>(null);
+  const [lightboxScale, setLightboxScale] = useState(1);
 
   const currentItem = showcaseItems[activeIndex];
 
@@ -80,6 +84,12 @@ export function BeforeAfterShowcase() {
 
     return () => clearInterval(interval);
   }, [isHovered]);
+
+  const openLightbox = (src: string, alt: string, type: 'before' | 'after') => {
+    setLightboxImage({ src, alt, type });
+    setLightboxScale(1);
+    setLightboxOpen(true);
+  };
 
   return (
     <section className="py-20 md:py-28 overflow-hidden">
@@ -128,13 +138,19 @@ export function BeforeAfterShowcase() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.4 }}
-                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-border/50 shadow-luxury"
+                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-border/50 shadow-luxury cursor-zoom-in group relative"
+                onClick={() => openLightbox(currentItem.original, `${currentItem.name} - Önce`, 'before')}
               >
                 <img
                   src={currentItem.original}
                   alt={`${currentItem.name} - Önce`}
                   className="w-full h-full object-cover"
                 />
+                <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="w-12 h-12 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                    <ZoomIn className="h-6 w-6" />
+                  </div>
+                </div>
               </motion.div>
             </motion.div>
 
@@ -156,13 +172,19 @@ export function BeforeAfterShowcase() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.4 }}
-                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-primary/20 shadow-luxury-lg"
+                className="aspect-square rounded-2xl overflow-hidden bg-muted border border-primary/20 shadow-luxury-lg cursor-zoom-in group relative"
+                onClick={() => openLightbox(currentItem.result, `${currentItem.name} - Sonra`, 'after')}
               >
                 <img
                   src={currentItem.result}
                   alt={`${currentItem.name} - Sonra`}
                   className="w-full h-full object-cover"
                 />
+                <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="w-12 h-12 rounded-full bg-primary/80 backdrop-blur-sm flex items-center justify-center">
+                    <ZoomIn className="h-6 w-6 text-primary-foreground" />
+                  </div>
+                </div>
               </motion.div>
             </motion.div>
           </div>
@@ -207,6 +229,78 @@ export function BeforeAfterShowcase() {
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Controls */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxScale(s => Math.max(0.5, s - 0.25));
+                }}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxScale(s => Math.min(3, s + 0.25));
+                }}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={() => setLightboxOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Image */}
+            <motion.img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: lightboxScale }}
+              exit={{ scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              drag
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+            />
+
+            {/* Info */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+              <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                lightboxImage.type === 'after' 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-secondary text-secondary-foreground'
+              }`}>
+                {lightboxImage.type === 'after' ? 'Sonra' : 'Önce'}
+              </span>
+              <span className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium">
+                {Math.round(lightboxScale * 100)}%
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
