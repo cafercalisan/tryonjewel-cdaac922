@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight } from "lucide-react";
+import { Upload, Check, Sparkles, X, Box, User, Crown, ChevronRight, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { ColorPalette, colorPalette } from "@/components/generate/ColorPalette";
 import { ProductTypeSelector, productTypes } from "@/components/generate/ProductTypeSelector";
-
+import { ModelSelector } from "@/components/generate/ModelSelector";
 interface Scene {
   id: string;
   name: string;
@@ -75,6 +75,7 @@ export default function Generate() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('standard');
   const [selectedColorId, setSelectedColorId] = useState<string>('white');
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -176,6 +177,7 @@ export default function Generate() {
       if (packageType === 'master') {
         body.colorId = selectedColorId;
         body.productType = selectedProductType;
+        body.modelId = selectedModelId;
       } else {
         body.sceneId = selectedSceneId;
       }
@@ -420,18 +422,32 @@ export default function Generate() {
                       />
                     </div>
 
-                    {/* Master Package: Color Selection */}
+                    {/* Master Package: Color Selection & Model Selection */}
                     {packageType === 'master' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="mb-6 bg-card rounded-2xl p-6 border border-border shadow-luxury"
-                      >
-                        <ColorPalette 
-                          selectedColor={selectedColorId}
-                          onSelectColor={setSelectedColorId}
-                        />
-                      </motion.div>
+                      <div className="space-y-6 mb-6">
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="bg-card rounded-2xl p-6 border border-border shadow-luxury"
+                        >
+                          <ColorPalette 
+                            selectedColor={selectedColorId}
+                            onSelectColor={setSelectedColorId}
+                          />
+                        </motion.div>
+
+                        {/* Model Selection for Master Package */}
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="bg-card rounded-2xl p-6 border border-border shadow-luxury"
+                        >
+                          <ModelSelector
+                            selectedModelId={selectedModelId}
+                            onSelectModel={setSelectedModelId}
+                          />
+                        </motion.div>
+                      </div>
                     )}
 
                     {/* Standard Package: Scene Selection */}
