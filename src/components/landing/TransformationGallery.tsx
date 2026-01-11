@@ -1,5 +1,7 @@
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, ZoomIn, X, ZoomOut, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import emeraldBraceletResult1 from '@/assets/showcase/emerald-bracelet-result-1.webp';
 import emeraldBraceletResult2 from '@/assets/showcase/emerald-bracelet-result-2.webp';
@@ -43,6 +45,16 @@ const itemVariants = {
 };
 
 export function TransformationGallery() {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxScale, setLightboxScale] = useState(1);
+
+  const openLightbox = (image: { src: string; alt: string }) => {
+    setLightboxImage(image);
+    setLightboxScale(1);
+    setLightboxOpen(true);
+  };
+
   return (
     <section className="py-20 md:py-28 bg-muted/30">
       <div className="container">
@@ -76,9 +88,10 @@ export function TransformationGallery() {
               className="mb-6 break-inside-avoid"
             >
               <motion.div
-                className="relative group rounded-2xl overflow-hidden shadow-luxury"
+                className="relative group rounded-2xl overflow-hidden shadow-luxury cursor-zoom-in"
                 whileHover={{ y: -8 }}
                 transition={{ duration: 0.3 }}
+                onClick={() => openLightbox(image)}
               >
                 <img
                   src={image.src}
@@ -90,9 +103,14 @@ export function TransformationGallery() {
                 <motion.div 
                   className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                 >
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <p className="text-primary-foreground font-medium">{image.alt}</p>
-                    <p className="text-primary-foreground/70 text-sm">AI ile oluşturuldu</p>
+                  <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                    <div>
+                      <p className="text-primary-foreground font-medium">{image.alt}</p>
+                      <p className="text-primary-foreground/70 text-sm">AI ile oluşturuldu</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-background/20 backdrop-blur-sm flex items-center justify-center">
+                      <ZoomIn className="h-5 w-5 text-white" />
+                    </div>
                   </div>
                 </motion.div>
                 
@@ -119,6 +137,70 @@ export function TransformationGallery() {
           </p>
         </motion.div>
       </div>
+
+      {/* Fullscreen Lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Controls */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxScale(s => Math.max(0.5, s - 0.25));
+                }}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxScale(s => Math.min(3, s + 0.25));
+                }}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={() => setLightboxOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Image */}
+            <motion.img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: lightboxScale }}
+              exit={{ scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              drag
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+            />
+
+            {/* Info */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-4">
+              <span className="text-sm font-medium">{lightboxImage.alt}</span>
+              <span className="text-sm text-muted-foreground">{Math.round(lightboxScale * 100)}%</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
