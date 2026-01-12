@@ -472,52 +472,50 @@ FORBIDDEN:
       // MASTER PACKAGE: 3 images sequentially
       console.log('Master Package: Generating 3 images sequentially...');
 
-      // Color mapping for e-commerce background
+      // Color mapping for e-commerce background (NON-METALLIC to prevent metal color contamination)
       const colorMap: Record<string, { name: string; prompt: string }> = {
-        'white': { name: 'Beyaz', prompt: 'pure white, clean ivory, soft cream white' },
-        'cream': { name: 'Krem', prompt: 'warm cream, soft ivory, delicate beige-white' },
-        'blush': { name: 'Pudra Pembe', prompt: 'soft blush pink, delicate rose, pale pink' },
-        'lavender': { name: 'Lavanta', prompt: 'soft lavender, pale purple, gentle violet' },
-        'mint': { name: 'Nane Yeşili', prompt: 'soft mint green, pale sage, delicate seafoam' },
-        'skyblue': { name: 'Gök Mavisi', prompt: 'soft sky blue, pale azure, gentle powder blue' },
-        'peach': { name: 'Şeftali', prompt: 'soft peach, gentle apricot, warm coral tint' },
-        'champagne': { name: 'Şampanya', prompt: 'warm champagne gold, soft beige gold, elegant nude' },
-        'silver': { name: 'Gümüş', prompt: 'soft silver gray, pale platinum, gentle metallic gray' },
-        'gray': { name: 'Gri', prompt: 'soft dove gray, gentle stone, neutral warm gray' },
+        'white': { name: 'Beyaz', prompt: 'matte seamless paper backdrop, soft off-white, clean ivory (NON-METALLIC)' },
+        'cream': { name: 'Krem', prompt: 'matte seamless paper backdrop, warm cream, soft ivory, delicate beige-white (NON-METALLIC)' },
+        'blush': { name: 'Pudra Pembe', prompt: 'matte seamless paper backdrop, soft blush pink, pale dusty rose (NON-METALLIC)' },
+        'lavender': { name: 'Lavanta', prompt: 'matte seamless paper backdrop, soft lavender, pale muted violet (NON-METALLIC)' },
+        'mint': { name: 'Nane Yeşili', prompt: 'matte seamless paper backdrop, soft mint, pale sage, gentle seafoam (NON-METALLIC)' },
+        'skyblue': { name: 'Gök Mavisi', prompt: 'matte seamless paper backdrop, soft sky blue, pale powder blue (NON-METALLIC)' },
+        'peach': { name: 'Şeftali', prompt: 'matte seamless paper backdrop, soft peach, gentle apricot, muted coral tint (NON-METALLIC)' },
+        // IMPORTANT: Avoid words like "gold/silver/metallic" in the background prompt.
+        'champagne': { name: 'Şampanya', prompt: 'matte seamless paper backdrop, warm champagne-beige, soft nude, elegant sand (NON-METALLIC)' },
+        'silver': { name: 'Gümüş', prompt: 'matte seamless paper backdrop, cool light gray, pale dove gray, soft neutral gray (NON-METALLIC)' },
+        'gray': { name: 'Gri', prompt: 'matte seamless paper backdrop, soft dove gray, gentle stone gray, neutral warm gray (NON-METALLIC)' },
       };
 
       const selectedColor = colorMap[colorId] || colorMap['white'];
 
-      // Image 1: E-commerce clean background
+      // Image 1: E-commerce clean background (BACKGROUND REPLACEMENT ONLY)
       const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-⚠️ METAL COLOR IS SACRED - DO NOT ALTER ⚠️
-The jewelry metal color from the original image MUST be preserved with 100% accuracy:
+TASK TYPE (CRITICAL): BACKGROUND REPLACEMENT ONLY
+- Keep the jewelry IDENTICAL to the reference image.
+- Do NOT reinterpret the jewelry.
+- Do NOT recolor, neutralize, stylize, or "improve" the metal.
+- Do NOT change metal hue/temperature/undertone. Reflections intensity may vary slightly, but the BASE METAL COLOR MUST NOT CHANGE.
+
+⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
 - Original Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original Color Hex: ${metalColorHex}` : ''}
+${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-METAL PRESERVATION RULES (ABSOLUTELY MANDATORY):
-- If original is YELLOW GOLD → Output MUST show warm golden yellow metal
-- If original is WHITE GOLD/PLATINUM/SILVER → Output MUST show cool silver/white metal
-- If original is ROSE GOLD → Output MUST show pinkish-golden metal
-- ZERO tolerance for metal color shifts
-- The metal's color temperature must be IDENTICAL to original
-- Do NOT add any color cast from background to metal
-- Keep metal reflections true to original color
+STRICT RULES:
+- NO metal recoloring (yellow↔white↔rose) under any circumstances
+- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
+- Background must be NON-METALLIC and MATTE to avoid color casts
 
 SCENE: Clean, minimal e-commerce product shot
-- Background: ${selectedColor.prompt} - soft, gradient, seamless studio backdrop
-- Lighting: Soft, diffused studio lighting, no harsh shadows
-- Style: Amazon/luxury e-commerce listing quality
+- Background: ${selectedColor.prompt}
+- Surface: matte, non-reflective
+- Lighting: soft, diffused, neutral (no warm/cool bias)
 - The jewelry should be the absolute focal point
-- Clean, uncluttered, professional commercial aesthetic
-- Perfect for online store product listings
-- Subtle reflection on surface, professional product photography
-
-CRITICAL: The background color must NOT influence the metal color. Keep metal color exactly as original.
+- Clean, uncluttered, listing-quality product photo
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
@@ -526,37 +524,31 @@ Ultra high resolution output.`;
       const ecomUrl = await generateSingleImage(base64Image, ecommercePrompt, userId, imageRecord.id, 1, supabase);
       if (ecomUrl) generatedUrls.push(ecomUrl);
 
-      // Image 2: Luxury catalog shot
-      const catalogPrompt = `Professional luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // Image 2: Luxury catalog shot (STILL color-locked; avoid dramatic lighting that shifts metal)
+      const catalogPrompt = `High-end luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-⚠️ METAL COLOR IS SACRED - DO NOT ALTER ⚠️
-The jewelry metal color from the original image MUST be preserved with 100% accuracy:
+TASK TYPE (CRITICAL): BACKGROUND/SCENE CHANGE WITHOUT ALTERING THE JEWELRY
+- The jewelry (especially metal color) must remain exactly as reference.
+- Lighting can add depth, but must NOT change metal hue, temperature, or undertone.
+
+⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
 - Original Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original Color Hex: ${metalColorHex}` : ''}
+${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-METAL PRESERVATION RULES (ABSOLUTELY MANDATORY):
-- If original is YELLOW GOLD → Output MUST show warm golden yellow metal
-- If original is WHITE GOLD/PLATINUM/SILVER → Output MUST show cool silver/white metal
-- If original is ROSE GOLD → Output MUST show pinkish-golden metal
-- ZERO tolerance for metal color shifts
-- The metal's color temperature must be IDENTICAL to original
-- Scene lighting must NOT alter the metal's inherent color
-- Reflections should remain true to original metal color
+STRICT RULES:
+- NO metal recoloring or grading on the metal
+- No rim lights that introduce color casts
+- Scene props/background must be neutral and non-metallic
 
-SCENE: High-end jewelry catalog photography
-- Setting: Premium textured surface (marble, velvet, or brushed metal)
-- Lighting: Dramatic but controlled studio lighting with rim lights
-- Style: Vogue, Harper's Bazaar jewelry editorial quality
-- Macro-level detail visibility
-- Professional jewelry photography with artistic composition
-- Subtle props that complement without distraction
-- Rich shadows and highlights that emphasize dimensionality
-- Magazine-worthy luxury presentation
-
-CRITICAL: Scene colors and lighting must NOT change the metal color. The metal must remain exactly ${metalColorCategory}.
+SCENE: Premium catalog presentation
+- Setting: premium matte textured surface (stone, matte ceramic, matte fabric) — NON-METALLIC
+- Lighting: soft but directional studio light, controlled highlights, neutral balance
+- Style: quiet luxury, premium catalog, product-first
+- Macro-level detail visibility, jewelry perfectly sharp
+- Subtle props only (if any), never reflective
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
