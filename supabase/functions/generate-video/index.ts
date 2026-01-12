@@ -6,35 +6,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Luxury jewelry video animation prompts
+// Luxury jewelry video animation prompts - CONSISTENCY FOCUSED
 const JEWELRY_VIDEO_PROMPTS = {
-  default: `Ultra slow-motion luxury jewelry commercial. 
-Camera: Imperceptibly slow drift, almost static. Locked tripod feel.
-Lighting: Soft, diffused studio lighting. Natural reflections only.
-Motion: Barely perceptible micro-movements. Editorial pace.
-Style: High-end luxury campaign. Quiet elegance. Premium feel.
-Metal: Preserve exact metal color - no color shift, no reinterpretation.
-Diamonds: Subtle natural light catch. No artificial sparkle or rainbow dispersion.
-Speed: 0.25x slow-motion feel. Each frame is deliberate.
-Mood: Serene, sophisticated, museum-quality presentation.`,
-  
-  model: `Elegant slow-motion jewelry showcase on model.
-Subject: Graceful, minimal movement. Slight head turn or hand gesture.
-Camera: Static or near-static. Professional locked shot.
-Lighting: Soft, flattering. Natural skin texture preserved.
-Jewelry: Stays in sharp focus. Metal color absolutely unchanged.
-Motion: Ultra slow, deliberate. Each micro-movement intentional.
-Expression: Calm, editorial. Confident but understated.
-Style: High-fashion luxury campaign quality.`,
+  default: `TASK: Animate this exact jewelry image with ultra-subtle slow motion.
 
-  product: `Pure product slow-motion jewelry presentation.
-Camera: Minimal rotation or static. Clean, professional.
-Surface: Elegant backdrop - marble, velvet, or neutral.
-Lighting: Soft studio light. Gradual, natural reflections.
-Metal: 100% color fidelity. No warm/cool shifts.
-Motion: Imperceptible rotation or light shimmer only.
-Speed: Ultra slow motion. Premium, deliberate pace.
-Style: E-commerce elevated to art gallery level.`
+CRITICAL - DO NOT CHANGE:
+- Metal color must remain EXACTLY as source
+- Jewelry design, shape, proportions - UNCHANGED  
+- Stone colors and placement - UNCHANGED
+- No additions, no modifications, no enhancements
+- No sparkle effects, no rainbow dispersion
+- No color grading that affects the jewelry
+
+ANIMATION STYLE:
+- Ultra slow motion (0.25x speed feel)
+- Barely perceptible movement
+- Soft, natural light shimmer only
+- Camera: Nearly static, locked tripod
+- Duration: 5 seconds of elegant stillness
+
+MOOD: Museum-quality presentation. Quiet luxury. Editorial calm.
+The jewelry should look exactly as photographed, only with subtle life.`,
+  
+  model: `TASK: Animate this jewelry-on-model image with minimal, elegant motion.
+
+CRITICAL - DO NOT CHANGE:
+- Metal color: EXACT preservation required
+- Jewelry appearance: No modifications
+- Skin texture: Keep natural, no beauty filter
+- Model features: Unchanged
+
+ANIMATION STYLE:
+- Ultra slow, almost imperceptible movement
+- Slight breath motion only
+- No dramatic gestures or expressions
+- Camera: Completely static
+- Natural light play on jewelry surface
+
+MOOD: High-fashion editorial. Serene. Premium.
+Subject barely moves. Jewelry stays sharp and true to source.`,
+
+  product: `TASK: Animate this product jewelry shot with micro-motion only.
+
+CRITICAL - DO NOT CHANGE:
+- Metal color: 100% faithful to source
+- No artistic reinterpretation
+- No added effects or enhancements
+- Jewelry must look identical to input
+
+ANIMATION STYLE:
+- Near-static presentation
+- Extremely subtle light reflection shifts
+- No rotation unless barely perceptible
+- Camera: Locked, professional studio feel
+
+MOOD: E-commerce elevated to art. Pure product truth.
+This is about subtle life, not transformation.`
 };
 
 serve(async (req) => {
