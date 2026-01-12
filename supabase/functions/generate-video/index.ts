@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,8 +136,10 @@ CRITICAL REQUIREMENTS:
       throw new Error("Failed to fetch source image");
     }
     const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    // Use Deno's base64 encoder to avoid stack overflow with large images
+    const base64Image = base64Encode(imageBuffer);
     const mimeType = imageResponse.headers.get("content-type") || "image/png";
+    console.log("Image fetched, size:", imageBuffer.byteLength, "bytes");
 
     // Call Google Veo 3 API via Gemini
     // Note: Veo 3 requires Vertex AI or specific endpoint
