@@ -150,8 +150,12 @@ export type Database = {
           age_range: string
           created_at: string
           ethnicity: string
+          expression: string | null
+          eye_color: string | null
+          face_shape: string | null
           gender: string
           hair_color: string
+          hair_style: string | null
           hair_texture: string
           id: string
           name: string
@@ -165,8 +169,12 @@ export type Database = {
           age_range: string
           created_at?: string
           ethnicity: string
+          expression?: string | null
+          eye_color?: string | null
+          face_shape?: string | null
           gender: string
           hair_color: string
+          hair_style?: string | null
           hair_texture: string
           id?: string
           name: string
@@ -180,8 +188,12 @@ export type Database = {
           age_range?: string
           created_at?: string
           ethnicity?: string
+          expression?: string | null
+          eye_color?: string | null
+          face_shape?: string | null
           gender?: string
           hair_color?: string
+          hair_style?: string | null
           hair_texture?: string
           id?: string
           name?: string
