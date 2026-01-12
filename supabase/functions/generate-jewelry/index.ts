@@ -55,8 +55,6 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
-        // Request highest quality PNG output for 4K resolution
-        responseMimeType: 'image/png',
       },
     }),
   });
