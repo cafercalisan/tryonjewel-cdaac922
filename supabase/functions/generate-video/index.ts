@@ -65,6 +65,185 @@ MOOD: E-commerce elevated to art. Pure product truth.
 This is about subtle life, not transformation.`
 };
 
+// Poll for operation completion
+async function pollOperation(
+  operationName: string,
+  apiKey: string,
+  supabase: any,
+  videoId: string,
+  maxAttempts: number = 60,
+  intervalMs: number = 10000
+): Promise<void> {
+  console.log(`Starting to poll operation: ${operationName}`);
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      console.log(`Poll attempt ${attempt + 1}/${maxAttempts}`);
+      
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Poll error: ${response.status} - ${errorText}`);
+        
+        // If operation not found, mark as error
+        if (response.status === 404) {
+          await supabase
+            .from("videos")
+            .update({ 
+              status: "error",
+              error_message: "Video generation operation not found"
+            })
+            .eq("id", videoId);
+          return;
+        }
+        
+        // Wait and retry for other errors
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+        continue;
+      }
+
+      const operationData = await response.json();
+      console.log(`Operation status:`, JSON.stringify(operationData));
+
+      // Check if operation is done
+      if (operationData.done === true) {
+        console.log("Operation completed!");
+        
+        // Check for error
+        if (operationData.error) {
+          console.error("Operation error:", operationData.error);
+          await supabase
+            .from("videos")
+            .update({ 
+              status: "error",
+              error_message: operationData.error.message || "Video generation failed"
+            })
+            .eq("id", videoId);
+          return;
+        }
+
+        // Get video URL from response
+        const videoUri = operationData.response?.generatedVideos?.[0]?.video?.uri ||
+                        operationData.response?.predictions?.[0]?.video?.uri ||
+                        operationData.result?.generatedVideos?.[0]?.video?.uri;
+
+        if (videoUri) {
+          console.log("Video generated successfully:", videoUri);
+          
+          // Download and upload to Supabase storage
+          try {
+            const videoResponse = await fetch(videoUri);
+            if (videoResponse.ok) {
+              const videoBlob = await videoResponse.arrayBuffer();
+              const fileName = `${videoId}.mp4`;
+              const storagePath = `videos/${fileName}`;
+              
+              const { error: uploadError } = await supabase.storage
+                .from("jewelry-images")
+                .upload(storagePath, videoBlob, {
+                  contentType: "video/mp4",
+                  upsert: true
+                });
+
+              if (uploadError) {
+                console.error("Upload error:", uploadError);
+                // Use original URL if upload fails
+                await supabase
+                  .from("videos")
+                  .update({ 
+                    status: "completed",
+                    video_url: videoUri
+                  })
+                  .eq("id", videoId);
+              } else {
+                // Get public URL
+                const { data: publicUrlData } = supabase.storage
+                  .from("jewelry-images")
+                  .getPublicUrl(storagePath);
+
+                await supabase
+                  .from("videos")
+                  .update({ 
+                    status: "completed",
+                    video_url: publicUrlData.publicUrl
+                  })
+                  .eq("id", videoId);
+                
+                console.log("Video uploaded to storage:", publicUrlData.publicUrl);
+              }
+            } else {
+              // Use original URL
+              await supabase
+                .from("videos")
+                .update({ 
+                  status: "completed",
+                  video_url: videoUri
+                })
+                .eq("id", videoId);
+            }
+          } catch (uploadErr) {
+            console.error("Error uploading video:", uploadErr);
+            await supabase
+              .from("videos")
+              .update({ 
+                status: "completed",
+                video_url: videoUri
+              })
+              .eq("id", videoId);
+          }
+        } else {
+          console.error("No video URL in response:", operationData);
+          await supabase
+            .from("videos")
+            .update({ 
+              status: "error",
+              error_message: "No video URL received from API"
+            })
+            .eq("id", videoId);
+        }
+        return;
+      }
+
+      // Operation still in progress
+      const progress = operationData.metadata?.progress || "unknown";
+      console.log(`Operation in progress: ${progress}%`);
+      
+      // Update status with progress info
+      await supabase
+        .from("videos")
+        .update({ 
+          status: "processing",
+          error_message: `Generating... ${progress}%`
+        })
+        .eq("id", videoId);
+
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+      
+    } catch (pollError) {
+      console.error("Poll error:", pollError);
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  // Max attempts reached
+  console.error("Max polling attempts reached");
+  await supabase
+    .from("videos")
+    .update({ 
+      status: "error",
+      error_message: "Video generation timed out. Please try again."
+    })
+    .eq("id", videoId);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -141,9 +320,7 @@ CRITICAL REQUIREMENTS:
     const mimeType = imageResponse.headers.get("content-type") || "image/png";
     console.log("Image fetched, size:", imageBuffer.byteLength, "bytes");
 
-    // Call Google Veo 3 API via Gemini
-    // Note: Veo 3 requires Vertex AI or specific endpoint
-    // Using Gemini's video generation capability
+    // Call Google Veo API
     console.log("Calling Google Veo API...");
     
     const veoResponse = await fetch(
@@ -177,39 +354,14 @@ CRITICAL REQUIREMENTS:
       const errorText = await veoResponse.text();
       console.error("Veo API error:", veoResponse.status, errorText);
       
-      // Fallback: Try using Imagen Video or alternative approach
-      // For now, return the operation info for polling
-      if (veoResponse.status === 404 || veoResponse.status === 400) {
-        // Try alternative endpoint for video generation
-        console.log("Trying alternative video generation approach...");
-        
-        // Use Lovable's built-in video generation as fallback
-        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-        if (lovableApiKey) {
-          // Store the request for async processing
-          if (videoId) {
-            await supabase
-              .from("videos")
-              .update({ 
-                status: "processing",
-                prompt: fullPrompt,
-                error_message: "Video generation initiated - processing asynchronously"
-              })
-              .eq("id", videoId);
-          }
-
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              status: "processing",
-              message: "Video generation started. This may take a few minutes.",
-              videoId: videoId
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
-        throw new Error("Video generation API not available. Please check your API configuration.");
+      if (videoId) {
+        await supabase
+          .from("videos")
+          .update({ 
+            status: "error",
+            error_message: `API Error: ${veoResponse.status}`
+          })
+          .eq("id", videoId);
       }
       
       throw new Error(`Video API error: ${errorText}`);
@@ -220,15 +372,36 @@ CRITICAL REQUIREMENTS:
 
     // Handle long-running operation
     if (operationData.name) {
-      // This is an operation ID for async processing
+      console.log("Got operation ID, starting background polling:", operationData.name);
+      
+      // Update status to processing
       if (videoId) {
         await supabase
           .from("videos")
           .update({ 
             status: "processing",
             prompt: fullPrompt,
+            error_message: "Generating... 0%"
           })
           .eq("id", videoId);
+      }
+
+      // Start background polling using EdgeRuntime.waitUntil
+      const pollingPromise = pollOperation(
+        operationData.name,
+        GOOGLE_API_KEY,
+        supabase,
+        videoId
+      );
+
+      // Use EdgeRuntime.waitUntil for background processing
+      // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(pollingPromise);
+      } else {
+        // Fallback: don't await, let it run in background
+        pollingPromise.catch(err => console.error("Polling error:", err));
       }
 
       return new Response(
@@ -237,13 +410,13 @@ CRITICAL REQUIREMENTS:
           status: "processing",
           operationId: operationData.name,
           videoId: videoId,
-          message: "Video generation started. Poll for status."
+          message: "Video generation started. It will be ready in a few minutes."
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // If we get immediate result
+    // If we get immediate result (unlikely for video)
     const videoUrl = operationData.predictions?.[0]?.video?.uri;
     
     if (videoUrl && videoId) {
