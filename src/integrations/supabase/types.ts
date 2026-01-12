@@ -233,6 +233,7 @@ export type Database = {
           duration: number | null
           error_message: string | null
           id: string
+          operation_id: string | null
           prompt: string | null
           source_image_url: string
           status: string
@@ -246,6 +247,7 @@ export type Database = {
           duration?: number | null
           error_message?: string | null
           id?: string
+          operation_id?: string | null
           prompt?: string | null
           source_image_url: string
           status?: string
@@ -259,6 +261,7 @@ export type Database = {
           duration?: number | null
           error_message?: string | null
           id?: string
+          operation_id?: string | null
           prompt?: string | null
           source_image_url?: string
           status?: string
