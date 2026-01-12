@@ -1,6 +1,6 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Video, Download, Trash2, Loader2, RefreshCw, Play, X } from 'lucide-react';
+import { Video, Download, Trash2, Loader2, RefreshCw, Play, X, RotateCcw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
+import { useVideoStatusPolling } from '@/hooks/useVideoStatusPolling';
 
 interface VideoRecord {
   id: string;
@@ -20,6 +21,7 @@ interface VideoRecord {
   duration: number;
   aspect_ratio: string;
   created_at: string;
+  operation_id?: string | null;
 }
 
 export default function Videos() {
@@ -46,11 +48,14 @@ export default function Videos() {
       const data = query.state.data;
       // Keep polling if any video is processing
       if (data?.some(v => v.status === 'pending' || v.status === 'generating' || v.status === 'processing')) {
-        return 5000;
+        return 10000;
       }
       return false;
     }
   });
+
+  // Use video status polling hook for active checking
+  const { manualCheck } = useVideoStatusPolling(videos, user?.id);
 
   const deleteMutation = useMutation({
     mutationFn: async (videoId: string) => {
@@ -201,11 +206,30 @@ export default function Videos() {
                           className="w-full h-full object-cover opacity-50"
                         />
                         {(video.status === 'processing' || video.status === 'generating' || video.status === 'pending') && (
-                          <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                             <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2">
                               <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                              <span className="text-sm">Video oluşturuluyor...</span>
+                              <span className="text-sm">
+                                {video.error_message?.includes('%') 
+                                  ? video.error_message 
+                                  : 'Video oluşturuluyor...'}
+                              </span>
                             </div>
+                            {video.operation_id && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  manualCheck(video.id);
+                                  toast.info('Durum kontrol ediliyor...');
+                                }}
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Durumu Kontrol Et
+                              </Button>
+                            )}
                           </div>
                         )}
                       </>
