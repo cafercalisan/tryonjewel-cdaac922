@@ -11,6 +11,55 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Editorial luxury photography style guide
+const EDITORIAL_STYLE_PROMPT = `HIGH-END EDITORIAL JEWELRY PHOTOGRAPHY STYLE:
+
+Overall color palette: cool-neutral, low saturation, soft contrast.
+Mood: Silent confidence, intellectual luxury, fashion-editorial restraint.
+Feels like a high-fashion lookbook or art-driven luxury campaign, NOT an e-commerce image.
+
+LIGHTING:
+- Natural overcast daylight, diffused and even
+- No dramatic highlights, no harsh shadows, no added rim lights
+- Jewelry reflections are controlled, soft, physically accurate, never sparkling excessively
+
+BACKGROUND:
+- Muted and calm: stone, water surface, matte fabric, soft architectural elements or minimal natural scenery
+- Background tones stay slightly darker than the jewelry to create separation without contrast exaggeration
+
+JEWELRY APPEARANCE:
+- Confident, understated, and timeless
+- No visual noise, no glamour lighting, no commercial shine
+
+METAL TONES (REALISTIC):
+- White gold / platinum: cool, matte-leaning reflections
+- Yellow gold: desaturated, soft warmth
+- Diamonds: clarity over sparkle, depth over flash
+
+SKIN (when model is used):
+- Natural texture visible
+- No smoothing, no beauty blur
+- Calm expression, distant gaze
+
+CAMERA:
+- Medium close-up or macro with restraint
+- Shallow but natural depth of field
+- Editorial framing, no aggressive angles
+
+STRICT AVOIDANCE (NEGATIVE PROMPT):
+- High saturation
+- Glamour lighting
+- Commercial sparkle
+- Over-sharpening
+- Beauty retouching
+- HDR look
+- Warm yellow lighting
+- Excessive contrast
+- Cinematic effects
+- Glow, bloom, or stylized grading
+
+Photorealism prioritized.`;
+
 // System prompt for hyperrealistic model generation
 const MODEL_SYSTEM_PROMPT = `SYSTEM PROMPT — CREATING PERSONAL HUMAN MODEL (JEWELRY GRADE)
 
@@ -18,6 +67,8 @@ You are an advanced human-model synthesis engine specialized in luxury jewelry p
 
 Your task is to create a unique, reusable, identity-consistent digital human model based strictly on user-provided attributes.
 This model must remain visually stable and reproducible across all future generations.
+
+${EDITORIAL_STYLE_PROMPT}
 
 1. CORE IDENTITY LOCK (CRITICAL)
 
@@ -86,28 +137,30 @@ No wide-angle distortion. No cinematic exaggeration.
 
 6. LIGHTING SYSTEM (AUTO-OPTIMIZED)
 
-Apply luxury studio lighting optimized for jewelry:
+Apply natural overcast daylight for editorial feel:
 
-Large soft key light (45°) for skin
-Precision rim light for metal edges
-Micro specular highlight control on diamonds
-No harsh shadows, no HDR flattening
+Diffused, even lighting
+No dramatic highlights or harsh shadows
+Controlled, soft reflections on jewelry
+No glamour lighting or commercial sparkle
 
 Lighting must enhance stone brilliance without burning highlights.
 
 7. COLOR & RENDERING PHILOSOPHY
 
 Color science: neutral, editorial, high-end campaign grade
+Cool-neutral palette, low saturation, soft contrast
 Whites: clean, not blue
-Gold: warm but not saturated
+Gold: warm but desaturated
 Diamonds: sharp dispersion, no rainbow artifacts
 
 Avoid:
 Beauty filters
 Unreal skin perfection
 Fashion-style distortion
+HDR look or over-processing
 
-This is commercial jewelry realism, not illustration.
+This is editorial jewelry realism, not commercial illustration.
 
 8. CONSISTENCY ENFORCEMENT (MANDATORY)
 
@@ -122,12 +175,13 @@ If conflict occurs, identity consistency overrides all other prompts.
 9. OUTPUT GOAL
 
 Produce a brand-safe, campaign-ready digital human model suitable for:
-High-end jewelry e-commerce
-Editorial campaigns
-Lookbooks and ads
+High-end jewelry editorial campaigns
+Fashion lookbooks and art-driven luxury campaigns
+Quiet luxury, minimalist fashion tone
 Reusable AI-based photoshoots
 
-The result must be indistinguishable from a real professional model photographed in a luxury studio.`;
+The result must be indistinguishable from a real professional model photographed in a quiet luxury editorial setting.`;
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
