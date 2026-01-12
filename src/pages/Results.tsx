@@ -5,8 +5,9 @@ import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Max
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
-import { downloadOriginalImage } from '@/lib/downloadImage';
+import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 export default function Results() {
   const [searchParams] = useSearchParams();
@@ -15,6 +16,7 @@ export default function Results() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
+  const [isDownloading, setIsDownloading] = useState<number | null>(null);
 
   const { data: image, isLoading } = useQuery({
     queryKey: ['image', imageId],
@@ -42,8 +44,23 @@ export default function Results() {
 
   const handleDownload = async (url: string, index: number) => {
     if (!imageId) return;
-    // Download at original resolution for maximum quality
-    await downloadOriginalImage(url, `jewelry-${imageId}-${index + 1}-hd`);
+    setIsDownloading(index);
+    try {
+      // Download at maximum 4K quality
+      await downloadImageAs4kJpeg({
+        url,
+        filenameBase: `jewelry-${imageId}-${index + 1}-4K`,
+        width: 3840,
+        height: 4800,
+        quality: 1.0
+      });
+      toast.success('4K görsel indirildi');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('İndirme sırasında hata oluştu');
+    } finally {
+      setIsDownloading(null);
+    }
   };
 
   const openLightbox = () => {
@@ -201,9 +218,14 @@ export default function Results() {
                 <Button 
                   className="w-full" 
                   onClick={() => handleDownload(selectedUrl, selectedIndex)}
+                  disabled={isDownloading === selectedIndex}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  İndir
+                  {isDownloading === selectedIndex ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  4K İndir
                 </Button>
               </div>
 
@@ -216,9 +238,14 @@ export default function Results() {
                       variant="outline" 
                       className="w-full justify-start"
                       onClick={() => handleDownload(url, index)}
+                      disabled={isDownloading === index}
                     >
-                      <Download className="mr-2 h-4 w-4" />
-                      Varyasyon {index + 1}
+                      {isDownloading === index ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      Varyasyon {index + 1} (4K)
                     </Button>
                   ))}
                 </div>
