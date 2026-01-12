@@ -587,18 +587,24 @@ Ultra high resolution output.`;
         }
       }
 
-      const modelShotPrompt = `Professional luxury jewelry advertising campaign photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      const modelShotPrompt = `High-end editorial jewelry photography in a quiet luxury, minimalist fashion tone. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
+EDITORIAL STYLE GUIDE:
+Overall color palette: cool-neutral, low saturation, soft contrast.
+Mood: Silent confidence, intellectual luxury, fashion-editorial restraint.
+Feels like a high-fashion lookbook or art-driven luxury campaign.
+
 MODEL & PRODUCT SHOT:
-This is a HIGH-END ADVERTISING CAMPAIGN shot featuring the jewelry on a real model.
+This is an EDITORIAL LUXURY CAMPAIGN shot featuring the jewelry on a real model.
 
 MODEL SPECIFICATIONS:
 - ${modelDescription}
 - ${skinToneDesc}
-- Natural, realistic skin texture (NOT plastic, NOT overly airbrushed)
-- Professional makeup, subtle and elegant
+- Natural texture visible, realistic skin with pores
+- No smoothing, no beauty blur, no plastic appearance
+- Calm expression, distant gaze
 - Body part featured: ${modelBodyPart}
 
 JEWELRY PLACEMENT:
@@ -607,53 +613,62 @@ JEWELRY PLACEMENT:
 - The PRODUCT (jewelry) is the ABSOLUTE FOCAL POINT
 - Model serves to showcase the jewelry, not compete with it
 
+LIGHTING (CRITICAL):
+- Natural overcast daylight, diffused and even
+- No dramatic highlights, no harsh shadows, no added rim lights
+- Jewelry reflections are controlled, soft, physically accurate
+- NEVER sparkling excessively - controlled brilliance
+
+BACKGROUND:
+- Muted and calm environment
+- Stone, water surface, matte fabric, soft architectural elements
+- Background tones slightly darker than jewelry for separation
+- No contrast exaggeration
+
+JEWELRY APPEARANCE:
+- Confident, understated, and timeless
+- No visual noise, no glamour lighting, no commercial shine
+
+METAL TONES (REALISTIC):
+- White gold / platinum: cool, matte-leaning reflections
+- Yellow gold: desaturated, soft warmth
+- Diamonds: clarity over sparkle, depth over flash
+
+CAMERA:
+- Medium close-up with restraint
+- Shallow but natural depth of field
+- Editorial framing, no aggressive angles
+- Jewelry in perfect focus, model slightly softer
+
 POSE & STYLING:
 - Natural, relaxed, confident pose - NOT stiff or forced
 - Editorial fashion photography quality
 - The pose emphasizes and draws attention to the jewelry
-- Elegant, aspirational, lifestyle-oriented
-
-PHOTOGRAPHY STYLE:
-- Professional campaign photography (Cartier, Tiffany, Bulgari level)
-- Soft, flattering lighting on both skin and jewelry
-- Shallow depth of field with jewelry in perfect focus
-- Model slightly soft/bokeh while jewelry is razor sharp
-- Premium fashion magazine quality
-
-LIGHTING:
-- Soft key light creating beautiful skin tones
-- Subtle rim light separating subject from background
-- Jewelry catching light perfectly, showing all details
-- Natural looking studio lighting, not harsh
-
-BACKGROUND:
-- Soft, neutral, out of focus
-- Luxury studio environment
-- Does not distract from the jewelry or model
+- Elegant, aspirational, quiet luxury oriented
 
 SKIN & REALISM:
-- Realistic skin texture with natural pores and subtle details
+- Natural texture visible with pores
+- No beauty retouching or over-smoothing
+- Healthy, natural appearance
 - NOT plastic or CGI looking
-- Natural skin imperfections are acceptable and add realism
-- Healthy, glowing appearance
 
-CRITICAL - PRODUCT FOCUS:
-- The jewelry MUST be the star of the image
-- Every element should draw the eye to the jewelry
-- Model is secondary, jewelry is primary
-- Sharp focus on jewelry, slightly softer focus on model features
-
-FORBIDDEN:
+STRICT AVOIDANCE (NEGATIVE):
+- NO high saturation
+- NO glamour lighting
+- NO commercial sparkle
+- NO over-sharpening
+- NO beauty retouching
+- NO HDR look
+- NO warm yellow lighting
+- NO excessive contrast
+- NO cinematic effects
+- NO glow, bloom, or stylized grading
 - NO plastic/CGI skin
 - NO stiff unnatural poses
-- NO distracting elements
-- NO jewelry that looks different from original
-- NO text or watermarks
-- NOT a selfie or casual photo - this is PROFESSIONAL ADVERTISING
 
-OUTPUT QUALITY: Maximum resolution, ultra-sharp jewelry details, beautiful skin rendering.
-This should look like it belongs in Vogue or a luxury brand campaign.
-Ultra high resolution output.`;
+OUTPUT QUALITY: Maximum resolution, ultra-sharp jewelry details, natural skin rendering.
+This should look like it belongs in a high-fashion lookbook or art-driven luxury campaign.
+Photorealism prioritized. Ultra high resolution output.`;
 
       console.log('Generating Model Shot image...');
       const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);
