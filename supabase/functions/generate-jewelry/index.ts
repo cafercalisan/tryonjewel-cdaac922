@@ -493,6 +493,21 @@ FORBIDDEN:
 
 ${fidelityBlock}
 
+⚠️ METAL COLOR IS SACRED - DO NOT ALTER ⚠️
+The jewelry metal color from the original image MUST be preserved with 100% accuracy:
+- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Original Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original Color Hex: ${metalColorHex}` : ''}
+
+METAL PRESERVATION RULES (ABSOLUTELY MANDATORY):
+- If original is YELLOW GOLD → Output MUST show warm golden yellow metal
+- If original is WHITE GOLD/PLATINUM/SILVER → Output MUST show cool silver/white metal
+- If original is ROSE GOLD → Output MUST show pinkish-golden metal
+- ZERO tolerance for metal color shifts
+- The metal's color temperature must be IDENTICAL to original
+- Do NOT add any color cast from background to metal
+- Keep metal reflections true to original color
+
 SCENE: Clean, minimal e-commerce product shot
 - Background: ${selectedColor.prompt} - soft, gradient, seamless studio backdrop
 - Lighting: Soft, diffused studio lighting, no harsh shadows
@@ -501,6 +516,8 @@ SCENE: Clean, minimal e-commerce product shot
 - Clean, uncluttered, professional commercial aesthetic
 - Perfect for online store product listings
 - Subtle reflection on surface, professional product photography
+
+CRITICAL: The background color must NOT influence the metal color. Keep metal color exactly as original.
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
@@ -514,6 +531,21 @@ Ultra high resolution output.`;
 
 ${fidelityBlock}
 
+⚠️ METAL COLOR IS SACRED - DO NOT ALTER ⚠️
+The jewelry metal color from the original image MUST be preserved with 100% accuracy:
+- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Original Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original Color Hex: ${metalColorHex}` : ''}
+
+METAL PRESERVATION RULES (ABSOLUTELY MANDATORY):
+- If original is YELLOW GOLD → Output MUST show warm golden yellow metal
+- If original is WHITE GOLD/PLATINUM/SILVER → Output MUST show cool silver/white metal
+- If original is ROSE GOLD → Output MUST show pinkish-golden metal
+- ZERO tolerance for metal color shifts
+- The metal's color temperature must be IDENTICAL to original
+- Scene lighting must NOT alter the metal's inherent color
+- Reflections should remain true to original metal color
+
 SCENE: High-end jewelry catalog photography
 - Setting: Premium textured surface (marble, velvet, or brushed metal)
 - Lighting: Dramatic but controlled studio lighting with rim lights
@@ -523,6 +555,8 @@ SCENE: High-end jewelry catalog photography
 - Subtle props that complement without distraction
 - Rich shadows and highlights that emphasize dimensionality
 - Magazine-worthy luxury presentation
+
+CRITICAL: Scene colors and lighting must NOT change the metal color. The metal must remain exactly ${metalColorCategory}.
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
