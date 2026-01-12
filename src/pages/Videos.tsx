@@ -1,13 +1,14 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Video, Download, Trash2, Loader2, Play, RefreshCw } from 'lucide-react';
+import { Video, Download, Trash2, Loader2, RefreshCw, Play, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { VideoPlayer } from '@/components/video/VideoPlayer';
 
 interface VideoRecord {
   id: string;
@@ -24,7 +25,7 @@ interface VideoRecord {
 export default function Videos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoRecord | null>(null);
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ['videos', user?.id],
@@ -175,35 +176,23 @@ export default function Videos() {
                   className="bg-card rounded-xl overflow-hidden shadow-luxury group"
                 >
                   {/* Video/Image Preview */}
-                  <div className="aspect-[9/16] relative bg-muted">
+                  <div 
+                    className="aspect-[9/16] relative bg-muted cursor-pointer"
+                    onClick={() => video.status === 'completed' && video.video_url && setSelectedVideo(video)}
+                  >
                     {video.status === 'completed' && video.video_url ? (
-                      playingVideoId === video.id ? (
-                        <video
-                          src={video.video_url}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
+                      <>
+                        <img 
+                          src={video.source_image_url} 
+                          alt="Video thumbnail"
                           className="w-full h-full object-cover"
-                          onClick={() => setPlayingVideoId(null)}
                         />
-                      ) : (
-                        <>
-                          <img 
-                            src={video.source_image_url} 
-                            alt="Video thumbnail"
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            onClick={() => setPlayingVideoId(video.id)}
-                            className="absolute inset-0 flex items-center justify-center bg-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <div className="w-16 h-16 rounded-full bg-background/90 flex items-center justify-center">
-                              <Play className="h-8 w-8 text-foreground ml-1" />
-                            </div>
-                          </button>
-                        </>
-                      )
+                        <div className="absolute inset-0 flex items-center justify-center bg-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-14 h-14 rounded-full bg-background/90 flex items-center justify-center">
+                            <Play className="h-6 w-6 text-foreground ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <img 
@@ -263,6 +252,54 @@ export default function Videos() {
           )}
         </div>
       </div>
+
+      {/* Video Player Modal */}
+      <AnimatePresence>
+        {selectedVideo && selectedVideo.video_url && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setSelectedVideo(null)}
+          >
+            {/* Close Button */}
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute top-4 right-4 z-10"
+              onClick={() => setSelectedVideo(null)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+
+            {/* Video Player */}
+            <div 
+              className="w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <VideoPlayer
+                src={selectedVideo.video_url}
+                poster={selectedVideo.source_image_url}
+                autoPlay
+                loop
+                onDownload={() => handleDownload(selectedVideo.video_url!, selectedVideo.id)}
+                className="w-full aspect-[9/16]"
+              />
+              
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {new Date(selectedVideo.created_at).toLocaleDateString('tr-TR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }

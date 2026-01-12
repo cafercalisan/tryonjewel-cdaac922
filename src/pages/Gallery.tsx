@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut, Video } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
+import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 
 interface ImageRecord {
   id: string;
@@ -213,7 +214,7 @@ export default function Gallery() {
                 )}
 
                 {/* Actions - Horizontal */}
-                <div className="flex items-center justify-center gap-2 pt-2">
+                <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
                   <Button 
                     size="sm"
                     onClick={(e) => {
@@ -236,6 +237,14 @@ export default function Gallery() {
                     <ZoomIn className="mr-1.5 h-4 w-4" />
                     Büyüt
                   </Button>
+                  
+                  {/* Video Generate Button */}
+                  <VideoGenerateButton 
+                    imageUrl={selectedImage.generated_image_urls[selectedVariation]}
+                    variant="outline"
+                    size="sm"
+                  />
+                  
                   <Button 
                     size="sm"
                     variant="destructive" 
