@@ -55,6 +55,8 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
+        // Request highest quality PNG output for 4K resolution
+        responseMimeType: 'image/png',
       },
     }),
   });
@@ -531,93 +533,109 @@ Ultra high resolution output.`;
       const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
       if (catalogUrl) generatedUrls.push(catalogUrl);
 
-      // Image 3: Model shot based on detected product type from analysis
-      // AUTO-DETECT: Use analysis result type, fallback to provided productType
-      const detectedType = analysisResult.type?.toLowerCase() || '';
-      const typeMapping: Record<string, string> = {
-        'ring': 'yuzuk',
-        'bracelet': 'bileklik',
-        'earring': 'kupe',
-        'necklace': 'kolye',
-        'pendant': 'kolye',
-        'choker': 'gerdanlik',
-        'piercing': 'piercing',
-        'watch': 'bileklik',
-        'brooch': 'kolye',
-      };
+      // Image 3: Product Scene - Realistic placement on natural surfaces (stone, fabric, leather)
+      // This is NOT a model shot - it's the product in a realistic scene
       
-      const autoDetectedProductType = typeMapping[detectedType] || productType || 'kolye';
-      console.log(`Auto-detected product type: ${detectedType} -> ${autoDetectedProductType}`);
-
-      const modelSceneMap: Record<string, string> = {
-        'yuzuk': 'Elegant feminine hand close-up with manicured nails, showcasing the RING naturally worn on the finger. Soft skin texture, natural hand pose, professional hand model photography. The RING must be on the finger, NOT on ear or other body parts.',
-        'bileklik': 'Elegant wrist and forearm shot, showcasing the BRACELET worn around the wrist. Natural pose, soft lighting on skin, fashion photography quality. The BRACELET must be on the wrist, NOT on other body parts.',
-        'kupe': 'Side profile portrait showcasing the EARRING on the ear. Visible ear with the earring properly attached, styled hair, soft studio lighting, fashion editorial quality. The EARRING must be on the ear.',
-        'kolye': 'Elegant neck and décolletage portrait showcasing the NECKLACE worn around the neck. Soft skin tones, professional fashion photography, romantic mood. The NECKLACE must be around the neck.',
-        'gerdanlik': 'Upper body portrait showcasing the CHOKER necklace worn tightly around the neck. Elegant pose, fashion editorial style, soft dramatic lighting. The CHOKER must be around the neck.',
-        'piercing': 'Close-up portrait showcasing the PIERCING jewelry in its proper placement. Natural skin texture, contemporary fashion photography style.',
-      };
-
-      const modelScene = modelSceneMap[autoDetectedProductType] || modelSceneMap['kolye'];
-
-      // Fetch user model if selected
-      let userModelPrompt = '';
-      if (modelId) {
-        const { data: userModel } = await supabase
-          .from('user_models')
-          .select('*')
-          .eq('id', modelId)
-          .single();
-        
-        if (userModel) {
-          userModelPrompt = `
-MODEL IDENTITY (USE EXACTLY - THIS IS THE USER'S CUSTOM MODEL):
-- Skin Tone: ${userModel.skin_tone} melanin level
-- Skin Undertone: ${userModel.skin_undertone}
-- Ethnicity/Background: ${userModel.ethnicity}
-- Hair Color: ${userModel.hair_color}
-- Hair Texture: ${userModel.hair_texture}
-- Gender: ${userModel.gender}
-- Age Range: ${userModel.age_range}
-
-CRITICAL: Use these EXACT physical attributes. The model must match these specifications precisely.
-Skin must show realistic pores, natural texture, subsurface scattering appropriate for the skin tone.
-No plastic or over-smoothed appearance. Editorial macro-photography level realism.
-`;
-          console.log('Using custom model:', userModel.name);
+      // Select a premium surface type randomly for variety
+      const surfaceOptions = [
+        {
+          name: 'natural_stone',
+          prompt: `rough natural volcanic black basalt stone surface, organic raw stone texture with subtle veins, matte finish with micro-crystalline details, geological authenticity`,
+          lighting: 'dramatic directional side lighting creating long shadows on stone texture'
+        },
+        {
+          name: 'marble',
+          prompt: `polished Carrara white marble surface with delicate gray veining, cold luxurious stone, natural mineral patterns, high-end showroom quality`,
+          lighting: 'soft diffused overhead lighting with subtle reflections on marble'
+        },
+        {
+          name: 'velvet',
+          prompt: `deep burgundy or navy velvet fabric with rich pile texture, crushed velvet folds, luxurious jewelry box presentation quality, soft fabric undulations`,
+          lighting: 'warm studio lighting creating velvet sheen and soft shadows in fabric folds'
+        },
+        {
+          name: 'leather',
+          prompt: `premium Italian full-grain cognac leather surface, natural leather grain and patina, aged craftsman quality, subtle creases and texture`,
+          lighting: 'warm amber-toned lighting emphasizing leather grain and natural oil sheen'
+        },
+        {
+          name: 'slate',
+          prompt: `dark charcoal natural slate stone with layered texture, raw mineral surface, subtle metallic mineral flecks, organic geological patterns`,
+          lighting: 'moody low-key lighting with sharp contrast on slate surface'
+        },
+        {
+          name: 'silk',
+          prompt: `flowing champagne silk satin fabric, luxurious draping with natural folds, subtle iridescent sheen, haute couture presentation quality`,
+          lighting: 'soft romantic lighting creating silk luminosity and gentle shadows'
+        },
+        {
+          name: 'driftwood',
+          prompt: `weathered pale driftwood surface with natural grain patterns, coastal elegant aesthetic, organic wood texture, nature-inspired styling`,
+          lighting: 'soft natural daylight simulation with gentle shadows'
+        },
+        {
+          name: 'concrete',
+          prompt: `minimal polished concrete surface with fine aggregate texture, industrial chic aesthetic, matte finish, contemporary gallery presentation`,
+          lighting: 'clean diffused lighting with subtle surface shadows'
         }
-      }
+      ];
+      
+      // Pick a random surface for variety
+      const selectedSurface = surfaceOptions[Math.floor(Math.random() * surfaceOptions.length)];
+      console.log(`Selected surface for scene: ${selectedSurface.name}`);
 
-      const modelPrompt = `Professional fashion model photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality.
+      const productScenePrompt = `Professional luxury jewelry product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-${userModelPrompt}
+SCENE: Realistic product placement on premium natural surface
 
-CRITICAL PLACEMENT RULE:
-- Detected jewelry type: ${analysisResult.type || 'jewelry'}
-- This ${analysisResult.type || 'jewelry'} MUST be placed on the correct body part for its type
-- RINGS go on FINGERS only
-- BRACELETS go on WRISTS only  
-- EARRINGS go on EARS only
-- NECKLACES go around the NECK only
-- NEVER place a ring on an ear or a necklace on a wrist
+SURFACE SPECIFICATION:
+${selectedSurface.prompt}
 
-SCENE: ${modelScene}
-- Model: Professional model with realistic skin texture (NOT plastic or over-retouched)
-- Lighting: Soft key light with subtle rim light, cinematic quality
-- Style: High-end fashion advertising, editorial quality
-- The jewelry is worn naturally on the CORRECT body part and becomes the focal point
-- Natural pose, confident but not forced
-- Background: Soft, out of focus, elegant
-- Skin shows natural texture and pores, not airbrushed
-- Jewelry perfectly scaled on the model
+PLACEMENT REQUIREMENTS (CRITICAL - PHYSICAL REALISM):
+- The jewelry MUST be physically resting on the surface with REALISTIC WEIGHT and GRAVITY
+- Natural contact point where jewelry touches surface
+- Authentic contact shadows directly beneath the jewelry
+- NO floating, NO cut-out appearance, NO artificial placement
+- The jewelry should look like it was carefully placed by hand on this surface
+- True-to-scale proportions - the surface texture should be appropriately sized
+- NOT composited, NOT digitally merged - looks like a single real photograph
 
-Ultra high resolution output. Maximum image quality.`;
+LIGHTING:
+${selectedSurface.lighting}
+- Soft key light emphasizing both jewelry and surface texture
+- Natural interplay between jewelry reflections and surface material
+- Consistent light direction on both jewelry and surface
+- Realistic shadow integration
 
-      console.log('Generating Model image with auto-detected type:', autoDetectedProductType);
-      const modelUrl = await generateSingleImage(base64Image, modelPrompt, userId, imageRecord.id, 3, supabase);
-      if (modelUrl) generatedUrls.push(modelUrl);
+CAMERA & COMPOSITION:
+- 85mm or 100mm macro lens perspective
+- Shallow depth of field with jewelry in sharp focus
+- Surface texture visible but not competing with jewelry
+- Slightly elevated camera angle (30-45 degrees)
+- Jewelry positioned naturally, not perfectly centered (organic feel)
+
+MATERIAL INTERACTION:
+- Metal reflections should show the surface environment
+- Gemstones should pick up subtle color from surface
+- Natural environmental reflections in polished metal
+- Realistic light behavior between jewelry and surface
+
+FORBIDDEN:
+- NO floating jewelry
+- NO artificial glow or halo around jewelry
+- NO plastic or CGI appearance
+- NO perfectly uniform lighting
+- NOT composited or digitally merged look
+
+OUTPUT QUALITY: Maximum resolution, ultra-sharp macro details, no compression artifacts.
+This should look like a real professional product photograph, not a digital composite.
+Ultra high resolution output.`;
+
+      console.log('Generating Product Scene image...');
+      const sceneUrl = await generateSingleImage(base64Image, productScenePrompt, userId, imageRecord.id, 3, supabase);
+      if (sceneUrl) generatedUrls.push(sceneUrl);
 
     } else {
       // STANDARD: Single image with scene
