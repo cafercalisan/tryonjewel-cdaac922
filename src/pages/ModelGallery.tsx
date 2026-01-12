@@ -54,6 +54,13 @@ interface UserModel {
   created_at: string;
 }
 
+interface GeneratedPose {
+  id: string;
+  poseType: string;
+  imageUrl: string;
+  generatedAt: Date;
+}
+
 const POSE_OPTIONS = [
   { id: 'portrait', name: 'Portre', description: 'Yüz ve omuz bölgesi, kolye için ideal', icon: '👤' },
   { id: 'hand-close', name: 'El Yakın', description: 'El ve parmaklar, yüzük için ideal', icon: '✋' },
@@ -70,8 +77,9 @@ export default function ModelGallery() {
   const [selectedModel, setSelectedModel] = useState<UserModel | null>(null);
   const [deleteModelId, setDeleteModelId] = useState<string | null>(null);
   const [generatingPose, setGeneratingPose] = useState<string | null>(null);
-  const [generatedPoseImage, setGeneratedPoseImage] = useState<string | null>(null);
-  const [showPoseResult, setShowPoseResult] = useState(false);
+  const [generatedPoses, setGeneratedPoses] = useState<GeneratedPose[]>([]);
+  const [selectedPoseIndex, setSelectedPoseIndex] = useState<number>(0);
+  const [showPoseGallery, setShowPoseGallery] = useState(false);
 
   const { data: models, isLoading, refetch } = useQuery({
     queryKey: ['user-models', user?.id],
@@ -115,9 +123,16 @@ export default function ModelGallery() {
       if (response.error) throw response.error;
       return response.data;
     },
-    onSuccess: (data) => {
-      setGeneratedPoseImage(data.imageUrl);
-      setShowPoseResult(true);
+    onSuccess: (data, variables) => {
+      const newPose: GeneratedPose = {
+        id: `${Date.now()}`,
+        poseType: variables.poseId,
+        imageUrl: data.imageUrl,
+        generatedAt: new Date(),
+      };
+      setGeneratedPoses(prev => [...prev, newPose]);
+      setSelectedPoseIndex(generatedPoses.length); // Select the new pose
+      setShowPoseGallery(true);
       toast.success('Poz başarıyla oluşturuldu!');
     },
     onError: (error) => {
@@ -155,9 +170,24 @@ export default function ModelGallery() {
     generatePoseMutation.mutate({ model, poseId });
   };
 
-  const handleDownloadPose = async () => {
-    if (generatedPoseImage) {
-      await downloadImage(generatedPoseImage, `model-pose-${Date.now()}.png`);
+  const handleDownloadPose = async (imageUrl?: string) => {
+    const url = imageUrl || generatedPoses[selectedPoseIndex]?.imageUrl;
+    if (url) {
+      await downloadImage(url, `model-pose-${Date.now()}.png`);
+    }
+  };
+
+  const handlePrevPose = () => {
+    setSelectedPoseIndex(prev => (prev > 0 ? prev - 1 : generatedPoses.length - 1));
+  };
+
+  const handleNextPose = () => {
+    setSelectedPoseIndex(prev => (prev < generatedPoses.length - 1 ? prev + 1 : 0));
+  };
+
+  const handleViewPoseGallery = () => {
+    if (generatedPoses.length > 0) {
+      setShowPoseGallery(true);
     }
   };
 
@@ -408,6 +438,18 @@ export default function ModelGallery() {
                     ))}
                   </div>
 
+                  {/* View Generated Poses Button */}
+                  {generatedPoses.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2"
+                      onClick={handleViewPoseGallery}
+                    >
+                      <Camera className="h-4 w-4" />
+                      Oluşturulan Pozları Gör ({generatedPoses.length})
+                    </Button>
+                  )}
+
                   <p className="text-xs text-muted-foreground text-center">
                     Her poz oluşturma 1 kredi kullanır
                   </p>
@@ -417,42 +459,111 @@ export default function ModelGallery() {
           </DialogContent>
         </Dialog>
 
-        {/* Pose Result Dialog */}
-        <Dialog open={showPoseResult} onOpenChange={setShowPoseResult}>
-          <DialogContent className="max-w-lg">
+        {/* Pose Gallery Dialog */}
+        <Dialog open={showPoseGallery} onOpenChange={setShowPoseGallery}>
+          <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>Oluşturulan Poz</DialogTitle>
+              <DialogTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-primary" />
+                  Oluşturulan Pozlar ({generatedPoses.length})
+                </span>
+                {generatedPoses.length > 0 && (
+                  <span className="text-sm text-muted-foreground font-normal">
+                    {selectedPoseIndex + 1} / {generatedPoses.length}
+                  </span>
+                )}
+              </DialogTitle>
             </DialogHeader>
 
-            {generatedPoseImage && (
+            {generatedPoses.length > 0 ? (
               <div className="space-y-4">
-                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={generatedPoseImage}
-                    alt="Generated pose"
-                    className="w-full h-full object-cover"
-                  />
+                {/* Main Image Display */}
+                <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-muted">
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={generatedPoses[selectedPoseIndex]?.id}
+                      src={generatedPoses[selectedPoseIndex]?.imageUrl}
+                      alt={`Pose ${selectedPoseIndex + 1}`}
+                      className="w-full h-full object-cover"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  </AnimatePresence>
+
+                  {/* Navigation Arrows */}
+                  {generatedPoses.length > 1 && (
+                    <>
+                      <button
+                        onClick={handlePrevPose}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 hover:bg-background flex items-center justify-center transition-colors"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button
+                        onClick={handleNextPose}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 hover:bg-background flex items-center justify-center transition-colors"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Pose Type Badge */}
+                  <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm">
+                    {POSE_OPTIONS.find(p => p.id === generatedPoses[selectedPoseIndex]?.poseType)?.name || 'Poz'}
+                  </Badge>
                 </div>
 
+                {/* Thumbnail Strip */}
+                {generatedPoses.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto py-2">
+                    {generatedPoses.map((pose, index) => (
+                      <motion.button
+                        key={pose.id}
+                        onClick={() => setSelectedPoseIndex(index)}
+                        className={`flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                          index === selectedPoseIndex
+                            ? 'border-primary ring-2 ring-primary/20'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <img
+                          src={pose.imageUrl}
+                          alt={`Thumbnail ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     className="flex-1 gap-2"
-                    onClick={handleDownloadPose}
+                    onClick={() => handleDownloadPose(generatedPoses[selectedPoseIndex]?.imageUrl)}
                   >
                     <Download className="h-4 w-4" />
-                    İndir
+                    Bu Pozu İndir
                   </Button>
                   <Button
                     className="flex-1 gap-2"
-                    onClick={() => {
-                      setShowPoseResult(false);
-                      setGeneratedPoseImage(null);
-                    }}
+                    onClick={() => setShowPoseGallery(false)}
                   >
                     Tamam
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Camera className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground">Henüz poz oluşturulmadı</p>
               </div>
             )}
           </DialogContent>
