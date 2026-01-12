@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 
 export default function Results() {
   const [searchParams] = useSearchParams();
@@ -249,6 +250,22 @@ export default function Results() {
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              {/* Video Generation */}
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-6 shadow-luxury border border-primary/20">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <span className="text-primary">✨</span>
+                  Premium Video
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Slow-motion lüks animasyon ile görselinizi canlandırın
+                </p>
+                <VideoGenerateButton 
+                  imageUrl={selectedUrl} 
+                  variant="default"
+                  className="w-full"
+                />
               </div>
 
               <div className="flex gap-3">

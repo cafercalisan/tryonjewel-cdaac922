@@ -59,6 +59,12 @@ export function Header() {
             >
               Modellerim
             </Link>
+            <Link 
+              to="/videolarim" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Videolarım
+            </Link>
 
             {/* Credits Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-sm font-medium">
@@ -144,6 +150,13 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Modellerim
+                </Link>
+                <Link 
+                  to="/videolarim" 
+                  className="py-2 text-sm font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Videolarım
                 </Link>
                 <Link
                   to="/hesap" 
