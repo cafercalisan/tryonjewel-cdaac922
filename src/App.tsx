@@ -17,6 +17,7 @@ import DesignResults from "./pages/DesignResults";
 import CreateDesign from "./pages/CreateDesign";
 import Gallery from "./pages/Gallery";
 import ModelGallery from "./pages/ModelGallery";
+import Videos from "./pages/Videos";
 import Scenes from "./pages/Scenes";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/tasarim-olustur" element={<ProtectedRoute><CreateDesign /></ProtectedRoute>} />
             <Route path="/gorsellerim" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             <Route path="/modellerim" element={<ProtectedRoute><ModelGallery /></ProtectedRoute>} />
+            <Route path="/videolarim" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
             <Route path="/hesap" element={<ProtectedRoute><Account /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
