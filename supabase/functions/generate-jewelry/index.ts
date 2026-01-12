@@ -531,109 +531,133 @@ Ultra high resolution output.`;
       const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
       if (catalogUrl) generatedUrls.push(catalogUrl);
 
-      // Image 3: Product Scene - Realistic placement on natural surfaces (stone, fabric, leather)
-      // This is NOT a model shot - it's the product in a realistic scene
+      // Image 3: Model Shot - Product worn on a model, product-focused
+      // This is a model wearing the jewelry with natural, relaxed pose
       
-      // Select a premium surface type randomly for variety
-      const surfaceOptions = [
-        {
-          name: 'natural_stone',
-          prompt: `rough natural volcanic black basalt stone surface, organic raw stone texture with subtle veins, matte finish with micro-crystalline details, geological authenticity`,
-          lighting: 'dramatic directional side lighting creating long shadows on stone texture'
-        },
-        {
-          name: 'marble',
-          prompt: `polished Carrara white marble surface with delicate gray veining, cold luxurious stone, natural mineral patterns, high-end showroom quality`,
-          lighting: 'soft diffused overhead lighting with subtle reflections on marble'
-        },
-        {
-          name: 'velvet',
-          prompt: `deep burgundy or navy velvet fabric with rich pile texture, crushed velvet folds, luxurious jewelry box presentation quality, soft fabric undulations`,
-          lighting: 'warm studio lighting creating velvet sheen and soft shadows in fabric folds'
-        },
-        {
-          name: 'leather',
-          prompt: `premium Italian full-grain cognac leather surface, natural leather grain and patina, aged craftsman quality, subtle creases and texture`,
-          lighting: 'warm amber-toned lighting emphasizing leather grain and natural oil sheen'
-        },
-        {
-          name: 'slate',
-          prompt: `dark charcoal natural slate stone with layered texture, raw mineral surface, subtle metallic mineral flecks, organic geological patterns`,
-          lighting: 'moody low-key lighting with sharp contrast on slate surface'
-        },
-        {
-          name: 'silk',
-          prompt: `flowing champagne silk satin fabric, luxurious draping with natural folds, subtle iridescent sheen, haute couture presentation quality`,
-          lighting: 'soft romantic lighting creating silk luminosity and gentle shadows'
-        },
-        {
-          name: 'driftwood',
-          prompt: `weathered pale driftwood surface with natural grain patterns, coastal elegant aesthetic, organic wood texture, nature-inspired styling`,
-          lighting: 'soft natural daylight simulation with gentle shadows'
-        },
-        {
-          name: 'concrete',
-          prompt: `minimal polished concrete surface with fine aggregate texture, industrial chic aesthetic, matte finish, contemporary gallery presentation`,
-          lighting: 'clean diffused lighting with subtle surface shadows'
-        }
-      ];
+      // Determine body part based on product type
+      const productTypeUpper = (productType || analysisResult.type || 'ring').toLowerCase();
+      let modelBodyPart = 'hand';
+      let wearingDescription = 'worn on elegant fingers';
+      let poseDescription = 'hand gracefully positioned, natural relaxed gesture';
       
-      // Pick a random surface for variety
-      const selectedSurface = surfaceOptions[Math.floor(Math.random() * surfaceOptions.length)];
-      console.log(`Selected surface for scene: ${selectedSurface.name}`);
+      if (productTypeUpper.includes('kolye') || productTypeUpper.includes('necklace') || productTypeUpper.includes('pendant') || productTypeUpper.includes('choker')) {
+        modelBodyPart = 'neck and décolletage';
+        wearingDescription = 'elegantly draped around the neck';
+        poseDescription = 'model with graceful neck pose, head slightly tilted, showcasing the necklace beautifully';
+      } else if (productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing')) {
+        modelBodyPart = 'ear and face profile';
+        wearingDescription = 'adorning the ear';
+        poseDescription = 'elegant profile or three-quarter view, hair swept back to reveal the earring';
+      } else if (productTypeUpper.includes('bileklik') || productTypeUpper.includes('bracelet') || productTypeUpper.includes('bangle')) {
+        modelBodyPart = 'wrist';
+        wearingDescription = 'wrapped around a slender wrist';
+        poseDescription = 'wrist elegantly displayed, arm in natural relaxed position';
+      } else if (productTypeUpper.includes('yüzük') || productTypeUpper.includes('ring') || productTypeUpper.includes('yuzuk')) {
+        modelBodyPart = 'hand and fingers';
+        wearingDescription = 'on elegant, well-manicured fingers';
+        poseDescription = 'hand gracefully positioned, fingers naturally spread to showcase the ring';
+      } else if (productTypeUpper.includes('broş') || productTypeUpper.includes('brooch')) {
+        modelBodyPart = 'chest or shoulder area';
+        wearingDescription = 'pinned elegantly on fabric';
+        poseDescription = 'brooch visible on collar or lapel, model in elegant pose';
+      }
 
-      const productScenePrompt = `Professional luxury jewelry product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // Get model details if modelId is provided
+      let modelDescription = 'elegant female model with natural beauty, sophisticated appearance';
+      let skinToneDesc = 'natural healthy skin';
+      
+      if (modelId && uuidRegex.test(modelId)) {
+        const { data: modelData } = await supabase
+          .from('user_models')
+          .select('*')
+          .eq('id', modelId)
+          .single();
+        
+        if (modelData) {
+          const genderDesc = modelData.gender === 'female' ? 'female' : modelData.gender === 'male' ? 'male' : 'androgynous';
+          const ageDesc = modelData.age_range || 'young adult';
+          const ethnicityDesc = modelData.ethnicity || 'diverse';
+          const skinDesc = modelData.skin_tone || 'medium';
+          const undertoneDesc = modelData.skin_undertone || 'neutral';
+          const hairColorDesc = modelData.hair_color || 'dark';
+          const hairTextureDesc = modelData.hair_texture || 'straight';
+          
+          modelDescription = `${ethnicityDesc} ${genderDesc} model, ${ageDesc} age range, ${hairColorDesc} ${hairTextureDesc} hair, elegant and sophisticated appearance`;
+          skinToneDesc = `${skinDesc} skin tone with ${undertoneDesc} undertone, healthy natural glow`;
+        }
+      }
+
+      const modelShotPrompt = `Professional luxury jewelry advertising campaign photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-SCENE: Realistic product placement on premium natural surface
+MODEL & PRODUCT SHOT:
+This is a HIGH-END ADVERTISING CAMPAIGN shot featuring the jewelry on a real model.
 
-SURFACE SPECIFICATION:
-${selectedSurface.prompt}
+MODEL SPECIFICATIONS:
+- ${modelDescription}
+- ${skinToneDesc}
+- Natural, realistic skin texture (NOT plastic, NOT overly airbrushed)
+- Professional makeup, subtle and elegant
+- Body part featured: ${modelBodyPart}
 
-PLACEMENT REQUIREMENTS (CRITICAL - PHYSICAL REALISM):
-- The jewelry MUST be physically resting on the surface with REALISTIC WEIGHT and GRAVITY
-- Natural contact point where jewelry touches surface
-- Authentic contact shadows directly beneath the jewelry
-- NO floating, NO cut-out appearance, NO artificial placement
-- The jewelry should look like it was carefully placed by hand on this surface
-- True-to-scale proportions - the surface texture should be appropriately sized
-- NOT composited, NOT digitally merged - looks like a single real photograph
+JEWELRY PLACEMENT:
+- The jewelry is ${wearingDescription}
+- ${poseDescription}
+- The PRODUCT (jewelry) is the ABSOLUTE FOCAL POINT
+- Model serves to showcase the jewelry, not compete with it
+
+POSE & STYLING:
+- Natural, relaxed, confident pose - NOT stiff or forced
+- Editorial fashion photography quality
+- The pose emphasizes and draws attention to the jewelry
+- Elegant, aspirational, lifestyle-oriented
+
+PHOTOGRAPHY STYLE:
+- Professional campaign photography (Cartier, Tiffany, Bulgari level)
+- Soft, flattering lighting on both skin and jewelry
+- Shallow depth of field with jewelry in perfect focus
+- Model slightly soft/bokeh while jewelry is razor sharp
+- Premium fashion magazine quality
 
 LIGHTING:
-${selectedSurface.lighting}
-- Soft key light emphasizing both jewelry and surface texture
-- Natural interplay between jewelry reflections and surface material
-- Consistent light direction on both jewelry and surface
-- Realistic shadow integration
+- Soft key light creating beautiful skin tones
+- Subtle rim light separating subject from background
+- Jewelry catching light perfectly, showing all details
+- Natural looking studio lighting, not harsh
 
-CAMERA & COMPOSITION:
-- 85mm or 100mm macro lens perspective
-- Shallow depth of field with jewelry in sharp focus
-- Surface texture visible but not competing with jewelry
-- Slightly elevated camera angle (30-45 degrees)
-- Jewelry positioned naturally, not perfectly centered (organic feel)
+BACKGROUND:
+- Soft, neutral, out of focus
+- Luxury studio environment
+- Does not distract from the jewelry or model
 
-MATERIAL INTERACTION:
-- Metal reflections should show the surface environment
-- Gemstones should pick up subtle color from surface
-- Natural environmental reflections in polished metal
-- Realistic light behavior between jewelry and surface
+SKIN & REALISM:
+- Realistic skin texture with natural pores and subtle details
+- NOT plastic or CGI looking
+- Natural skin imperfections are acceptable and add realism
+- Healthy, glowing appearance
+
+CRITICAL - PRODUCT FOCUS:
+- The jewelry MUST be the star of the image
+- Every element should draw the eye to the jewelry
+- Model is secondary, jewelry is primary
+- Sharp focus on jewelry, slightly softer focus on model features
 
 FORBIDDEN:
-- NO floating jewelry
-- NO artificial glow or halo around jewelry
-- NO plastic or CGI appearance
-- NO perfectly uniform lighting
-- NOT composited or digitally merged look
+- NO plastic/CGI skin
+- NO stiff unnatural poses
+- NO distracting elements
+- NO jewelry that looks different from original
+- NO text or watermarks
+- NOT a selfie or casual photo - this is PROFESSIONAL ADVERTISING
 
-OUTPUT QUALITY: Maximum resolution, ultra-sharp macro details, no compression artifacts.
-This should look like a real professional product photograph, not a digital composite.
+OUTPUT QUALITY: Maximum resolution, ultra-sharp jewelry details, beautiful skin rendering.
+This should look like it belongs in Vogue or a luxury brand campaign.
 Ultra high resolution output.`;
 
-      console.log('Generating Product Scene image...');
-      const sceneUrl = await generateSingleImage(base64Image, productScenePrompt, userId, imageRecord.id, 3, supabase);
-      if (sceneUrl) generatedUrls.push(sceneUrl);
+      console.log('Generating Model Shot image...');
+      const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);
+      if (modelUrl) generatedUrls.push(modelUrl);
 
     } else {
       // STANDARD: Single image with scene
