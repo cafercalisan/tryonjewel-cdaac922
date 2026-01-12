@@ -225,6 +225,11 @@ serve(async (req) => {
       hairTexture, 
       gender, 
       ageRange,
+      // New enhanced model parameters
+      faceShape,
+      eyeColor,
+      expression,
+      hairStyle,
       // For pose generation (existing model)
       modelData,
       poseType,
@@ -324,37 +329,106 @@ ADDITIONAL REQUIREMENTS:
 
 Ultra high resolution. Maximum photorealism. Consistent identity. Editorial magazine quality.`;
     } else {
-      // New model creation
+      // New model creation with enhanced parameters
+      
+      // Build face shape description
+      const faceShapeDescriptions: Record<string, string> = {
+        'oval': 'oval-shaped, balanced proportions, soft jawline',
+        'angular': 'angular, high cheekbones, defined jawline, striking bone structure',
+        'heart': 'heart-shaped, wider forehead, delicate chin',
+        'square': 'square-shaped, strong jaw, defined angles',
+        'round': 'round, soft features, gentle curves',
+        'diamond': 'diamond-shaped, prominent cheekbones, narrow forehead and chin',
+      };
+      
+      // Build eye color description
+      const eyeColorDescriptions: Record<string, string> = {
+        'dark-brown': 'deep dark brown, almost black, intense depth',
+        'brown': 'warm brown, rich amber undertones',
+        'hazel': 'hazel with golden-green flecks, multi-tonal',
+        'green': 'striking green, emerald depth',
+        'blue': 'clear blue, cool and captivating',
+        'gray': 'sophisticated gray, steel-like intensity',
+      };
+      
+      // Build expression description  
+      const expressionDescriptions: Record<string, string> = {
+        'serene-confident': 'serene yet confident, calm inner strength, subtle knowing gaze',
+        'mysterious': 'mysterious and enigmatic, distant gaze with depth, intriguing',
+        'warm-approachable': 'warm and approachable, gentle softness in eyes, inviting',
+        'intense-focused': 'intense and focused, powerful direct gaze, commanding presence',
+        'elegant-distant': 'elegantly distant, high-fashion aloofness, editorial detachment',
+      };
+      
+      // Build hair style description
+      const hairStyleDescriptions: Record<string, string> = {
+        'slicked-back': 'slicked back, exposing ears and forehead, sleek and refined',
+        'loose-elegant': 'loose but elegantly styled, soft movement, sophisticated',
+        'updo': 'elegant updo, exposing neck and ears fully, refined',
+        'side-part': 'side-parted, classic styling, one ear visible',
+        'natural-waves': 'natural waves, effortless elegance, soft texture',
+        'straight-sleek': 'straight and sleek, polished, glossy finish',
+      };
+      
+      const faceDesc = faceShapeDescriptions[faceShape] || 'balanced, elegant features';
+      const eyeDesc = eyeColorDescriptions[eyeColor] || 'natural eye color';
+      const expressionDesc = expressionDescriptions[expression] || 'confident and natural';
+      const hairStyleDesc = hairStyleDescriptions[hairStyle] || 'elegantly styled';
+      
       modelPrompt = `${MODEL_SYSTEM_PROMPT}
 
 USER-DEFINED MODEL PARAMETERS:
 - Name: ${name}
-- Skin Tone: ${skinTone} (melanin level)
-- Skin Undertone: ${skinUndertone} (warm/neutral/cool)
-- Ethnicity/Background: ${ethnicity}
-- Hair Color: ${hairColor}
-- Hair Texture: ${hairTexture}
 - Gender Presentation: ${gender}
+- Ethnicity/Background: ${ethnicity}
 - Age Range: ${ageRange}
 
+FACE & SKIN:
+- Skin Tone: ${skinTone} melanin level
+- Skin Undertone: ${skinUndertone || 'neutral'} (warm/neutral/cool balance)
+- Face Structure: ${faceDesc}
+- Eyes: ${eyeDesc}
+- Expression: ${expressionDesc}
+
+HAIR:
+- Hair Color: ${hairColor}
+- Hair Style: ${hairStyleDesc}
+
 GENERATION TASK:
-Create a professional headshot/portrait of this model for jewelry photography use.
-- Frame: Head and shoulders, slight angle (3/4 view)
-- Expression: Natural, confident, subtle smile
-- Lighting: Soft studio lighting, beauty photography quality
-- Focus: Sharp on face, natural skin texture with pores visible
-- Hair: Styled elegantly, pulled back to show ears and neck
-- Background: Soft neutral gradient (studio backdrop)
-- Skin: Hyperrealistic with visible pores, natural oiliness, NO plastic or overly smooth appearance
-- Eyes: Natural, not oversaturated
-- Ears: Clearly visible for earring shots
-- Neck and décolletage: Visible for necklace displays
-- Hands: Include elegant hands in frame if possible
+Create a high-end editorial portrait of this model for luxury jewelry campaign.
 
-OUTPUT: 4K resolution portrait, photorealistic, suitable for luxury jewelry campaign.
+CRITICAL REQUIREMENTS:
+- Frame: Head and shoulders, elegant 3/4 view angle
+- Expression: ${expressionDesc} - this is NOT a commercial smile, it's editorial restraint
+- Face: ${faceDesc} - bone structure clearly defined with soft lighting
+- Eyes: ${eyeDesc} - natural catchlights, NO excessive enhancement
+- Skin: Hyperrealistic with visible pores, natural micro-texture, ${skinTone} tone with ${skinUndertone || 'neutral'} undertone
+  - Visible pores and natural skin imperfections
+  - Subsurface scattering appropriate for skin tone
+  - NO plastic, waxy, or beauty-filtered appearance
+  - Natural oiliness in T-zone, slight matte elsewhere
+- Hair: ${hairStyleDesc}, ${hairColor} color, natural texture visible
+  - Hair MUST be styled to show ears clearly for earring display
+  - Neck and décolletage visible for necklace display
+- Background: Soft neutral gradient, slightly darker than subject (studio backdrop)
+- Lighting: Natural overcast simulation, soft and diffused
+  - No dramatic highlights or harsh shadows
+  - Controlled, even illumination
+  - Editorial, not glamour
+
+STRICT AVOIDANCE:
+- NO beauty retouching or skin smoothing
+- NO glamour lighting or commercial sparkle  
+- NO high saturation or HDR look
+- NO warm yellow lighting
+- NO excessive contrast
+- NO cinematic effects, glow, or bloom
+
+OUTPUT: 4K resolution editorial portrait, photorealistic, quiet luxury aesthetic.
 This image will be used as the model's identity reference for all future jewelry photoshoots.
+The result must look like a real professional model photographed for a high-fashion lookbook.
 
-Ultra high resolution. Maximum photorealism. Editorial magazine quality.`;
+Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet luxury aesthetic.`;
     }
 
     console.log('Generating model with Lovable AI...');
@@ -450,13 +524,18 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality.`;
         user_id: userId,
         name,
         skin_tone: skinTone,
-        skin_undertone: skinUndertone,
+        skin_undertone: skinUndertone || 'neutral',
         ethnicity,
         hair_color: hairColor,
-        hair_texture: hairTexture,
+        hair_texture: hairTexture || 'natural',
         gender,
         age_range: ageRange,
         preview_image_url: publicUrl,
+        // New enhanced fields
+        face_shape: faceShape,
+        eye_color: eyeColor,
+        expression,
+        hair_style: hairStyle,
       })
       .select()
       .single();

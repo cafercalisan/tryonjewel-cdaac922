@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Loader2, Sparkles, Check } from "lucide-react";
+import { User, Loader2, Sparkles, ChevronDown, ChevronUp, HelpCircle, Maximize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ModelCreatorProps {
   open: boolean;
@@ -15,27 +17,15 @@ interface ModelCreatorProps {
   onModelCreated: () => void;
 }
 
-// Skin tone options
-const skinTones = [
-  { id: 'fair', name: 'Açık Ten', description: 'Çok açık, porselen' },
-  { id: 'light', name: 'Açık-Orta', description: 'Açık, hafif pembe' },
-  { id: 'medium', name: 'Orta', description: 'Buğday, bal rengi' },
-  { id: 'olive', name: 'Zeytin', description: 'Zeytin yeşili alt ton' },
-  { id: 'tan', name: 'Bronz', description: 'Bronz, karamel' },
-  { id: 'brown', name: 'Kahverengi', description: 'Orta-koyu kahve' },
-  { id: 'dark', name: 'Koyu', description: 'Koyu kahve, espresso' },
-];
-
-// Skin undertone options
-const skinUndertones = [
-  { id: 'warm', name: 'Sıcak', description: 'Altın, şeftali tonları' },
-  { id: 'neutral', name: 'Nötr', description: 'Dengeli tonlar' },
-  { id: 'cool', name: 'Soğuk', description: 'Pembe, mavi tonları' },
+// Gender options
+const genders = [
+  { id: 'female', name: 'Kadın' },
+  { id: 'male', name: 'Erkek' },
 ];
 
 // Ethnicity options
 const ethnicities = [
-  { id: 'european', name: 'Avrupa' },
+  { id: 'european', name: 'Avrupalı' },
   { id: 'mediterranean', name: 'Akdeniz' },
   { id: 'middle-eastern', name: 'Orta Doğu' },
   { id: 'south-asian', name: 'Güney Asya' },
@@ -45,6 +35,60 @@ const ethnicities = [
   { id: 'latin-american', name: 'Latin Amerika' },
   { id: 'mixed', name: 'Karışık' },
 ];
+
+// Age range options
+const ageRanges = [
+  { id: '18-24', name: '18-24 yaş' },
+  { id: '25-30', name: '25-30 yaş' },
+  { id: '30-35', name: '30-35 yaş' },
+  { id: '35-40', name: '35-40 yaş' },
+  { id: '40-50', name: '40-50 yaş' },
+  { id: '50+', name: '50+ yaş' },
+];
+
+// ====== YÜZ & TEN BÖLÜMÜ ======
+
+// Skin tone options
+const skinTones = [
+  { id: 'fair', name: 'Açık', description: 'Porselen, çok açık ten' },
+  { id: 'light', name: 'Açık-Orta', description: 'Açık, hafif pembe' },
+  { id: 'medium', name: 'Orta', description: 'Buğday, bal rengi' },
+  { id: 'olive', name: 'Zeytin', description: 'Zeytin yeşili alt ton' },
+  { id: 'tan', name: 'Bronz', description: 'Bronz, karamel' },
+  { id: 'brown', name: 'Kahverengi', description: 'Orta-koyu kahve' },
+  { id: 'dark', name: 'Koyu', description: 'Koyu kahve, espresso' },
+];
+
+// Face shape options
+const faceShapes = [
+  { id: 'oval', name: 'Oval' },
+  { id: 'angular', name: 'Kemikli & Keskin' },
+  { id: 'heart', name: 'Kalp' },
+  { id: 'square', name: 'Kare' },
+  { id: 'round', name: 'Yuvarlak' },
+  { id: 'diamond', name: 'Elmas' },
+];
+
+// Eye color options
+const eyeColors = [
+  { id: 'dark-brown', name: 'Koyu Kahve' },
+  { id: 'brown', name: 'Kahverengi' },
+  { id: 'hazel', name: 'Ela' },
+  { id: 'green', name: 'Yeşil' },
+  { id: 'blue', name: 'Mavi' },
+  { id: 'gray', name: 'Gri' },
+];
+
+// Expression options
+const expressions = [
+  { id: 'serene-confident', name: 'Serin & Özgüvenli', description: 'Sakin ama güçlü' },
+  { id: 'mysterious', name: 'Gizemli', description: 'Derin, büyüleyici' },
+  { id: 'warm-approachable', name: 'Sıcak & Samimi', description: 'Yakın, davetkar' },
+  { id: 'intense-focused', name: 'Yoğun & Odaklı', description: 'Güçlü bakış' },
+  { id: 'elegant-distant', name: 'Zarif & Uzak', description: 'High-fashion' },
+];
+
+// ====== SAÇ BÖLÜMÜ ======
 
 // Hair color options
 const hairColors = [
@@ -57,45 +101,51 @@ const hairColors = [
   { id: 'blonde', name: 'Sarı' },
   { id: 'platinum', name: 'Platin' },
   { id: 'gray', name: 'Gri' },
-  { id: 'white', name: 'Beyaz' },
 ];
 
-// Hair texture options
-const hairTextures = [
-  { id: 'straight', name: 'Düz' },
-  { id: 'wavy', name: 'Dalgalı' },
-  { id: 'curly', name: 'Kıvırcık' },
-  { id: 'coily', name: 'Sıkı Kıvırcık' },
+// Hair style options
+const hairStyles = [
+  { id: 'slicked-back', name: 'Geriye Taranmış' },
+  { id: 'loose-elegant', name: 'Serbest & Zarif' },
+  { id: 'updo', name: 'Topuz' },
+  { id: 'side-part', name: 'Yandan Ayrık' },
+  { id: 'natural-waves', name: 'Doğal Dalgalı' },
+  { id: 'straight-sleek', name: 'Düz & Parlak' },
 ];
 
-// Gender options
-const genders = [
-  { id: 'female', name: 'Kadın' },
-  { id: 'male', name: 'Erkek' },
-];
-
-// Age range options
-const ageRanges = [
-  { id: '20-25', name: '20-25 yaş' },
-  { id: '25-30', name: '25-30 yaş' },
-  { id: '30-35', name: '30-35 yaş' },
-  { id: '35-40', name: '35-40 yaş' },
-  { id: '40-50', name: '40-50 yaş' },
-  { id: '50+', name: '50+ yaş' },
+// Skin undertone options (still used in prompt but simplified UI)
+const skinUndertones = [
+  { id: 'warm', name: 'Sıcak', description: 'Altın tonlar' },
+  { id: 'neutral', name: 'Nötr', description: 'Dengeli' },
+  { id: 'cool', name: 'Soğuk', description: 'Pembe tonlar' },
 ];
 
 export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreatorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [name, setName] = useState('');
-  const [skinTone, setSkinTone] = useState('');
-  const [skinUndertone, setSkinUndertone] = useState('');
-  const [ethnicity, setEthnicity] = useState('');
-  const [hairColor, setHairColor] = useState('');
-  const [hairTexture, setHairTexture] = useState('');
+  
+  // Kimlik
   const [gender, setGender] = useState('');
+  const [ethnicity, setEthnicity] = useState('');
   const [ageRange, setAgeRange] = useState('');
+  
+  // Yüz & Ten
+  const [skinTone, setSkinTone] = useState('');
+  const [skinUndertone, setSkinUndertone] = useState('neutral');
+  const [faceShape, setFaceShape] = useState('');
+  const [eyeColor, setEyeColor] = useState('');
+  const [expression, setExpression] = useState('');
+  
+  // Saç
+  const [hairColor, setHairColor] = useState('');
+  const [hairStyle, setHairStyle] = useState('');
+  
+  // Section collapse states
+  const [identityOpen, setIdentityOpen] = useState(true);
+  const [faceOpen, setFaceOpen] = useState(true);
+  const [hairOpen, setHairOpen] = useState(true);
 
-  const canGenerate = name && skinTone && skinUndertone && ethnicity && hairColor && hairTexture && gender && ageRange;
+  const canGenerate = name && gender && ethnicity && ageRange && skinTone && faceShape && eyeColor && expression && hairColor && hairStyle;
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -106,13 +156,18 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
       const { data, error } = await supabase.functions.invoke('generate-model', {
         body: {
           name,
+          gender,
+          ethnicity,
+          ageRange,
           skinTone,
           skinUndertone,
-          ethnicity,
+          faceShape,
+          eyeColor,
+          expression,
           hairColor,
-          hairTexture,
-          gender,
-          ageRange,
+          hairStyle,
+          // Keep hairTexture for backward compatibility
+          hairTexture: 'natural',
         },
       });
 
@@ -124,13 +179,16 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
       
       // Reset form
       setName('');
-      setSkinTone('');
-      setSkinUndertone('');
-      setEthnicity('');
-      setHairColor('');
-      setHairTexture('');
       setGender('');
+      setEthnicity('');
       setAgeRange('');
+      setSkinTone('');
+      setSkinUndertone('neutral');
+      setFaceShape('');
+      setEyeColor('');
+      setExpression('');
+      setHairColor('');
+      setHairStyle('');
     } catch (error) {
       console.error('Model generation error:', error);
       toast.error('Model oluşturulurken bir hata oluştu.');
@@ -139,9 +197,44 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
     }
   };
 
+  const SectionHeader = ({ 
+    title, 
+    isOpen, 
+    onToggle, 
+    tooltip 
+  }: { 
+    title: string; 
+    isOpen: boolean; 
+    onToggle: () => void;
+    tooltip: string;
+  }) => (
+    <div className="flex items-center justify-between py-2 border-b border-border/50">
+      <div className="flex items-center gap-2">
+        <button 
+          onClick={onToggle}
+          className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/80 hover:text-foreground transition-colors"
+        >
+          {title}
+          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              <p className="text-xs">{tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <Maximize2 className="h-4 w-4 text-muted-foreground" />
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <User className="h-5 w-5 text-primary" />
@@ -170,7 +263,7 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
               </div>
               <h3 className="text-lg font-semibold mb-2">Model Oluşturuluyor</h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Hiper-gerçekçi model oluşturuluyor. Bu işlem 30-60 saniye sürebilir.
+                Editöryel kalitede hiper-gerçekçi model oluşturuluyor. Bu işlem 30-60 saniye sürebilir.
               </p>
             </motion.div>
           ) : (
@@ -179,162 +272,220 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-6 py-4"
+              className="space-y-5 py-4"
             >
               {/* Model Name */}
               <div className="space-y-2">
-                <Label htmlFor="name">Model Adı</Label>
+                <Label htmlFor="name" className="text-sm font-medium">Model Adı</Label>
                 <Input
                   id="name"
-                  placeholder="Örn: Model 1, Ana Model..."
+                  placeholder="Örn: Sofia, Model A..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  className="bg-background/50"
                 />
               </div>
 
-              {/* Gender */}
-              <div className="space-y-2">
-                <Label>Cinsiyet</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {genders.map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => setGender(g.id)}
-                      className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
-                        gender === g.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/30'
-                      }`}
-                    >
-                      {g.name}
-                      {gender === g.id && (
-                        <Check className="h-4 w-4 text-primary inline ml-2" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* ====== KİMLİK BÖLÜMÜ ====== */}
+              <Collapsible open={identityOpen} onOpenChange={setIdentityOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader 
+                      title="KİMLİK" 
+                      isOpen={identityOpen} 
+                      onToggle={() => setIdentityOpen(!identityOpen)}
+                      tooltip="Modelin temel demografik özellikleri"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-3 gap-4 pt-4">
+                    {/* Gender */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Cinsiyet</Label>
+                      <Select value={gender} onValueChange={setGender}>
+                        <SelectTrigger className="bg-background/50">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {genders.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {/* Age Range */}
-              <div className="space-y-2">
-                <Label>Yaş Aralığı</Label>
-                <Select value={ageRange} onValueChange={setAgeRange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Yaş aralığı seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ageRanges.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Ethnicity */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Etnisite</Label>
+                      <Select value={ethnicity} onValueChange={setEthnicity}>
+                        <SelectTrigger className="bg-background/50">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ethnicities.map((e) => (
+                            <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {/* Ethnicity */}
-              <div className="space-y-2">
-                <Label>Etnik Köken</Label>
-                <Select value={ethnicity} onValueChange={setEthnicity}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Etnik köken seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ethnicities.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Age Range */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Yaş</Label>
+                      <Select value={ageRange} onValueChange={setAgeRange}>
+                        <SelectTrigger className="bg-background/50">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ageRanges.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
-              {/* Skin Tone */}
-              <div className="space-y-2">
-                <Label>Ten Rengi</Label>
-                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                  {skinTones.map((tone) => (
-                    <button
-                      key={tone.id}
-                      onClick={() => setSkinTone(tone.id)}
-                      className={`p-2 rounded-lg border-2 transition-all text-center ${
-                        skinTone === tone.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/30'
-                      }`}
-                      title={tone.description}
-                    >
-                      <span className="text-xs font-medium">{tone.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* ====== YÜZ & TEN BÖLÜMÜ ====== */}
+              <Collapsible open={faceOpen} onOpenChange={setFaceOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader 
+                      title="YÜZ & TEN" 
+                      isOpen={faceOpen} 
+                      onToggle={() => setFaceOpen(!faceOpen)}
+                      tooltip="Yüz yapısı, ten rengi, göz rengi ve ifade özellikleri"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-4">
+                    {/* Row 1: Skin Tone & Face Shape */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Ten Rengi</Label>
+                        <Select value={skinTone} onValueChange={setSkinTone}>
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {skinTones.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Yüz Tipi</Label>
+                        <Select value={faceShape} onValueChange={setFaceShape}>
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {faceShapes.map((f) => (
+                              <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-              {/* Skin Undertone */}
-              <div className="space-y-2">
-                <Label>Ten Alt Tonu</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {skinUndertones.map((tone) => (
-                    <button
-                      key={tone.id}
-                      onClick={() => setSkinUndertone(tone.id)}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        skinUndertone === tone.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/30'
-                      }`}
-                    >
-                      <span className="text-sm font-medium block">{tone.name}</span>
-                      <span className="text-xs text-muted-foreground">{tone.description}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    {/* Row 2: Eye Color & Expression */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Göz Rengi</Label>
+                        <Select value={eyeColor} onValueChange={setEyeColor}>
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {eyeColors.map((e) => (
+                              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">İfade</Label>
+                        <Select value={expression} onValueChange={setExpression}>
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {expressions.map((e) => (
+                              <SelectItem key={e.id} value={e.id}>
+                                <span>{e.name}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
-              {/* Hair Color */}
-              <div className="space-y-2">
-                <Label>Saç Rengi</Label>
-                <Select value={hairColor} onValueChange={setHairColor}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Saç rengi seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hairColors.map((h) => (
-                      <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Hair Texture */}
-              <div className="space-y-2">
-                <Label>Saç Yapısı</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {hairTextures.map((texture) => (
-                    <button
-                      key={texture.id}
-                      onClick={() => setHairTexture(texture.id)}
-                      className={`p-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                        hairTexture === texture.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/30'
-                      }`}
-                    >
-                      {texture.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* ====== SAÇ BÖLÜMÜ ====== */}
+              <Collapsible open={hairOpen} onOpenChange={setHairOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader 
+                      title="SAÇ" 
+                      isOpen={hairOpen} 
+                      onToggle={() => setHairOpen(!hairOpen)}
+                      tooltip="Saç rengi ve stili"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-2 gap-4 pt-4">
+                    {/* Hair Color */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Saç Rengi</Label>
+                      <Select value={hairColor} onValueChange={setHairColor}>
+                        <SelectTrigger className="bg-background/50">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hairColors.map((h) => (
+                            <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Hair Style */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Saç Stili</Label>
+                      <Select value={hairStyle} onValueChange={setHairStyle}>
+                        <SelectTrigger className="bg-background/50">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hairStyles.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Generate Button */}
               <Button
                 size="lg"
                 disabled={!canGenerate || isGenerating}
                 onClick={handleGenerate}
-                className="w-full h-12"
+                className="w-full h-12 mt-6"
               >
                 <Sparkles className="mr-2 h-5 w-5" />
                 Model Oluştur
               </Button>
 
               <p className="text-xs text-center text-muted-foreground">
-                Oluşturulan model, tüm mücevher çekimlerinizde kullanılabilir olacaktır.
+                Editöryel reklam kalitesinde, hiper-gerçekçi model oluşturulacaktır.
               </p>
             </motion.div>
           )}
