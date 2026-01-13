@@ -576,40 +576,60 @@ Ultra high resolution output.`;
       const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
       if (catalogUrl) generatedUrls.push(catalogUrl);
 
-      // Image 3: Model Shot - Product worn on a model, product-focused
-      // This is a model wearing the jewelry with natural, relaxed pose
+      // Image 3: PRODUCT-FOCUSED LUXURY CLOSE-UP
+      // Tight crop focused on jewelry worn on model, product occupies majority of frame
       
-      // Determine body part based on product type
+      // Determine body part and framing based on product type
       const productTypeUpper = (productType || analysisResult.type || 'ring').toLowerCase();
+      
+      // Extract real dimensions from analysis for scale preservation
+      const realWidthMm = analysisResult.dimensions?.estimated_width_mm || null;
+      const realHeightMm = analysisResult.dimensions?.estimated_height_mm || null;
+      const jewelryComplexity = analysisResult.design_elements?.complexity || 'moderate';
+      const jewelryStyle = analysisResult.design_elements?.style || 'classic';
+      
       let modelBodyPart = 'hand';
       let wearingDescription = 'worn on elegant fingers';
-      let poseDescription = 'hand gracefully positioned, natural relaxed gesture';
+      let framingDescription = 'TIGHT MACRO CROP on the ring, hand visible but ring dominates 70% of frame';
+      let cameraLens = '100mm macro lens';
+      let scaleNote = 'Ring appears at natural finger-to-ring proportion, NOT enlarged';
       
       if (productTypeUpper.includes('kolye') || productTypeUpper.includes('necklace') || productTypeUpper.includes('pendant') || productTypeUpper.includes('choker')) {
         modelBodyPart = 'neck and décolletage';
-        wearingDescription = 'elegantly draped around the neck';
-        poseDescription = 'model with graceful neck pose, head slightly tilted, showcasing the necklace beautifully';
+        wearingDescription = 'elegantly draped around the neck at natural position';
+        framingDescription = 'TIGHT CROP from chin to upper chest, necklace centered and clearly readable, pendant/chain details sharp';
+        cameraLens = '85mm prime lens';
+        scaleNote = 'Necklace appears at NATURAL DELICATE SIZE relative to neck - DO NOT ENLARGE. If reference shows a delicate chain, it must remain delicate. Pendant size proportional to reference.';
       } else if (productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing')) {
-        modelBodyPart = 'ear and face profile';
-        wearingDescription = 'adorning the ear';
-        poseDescription = 'elegant profile or three-quarter view, hair swept back to reveal the earring';
+        modelBodyPart = 'ear and jawline';
+        wearingDescription = 'adorning the ear in natural position';
+        framingDescription = 'TIGHT CROP on ear area, jawline to temple visible, earring dominates 60% of frame';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Earring at natural ear proportion - stud earrings remain small, drop earrings at realistic length';
       } else if (productTypeUpper.includes('bileklik') || productTypeUpper.includes('bracelet') || productTypeUpper.includes('bangle')) {
-        modelBodyPart = 'wrist';
+        modelBodyPart = 'wrist and forearm';
         wearingDescription = 'wrapped around a slender wrist';
-        poseDescription = 'wrist elegantly displayed, arm in natural relaxed position';
+        framingDescription = 'TIGHT CROP on wrist area, bracelet clearly readable with all details, hand partially visible';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Bracelet at natural wrist proportion, band width matches reference exactly';
       } else if (productTypeUpper.includes('yüzük') || productTypeUpper.includes('ring') || productTypeUpper.includes('yuzuk')) {
         modelBodyPart = 'hand and fingers';
         wearingDescription = 'on elegant, well-manicured fingers';
-        poseDescription = 'hand gracefully positioned, fingers naturally spread to showcase the ring';
+        framingDescription = 'EXTREME CLOSE-UP on ring and finger, ring stone/setting occupies 60-70% of frame, knuckle visible';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Ring at EXACT natural finger proportion - thin bands stay thin, statement rings at reference size';
       } else if (productTypeUpper.includes('broş') || productTypeUpper.includes('brooch')) {
-        modelBodyPart = 'chest or shoulder area';
+        modelBodyPart = 'collar or shoulder area';
         wearingDescription = 'pinned elegantly on fabric';
-        poseDescription = 'brooch visible on collar or lapel, model in elegant pose';
+        framingDescription = 'TIGHT CROP on brooch placement, fabric texture visible, brooch details sharp';
+        cameraLens = '85mm prime lens';
+        scaleNote = 'Brooch at natural size relative to garment';
       }
 
       // Get model details if modelId is provided
-      let modelDescription = 'elegant female model with natural beauty, sophisticated appearance';
-      let skinToneDesc = 'natural healthy skin';
+      let modelDescription = 'elegant model with natural beauty, sophisticated appearance';
+      let skinToneDesc = 'natural healthy skin with visible pores';
+      let skinUndertoneDesc = 'neutral undertone';
       
       if (modelId && uuidRegex.test(modelId)) {
         const { data: modelData } = await supabase
@@ -626,94 +646,138 @@ Ultra high resolution output.`;
           const undertoneDesc = modelData.skin_undertone || 'neutral';
           const hairColorDesc = modelData.hair_color || 'dark';
           const hairTextureDesc = modelData.hair_texture || 'straight';
+          const faceShapeDesc = modelData.face_shape || 'balanced';
+          const eyeColorDesc = modelData.eye_color || 'natural';
+          const expressionDesc = modelData.expression || 'serene-confident';
+          const hairStyleDesc = modelData.hair_style || 'elegant';
           
-          modelDescription = `${ethnicityDesc} ${genderDesc} model, ${ageDesc} age range, ${hairColorDesc} ${hairTextureDesc} hair, elegant and sophisticated appearance`;
-          skinToneDesc = `${skinDesc} skin tone with ${undertoneDesc} undertone, healthy natural glow`;
+          modelDescription = `${ethnicityDesc} ${genderDesc} model, ${ageDesc} age range, ${faceShapeDesc} face shape, ${eyeColorDesc} eyes, ${hairColorDesc} ${hairTextureDesc} hair styled ${hairStyleDesc}, ${expressionDesc} expression`;
+          skinToneDesc = `${skinDesc} skin tone with visible pores, natural micro-texture, healthy appearance`;
+          skinUndertoneDesc = `${undertoneDesc} undertone`;
         }
       }
 
-      const modelShotPrompt = `High-end editorial jewelry photography in a quiet luxury, minimalist fashion tone. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // Build product-specific dimension note if available
+      let dimensionNote = '';
+      if (realWidthMm && realHeightMm) {
+        dimensionNote = `Reference dimensions: approximately ${realWidthMm}mm x ${realHeightMm}mm - PRESERVE THIS SCALE relative to body part`;
+      }
+
+      const modelShotPrompt = `PRODUCT-FOCUSED LUXURY JEWELRY CLOSE-UP. Commercial-grade luxury jewelry rendering with product fidelity first, aesthetics second.
 
 ${fidelityBlock}
 
-EDITORIAL STYLE GUIDE:
-Overall color palette: cool-neutral, low saturation, soft contrast.
-Mood: Silent confidence, intellectual luxury, fashion-editorial restraint.
-Feels like a high-fashion lookbook or art-driven luxury campaign.
+═══════════════════════════════════════════════════════════════
+PRIORITY ORDER (IMMUTABLE - HIGHER OVERRIDES LOWER):
+1. PRODUCT ACCURACY (metal color, stone type, proportions)
+2. REFERENCE IMAGE FIDELITY
+3. PHYSICAL REALISM
+4. LIGHTING REALISM
+5. EDITORIAL LUXURY MOOD
+═══════════════════════════════════════════════════════════════
 
-MODEL & PRODUCT SHOT:
-This is an EDITORIAL LUXURY CAMPAIGN shot featuring the jewelry on a real model.
+⚠️ SCALE PRESERVATION (CRITICAL - DO NOT ENLARGE JEWELRY) ⚠️
+${scaleNote}
+${dimensionNote}
+- If the reference shows a delicate/thin piece, it MUST remain delicate/thin
+- If the reference shows a substantial/bold piece, maintain that proportion
+- Jewelry scale must NEVER distort human anatomy
+- Product proportions relative to body = LOCKED from reference
 
-MODEL SPECIFICATIONS:
+FRAMING SPECIFICATION:
+- ${framingDescription}
+- Product occupies majority of frame (60-80%)
+- Jewelry details (stones, setting, metal texture) CLEARLY READABLE
+- Shallow but natural depth of field: jewelry razor-sharp, skin slightly softer
+- Camera: Full-frame sensor, ${cameraLens}
+- Aperture: f/4 – f/5.6 (controlled depth, natural bokeh)
+- ISO: 50–100 (clean tonal range)
+
+MODEL (SUPPORTING ROLE - PRODUCT IS HERO):
 - ${modelDescription}
-- ${skinToneDesc}
-- Natural texture visible, realistic skin with pores
-- No smoothing, no beauty blur, no plastic appearance
-- Calm expression, distant gaze
+- Skin: ${skinToneDesc}, ${skinUndertoneDesc}
+- Skin rendering: editorial macro-photography level
+  • Visible pores with non-uniform distribution
+  • Subsurface scattering appropriate for skin tone
+  • NO plastic, waxy, or beauty-filtered appearance
+  • Fine vellus hair visible in appropriate lighting
 - Body part featured: ${modelBodyPart}
+- Jewelry placement: ${wearingDescription}
 
-JEWELRY PLACEMENT:
-- The jewelry is ${wearingDescription}
-- ${poseDescription}
-- The PRODUCT (jewelry) is the ABSOLUTE FOCAL POINT
-- Model serves to showcase the jewelry, not compete with it
+HAND / BODY POSE (IF APPLICABLE):
+- Elegant, editorial, confident pose
+- Natural anatomy - anatomically correct proportions
+- Relaxed but refined gesture
+- Jewelry FRAMED by the body, never competing with it
+- Nails: clean, neutral, non-distracting
 
-LIGHTING (CRITICAL):
-- Natural overcast daylight, diffused and even
-- No dramatic highlights, no harsh shadows, no added rim lights
-- Jewelry reflections are controlled, soft, physically accurate
-- NEVER sparkling excessively - controlled brilliance
+SKIN & PRODUCT BALANCE:
+- Skin texture realistic and natural
+- Jewelry SHARPER and more CONTRAST-RICH than skin
+- Harmonized tones between skin and metal
+- Jewelry is the visual anchor, skin is supporting context
+
+LIGHTING (LOCKED):
+- Soft, directional beauty-style lighting
+- Large diffused key light (approximately 45°) for skin
+- Precision fill to reveal jewelry facets
+- Light FAVORS jewelry detail and facet visibility
+- Controlled highlights, NO clipping on metal or stones
+- Natural overcast daylight simulation
+- NO dramatic rim lights that introduce color casts
+- NO glamour lighting, NO commercial sparkle
+
+METAL COLOR ENFORCEMENT (ABSOLUTE):
+- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Lighting may affect reflection INTENSITY only
+- Lighting MUST NOT affect: hue, temperature, undertone, saturation
+- Any deviation from reference metal color = GENERATION FAILURE
+
+DIAMOND & STONE BEHAVIOR:
+- Diamonds reflect existing light ONLY
+- NO artificial sparkle
+- NO exaggerated scintillation  
+- NO rainbow dispersion unless physically justified
+- CLARITY over sparkle
+- DEPTH over flash
 
 BACKGROUND:
-- Muted and calm environment
-- Stone, water surface, matte fabric, soft architectural elements
+- Muted and calm
+- Stays secondary
+- Low-contrast
+- NEVER contaminates metal color
+- Allowed: stone, water, matte fabric, architectural minimalism
 - Background tones slightly darker than jewelry for separation
-- No contrast exaggeration
 
-JEWELRY APPEARANCE:
-- Confident, understated, and timeless
-- No visual noise, no glamour lighting, no commercial shine
+MOOD:
+- Luxury fashion advertising
+- Calm, precise, premium
+- Product-first visual hierarchy
+- Quiet luxury, intellectual restraint
+- Editorial, NOT commercial
 
-METAL TONES (REALISTIC):
-- White gold / platinum: cool, matte-leaning reflections
-- Yellow gold: desaturated, soft warmth
-- Diamonds: clarity over sparkle, depth over flash
+COLOR GRADING:
+- Low saturation
+- Soft contrast
+- Neutral–cool balance
+- Grading applies to: background, skin, fabric
+- Grading NEVER applies to: metal
 
-CAMERA:
-- Medium close-up with restraint
-- Shallow but natural depth of field
-- Editorial framing, no aggressive angles
-- Jewelry in perfect focus, model slightly softer
+STRICT AVOIDANCE:
+- ❌ NO enlarging/scaling up jewelry beyond reference proportions
+- ❌ NO metal color changes (yellow↔white↔rose)
+- ❌ NO high saturation
+- ❌ NO glamour or HDR lighting
+- ❌ NO commercial sparkle or glow
+- ❌ NO over-sharpening or beauty retouching
+- ❌ NO warm yellow lighting bias
+- ❌ NO cinematic effects or bloom
+- ❌ NO plastic/CGI skin appearance
+- ❌ NO jewelry that looks "repainted" or synthetic
 
-POSE & STYLING:
-- Natural, relaxed, confident pose - NOT stiff or forced
-- Editorial fashion photography quality
-- The pose emphasizes and draws attention to the jewelry
-- Elegant, aspirational, quiet luxury oriented
-
-SKIN & REALISM:
-- Natural texture visible with pores
-- No beauty retouching or over-smoothing
-- Healthy, natural appearance
-- NOT plastic or CGI looking
-
-STRICT AVOIDANCE (NEGATIVE):
-- NO high saturation
-- NO glamour lighting
-- NO commercial sparkle
-- NO over-sharpening
-- NO beauty retouching
-- NO HDR look
-- NO warm yellow lighting
-- NO excessive contrast
-- NO cinematic effects
-- NO glow, bloom, or stylized grading
-- NO plastic/CGI skin
-- NO stiff unnatural poses
-
-OUTPUT QUALITY: Maximum resolution, ultra-sharp jewelry details, natural skin rendering.
-This should look like it belongs in a high-fashion lookbook or art-driven luxury campaign.
-Photorealism prioritized. Ultra high resolution output.`;
+OUTPUT: 4K ultra-high resolution (3840x4800px minimum). 
+Product looks SELLABLE. Suitable for luxury brand campaign.
+PHOTOREALISM prioritized. Ultra high resolution output.`;
 
       console.log('Generating Model Shot image...');
       const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);
