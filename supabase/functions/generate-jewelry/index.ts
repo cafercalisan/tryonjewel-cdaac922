@@ -112,7 +112,7 @@ async function callLovableImageGeneration({
   return url.slice(commaIndex + 1);
 }
 
-// Generate single image and return base64
+// Generate single image and return signed URL (since bucket is private)
 async function generateSingleImage(base64Image: string, prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
   try {
     if (!GOOGLE_IMAGE_API_KEY) {
@@ -139,10 +139,14 @@ async function generateSingleImage(base64Image: string, prompt: string, userId: 
             .upload(filePath, imageBuffer, { contentType: 'image/png' });
 
           if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
+            // Use signed URL since bucket is private (7 days expiry for long-term access)
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
               .from('jewelry-images')
-              .getPublicUrl(filePath);
-            return publicUrl;
+              .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+            
+            if (!signedUrlError && signedUrlData?.signedUrl) {
+              return signedUrlData.signedUrl;
+            }
           }
         } catch (fallbackErr) {
           console.error('Lovable AI fallback failed:', fallbackErr);
@@ -174,11 +178,15 @@ async function generateSingleImage(base64Image: string, prompt: string, userId: 
       .upload(filePath, imageBuffer, { contentType: 'image/png' });
 
     if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage
+      // Use signed URL since bucket is private (7 days expiry for long-term access)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('jewelry-images')
-        .getPublicUrl(filePath);
-      console.log(`Image ${index} uploaded successfully`);
-      return publicUrl;
+        .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+      
+      if (!signedUrlError && signedUrlData?.signedUrl) {
+        console.log(`Image ${index} uploaded successfully (signed URL)`);
+        return signedUrlData.signedUrl;
+      }
     }
 
     return null;
@@ -272,19 +280,30 @@ serve(async (req) => {
     // Calculate credits needed
     const creditsNeeded = isMasterPackage ? 2 : 1;
 
-    // Verify credits
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('credits')
-      .eq('id', userId)
-      .single();
+    // ATOMIC CREDIT DEDUCTION - Prevents race conditions
+    // Deduct credits BEFORE starting generation using database-level locking
+    const { data: deductResult, error: deductError } = await supabase
+      .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
 
-    if (!profile || profile.credits < creditsNeeded) {
+    if (deductError) {
+      console.error('Credit deduction error:', deductError);
       return new Response(
-        JSON.stringify({ error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli.` }),
+        JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!deductResult?.success) {
+      const currentCredits = deductResult?.current_credits ?? 0;
+      return new Response(
+        JSON.stringify({ 
+          error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${currentCredits}.` 
+        }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
 
     // Create image record
     const { data: imageRecord, error: insertError } = await supabase
@@ -725,6 +744,17 @@ Ultra high resolution output.`;
     }
 
     if (generatedUrls.length === 0) {
+      // Refund credits since generation failed
+      console.log('Generation failed, refunding credits...');
+      const { data: refundResult, error: refundError } = await supabase
+        .rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
+      
+      if (refundError) {
+        console.error('Refund error:', refundError);
+      } else {
+        console.log(`Credits refunded: ${creditsNeeded}, new balance: ${refundResult?.new_credits}`);
+      }
+
       await supabase
         .from('images')
         .update({ status: 'failed', error_message: 'Görsel oluşturulamadı' })
@@ -736,11 +766,7 @@ Ultra high resolution output.`;
       );
     }
 
-    // Deduct credits
-    await supabase
-      .from('profiles')
-      .update({ credits: profile.credits - creditsNeeded })
-      .eq('id', userId);
+    // Credits already deducted atomically before generation started
 
     // Update image record
     await supabase

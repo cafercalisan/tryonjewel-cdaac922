@@ -276,12 +276,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      deduct_credits: {
+        Args: { _amount: number; _user_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      refund_credits: {
+        Args: { _amount: number; _user_id: string }
+        Returns: Json
       }
     }
     Enums: {
