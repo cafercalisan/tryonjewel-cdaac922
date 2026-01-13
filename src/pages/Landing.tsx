@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Gem, Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Play, Clock, Zap, TrendingUp, X, Check, Share2 } from 'lucide-react';
 import { BeforeAfterShowcase } from '@/components/landing/BeforeAfterShowcase';
 import { TransformationGallery } from '@/components/landing/TransformationGallery';
+import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
 import emeraldBracelet from '@/assets/showcase/emerald-bracelet-result-1.webp';
 export default function Landing() {
   return <AppLayout>
@@ -127,6 +128,9 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Infinite Product Showcase */}
+      <InfiniteProductShowcase />
 
       {/* How It Works Section */}
       <section className="py-20 md:py-28 bg-muted/20">
