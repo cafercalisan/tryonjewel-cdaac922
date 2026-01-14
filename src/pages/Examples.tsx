@@ -1,195 +1,170 @@
-import { motion } from 'framer-motion';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
 // Import showcase images
-import earringOriginal from '@/assets/showcase/earring-original.webp';
 import earringResult from '@/assets/showcase/earring-result.webp';
-import emeraldBraceletOriginal from '@/assets/showcase/emerald-bracelet-original.webp';
 import emeraldBraceletResult1 from '@/assets/showcase/emerald-bracelet-result-1.webp';
-import sapphireBraceletOriginal from '@/assets/showcase/sapphire-bracelet-original.webp';
+import emeraldBraceletResult2 from '@/assets/showcase/emerald-bracelet-result-2.webp';
+import emeraldBraceletResult3 from '@/assets/showcase/emerald-bracelet-result-3.webp';
 import sapphireBraceletResult from '@/assets/showcase/sapphire-bracelet-result.webp';
-import blueSapphireBraceletOriginal from '@/assets/showcase/blue-sapphire-bracelet-original.webp';
 import blueSapphireBraceletResult from '@/assets/showcase/blue-sapphire-bracelet-result.webp';
-import ringOriginal from '@/assets/showcase/ring-original.webp';
 import ringResult from '@/assets/showcase/ring-result.webp';
-import diamondSetOriginal from '@/assets/showcase/diamond-set-original.webp';
 
 const mannequinResult = '/lovable-uploads/d9abf31c-925c-4750-961f-11908e4e649a.webp';
 
-interface ShowcaseItem {
-  id: string;
-  name: string;
-  description: string;
-  original: string;
-  result: string;
-}
-
-const showcaseItems: ShowcaseItem[] = [
-  {
-    id: 'diamond-set-mannequin',
-    name: 'Pırlanta Set - Manken Çekimi',
-    description: 'Lüks marka kampanyaları için profesyonel manken görseli',
-    original: diamondSetOriginal,
-    result: mannequinResult,
-  },
-  {
-    id: 'earring',
-    name: 'Pırlanta Küpe',
-    description: 'Detaylı yakın plan stüdyo çekimi kalitesinde',
-    original: earringOriginal,
-    result: earringResult,
-  },
-  {
-    id: 'emerald-bracelet',
-    name: 'Zümrüt Pırlanta Bilezik',
-    description: 'Yaşam tarzı kampanya görseli',
-    original: emeraldBraceletOriginal,
-    result: emeraldBraceletResult1,
-  },
-  {
-    id: 'sapphire-bracelet',
-    name: 'Safir Pırlanta Bilezik',
-    description: 'Profesyonel stüdyo paketi görseli',
-    original: sapphireBraceletOriginal,
-    result: sapphireBraceletResult,
-  },
-  {
-    id: 'blue-sapphire-bracelet',
-    name: 'Mavi Safir Bilezik',
-    description: 'Editoryal kampanya çekimi',
-    original: blueSapphireBraceletOriginal,
-    result: blueSapphireBraceletResult,
-  },
-  {
-    id: 'ring',
-    name: 'Pırlanta Yüzük',
-    description: 'Premium ürün görseli',
-    original: ringOriginal,
-    result: ringResult,
-  },
+// External high-quality images
+const externalImages = [
+  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-0eb9fe47-c9d8-4cb0-b151-3a2b11fb0c19-2-4k-scaled.webp',
+  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-7960246d-a583-48c1-b0d8-c2229cc8014c-2-4k-scaled.webp',
+  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-4ba486bd-af31-4dc7-9ab9-2a78bf929700-3-4k-scaled.webp',
+  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-fb6d0874-1cf3-4abc-a826-6eca5da5bb0c-2-4k-1-scaled.webp',
+  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-840e1052-e824-4365-aa4b-f8ae3509a93d-3-4k-scaled.webp',
 ];
 
-export default function Examples() {
+const galleryImages = [
+  mannequinResult,
+  externalImages[0],
+  earringResult,
+  externalImages[1],
+  emeraldBraceletResult1,
+  externalImages[2],
+  sapphireBraceletResult,
+  externalImages[3],
+  blueSapphireBraceletResult,
+  emeraldBraceletResult2,
+  ringResult,
+  externalImages[4],
+  emeraldBraceletResult3,
+];
+
+interface FullscreenImageProps {
+  src: string;
+  index: number;
+}
+
+function FullscreenImage({ src, index }: FullscreenImageProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"]
+  });
+  
+  const opacity = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0, 1, 1, 0]);
+  const scale = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0.8, 1, 1, 0.8]);
+  const y = useTransform(scrollYProgress, [0, 0.5, 1], [100, 0, -100]);
+  
   return (
-    <AppLayout>
-      {/* Hero Section */}
-      <section className="py-12 md:py-16">
-        <div className="container">
+    <motion.div
+      ref={ref}
+      style={{ opacity, scale, y }}
+      className="h-screen w-full flex items-center justify-center p-4 md:p-8 snap-start"
+    >
+      <div className="relative w-full h-full max-w-6xl max-h-[85vh] rounded-3xl overflow-hidden shadow-2xl">
+        <img
+          src={src}
+          alt={`Örnek çalışma ${index + 1}`}
+          className="w-full h-full object-cover"
+          loading={index < 3 ? "eager" : "lazy"}
+        />
+        {/* Elegant vignette effect */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/40 via-transparent to-background/20" />
+        
+        {/* Corner accents */}
+        <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-primary/40 rounded-tl-2xl" />
+        <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-primary/40 rounded-br-2xl" />
+      </div>
+    </motion.div>
+  );
+}
+
+export default function Examples() {
+  const [showScrollHint, setShowScrollHint] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 100) {
+        setShowScrollHint(false);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="bg-background min-h-screen">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Link to="/">
+            <Button variant="secondary" size="sm" className="rounded-full backdrop-blur-md bg-background/80 shadow-lg border border-border/50">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Ana Sayfa
+            </Button>
+          </Link>
+          <Link to="/kayit">
+            <Button size="sm" className="rounded-full shadow-lg">
+              Hemen Deneyin
+            </Button>
+          </Link>
+        </div>
+      </div>
+      
+      {/* Scroll Hint */}
+      <AnimatePresence>
+        {showScrollHint && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
           >
-            <Link to="/">
-              <Button variant="ghost" className="mb-6">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Ana Sayfa
-              </Button>
-            </Link>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent text-accent-foreground text-sm font-medium mb-6">
-              <Sparkles className="h-4 w-4" />
-              <span>Gerçek Dönüşümler</span>
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4">
-              Önce & <span className="italic text-primary font-serif">Sonra</span>
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Basit ürün fotoğraflarından profesyonel kampanya görsellerine dönüşümü keşfedin
-            </p>
+            <span className="text-sm text-muted-foreground bg-background/80 backdrop-blur-md px-4 py-2 rounded-full border border-border/50">
+              Kaydırarak keşfedin
+            </span>
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Gallery - Full screen images with scroll animations */}
+      <div className="snap-y snap-mandatory">
+        {galleryImages.map((src, index) => (
+          <FullscreenImage key={index} src={src} index={index} />
+        ))}
+      </div>
+      
+      {/* Final CTA Section */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        viewport={{ once: true }}
+        className="h-screen flex items-center justify-center snap-start"
+      >
+        <div className="text-center px-4">
+          <h2 className="text-3xl md:text-5xl font-semibold mb-6">
+            Kendi <span className="italic text-primary font-serif">Dönüşümünüzü</span> Yaratın
+          </h2>
+          <p className="text-muted-foreground mb-8 max-w-xl mx-auto text-lg">
+            Ürün fotoğraflarınızı profesyonel kampanya görsellerine dönüştürün
+          </p>
+          <Link to="/kayit">
+            <Button size="lg" className="px-12 rounded-full text-base">
+              Hemen Başlayın
+            </Button>
+          </Link>
         </div>
-      </section>
-
-      {/* Examples Grid */}
-      <section className="pb-20 md:pb-28">
-        <div className="container">
-          <div className="space-y-20 md:space-y-28">
-            {showcaseItems.map((item, index) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true, margin: "-100px" }}
-                className="max-w-6xl mx-auto"
-              >
-                {/* Item Header */}
-                <div className="text-center mb-8">
-                  <span className="text-xs font-medium tracking-[0.2em] text-primary">
-                    ÖRNEK {index + 1}
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-semibold mt-2 mb-2">
-                    {item.name}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-
-                {/* Before/After Images */}
-                <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-                  {/* Before Image */}
-                  <div className="relative group">
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="px-4 py-2 rounded-full bg-background/90 backdrop-blur-sm text-sm font-medium border border-border/50 shadow-sm">
-                        Önce
-                      </span>
-                    </div>
-                    <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted border border-border/50 shadow-luxury">
-                      <img
-                        src={item.original}
-                        alt={`${item.name} - Önce`}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </div>
-                  </div>
-
-                  {/* After Image */}
-                  <div className="relative group">
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-sm">
-                        Sonra
-                      </span>
-                    </div>
-                    <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted border-2 border-primary/20 shadow-luxury-lg">
-                      <img
-                        src={item.result}
-                        alt={`${item.name} - Sonra`}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* CTA Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mt-20 md:mt-28"
-          >
-            <h3 className="text-2xl md:text-3xl font-semibold mb-4">
-              Kendi Dönüşümünüzü <span className="italic text-primary font-serif">Yaratın</span>
-            </h3>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Ürün fotoğraflarınızı profesyonel kampanya görsellerine dönüştürmek için hemen başlayın
-            </p>
-            <Link to="/kayit">
-              <Button size="lg" className="px-10 rounded-full">
-                Hemen Deneyin
-              </Button>
-            </Link>
-          </motion.div>
-        </div>
-      </section>
-    </AppLayout>
+      </motion.div>
+    </div>
   );
 }

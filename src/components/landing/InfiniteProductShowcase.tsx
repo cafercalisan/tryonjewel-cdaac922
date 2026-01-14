@@ -154,22 +154,8 @@ export function InfiniteProductShowcase() {
         />
       </div>
 
-      {/* Section header */}
-      <motion.div
-        className="container mb-16 md:mb-20 text-center relative z-10"
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
-        viewport={{ once: true, margin: '-100px' }}
-      >
-        <p className="text-xs md:text-sm font-medium tracking-[0.25em] text-primary/80 mb-5 uppercase">
-          Profesyonel Görsel Galerisi
-        </p>
-        <h2 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-tight">
-          Sınırsız <span className="italic text-primary font-serif font-normal">Yaratıcılık</span>
-        </h2>
-        <div className="mt-6 w-20 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent mx-auto" />
-      </motion.div>
+      {/* Minimal spacing */}
+      <div className="h-8 md:h-12" />
 
       {/* Two diagonal strips - opposite directions */}
       <div className="relative -rotate-2 py-6">
