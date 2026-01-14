@@ -49,9 +49,9 @@ export default function Landing() {
                 duration: 0.6,
                 delay: 0.2
               }} className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-5 leading-[1.1] font-sans">
-                  Net, Temiz,
+                  Satış Getiren
                   <br />
-                  <span className="italic text-primary font-serif">Profesyonel.</span>
+                  <AnimatedWord words={['Görseller', 'Hikayeler']} interval={3000} /> Yaratın
                 </motion.h1>
                 
                 <motion.p initial={{
@@ -450,7 +450,7 @@ export default function Landing() {
                   MARKA KİMLİĞİ
                 </p>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-6">
-                  Satış Getiren <AnimatedWord words={['Görseller', 'Hikayeler']} interval={3000} /> Yaratın
+                  Dijital Varlığınızın <span className="italic text-primary font-serif">Hikayesi</span>
                 </h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed">
                   Logo ve marka renklerinize göre kreatifler oluşturun. Tutarlı bir görsel kimlik ile sosyal medyada öne çıkın.
