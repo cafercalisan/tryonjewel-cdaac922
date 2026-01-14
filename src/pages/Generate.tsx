@@ -11,7 +11,10 @@ import {
   Image as ImageIcon,
   User,
   ChevronDown,
-  X
+  X,
+  Zap,
+  Download,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -21,11 +24,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { productTypes } from "@/components/generate/ProductTypeSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
+import { generate4KTempImage, downloadDataUrl, type Temp4KResult } from "@/lib/generate4KTemp";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 interface Scene {
@@ -53,7 +58,7 @@ interface UserModel {
   preview_image_url: string | null;
 }
 
-type PackageType = 'standard' | 'master';
+type PackageType = 'standard' | 'master' | '4k-temp';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
 export default function Generate() {
@@ -79,6 +84,11 @@ export default function Generate() {
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   const [currentImageIndex, setCurrentImageIndex] = useState(1);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  
+  // 4K Temp state
+  const [temp4KResult, setTemp4KResult] = useState<Temp4KResult | null>(null);
+  const [temp4KDialogOpen, setTemp4KDialogOpen] = useState(false);
+  const [temp4KProgress, setTemp4KProgress] = useState<string>('');
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -162,11 +172,18 @@ export default function Generate() {
     }
   }, [processFile]);
 
-  const creditsNeeded = packageType === 'master' ? 2 : 1;
+  const creditsNeeded = packageType === 'master' ? 2 : packageType === '4k-temp' ? 0 : 1;
   const totalImages = packageType === 'master' ? 3 : 1;
 
   const canGenerate = useMemo(() => {
-    if (!uploadedFile || !user || !profile || profile.credits < creditsNeeded) return false;
+    if (!uploadedFile || !user) return false;
+    
+    // 4K temp doesn't need credits or product type - just the image
+    if (packageType === '4k-temp') {
+      return true;
+    }
+    
+    if (!profile || profile.credits < creditsNeeded) return false;
     if (!selectedProductType) return false;
     
     if (packageType === 'standard') {
@@ -176,8 +193,46 @@ export default function Generate() {
     return true; // Master pakette sahne ve renk seçimi zorunlu değil
   }, [uploadedFile, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId]);
 
+  // Handle 4K Temp generation
+  const handle4KTempGenerate = async () => {
+    if (!uploadedFile || !user) return;
+
+    setIsGenerating(true);
+    setGenerationStep("generating");
+
+    try {
+      const prompt = `Professional jewelry product photography. Clean e-commerce style product shot on neutral background. 
+The jewelry should be the focal point with soft, diffused lighting. 
+Ultra-sharp focus, no blur, maximum detail visible on all facets and metalwork.
+Commercial catalog quality, suitable for luxury jewelry marketing.`;
+
+      const result = await generate4KTempImage(
+        uploadedFile,
+        prompt,
+        '1:1',
+        (status) => setTemp4KProgress(status)
+      );
+
+      setTemp4KResult(result);
+      setTemp4KDialogOpen(true);
+      toast.success("4K görsel oluşturuldu! İndirmeyi unutmayın.");
+    } catch (error) {
+      console.error("4K Generation error:", error);
+      toast.error("4K görsel oluşturulurken bir hata oluştu.");
+    } finally {
+      setIsGenerating(false);
+      setGenerationStep("idle");
+      setTemp4KProgress('');
+    }
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate) return;
+
+    // Use different handler for 4K temp
+    if (packageType === '4k-temp') {
+      return handle4KTempGenerate();
+    }
 
     setIsGenerating(true);
     setGenerationStep("analyzing");
@@ -305,44 +360,75 @@ export default function Generate() {
             {/* Package Type Selection */}
             <div className="space-y-3">
               <p className="text-sm font-medium">Paket Seçin</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPackageType('standard')}
-                  className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  className={`p-3 rounded-xl border-2 transition-all text-left ${
                     packageType === 'standard' 
                       ? 'border-primary bg-primary/5' 
                       : 'border-border hover:border-primary/30'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center gap-2 text-center">
                     <ImageIcon className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium text-sm">Standart</p>
-                      <p className="text-xs text-muted-foreground">1 görsel • 1 kredi</p>
+                      <p className="font-medium text-xs">Standart</p>
+                      <p className="text-[10px] text-muted-foreground">1 görsel • 1 kredi</p>
                     </div>
                   </div>
                 </button>
 
                 <button
                   onClick={() => setPackageType('master')}
-                  className={`p-4 rounded-xl border-2 transition-all text-left relative ${
+                  className={`p-3 rounded-xl border-2 transition-all text-left relative ${
                     packageType === 'master' 
                       ? 'border-primary bg-primary/5' 
                       : 'border-border hover:border-primary/30'
                   }`}
                 >
-                  <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     ÖNERİLEN
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center gap-2 text-center">
                     <Crown className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="font-medium text-sm">Master</p>
-                      <p className="text-xs text-muted-foreground">3 görsel • 2 kredi</p>
+                      <p className="font-medium text-xs">Master</p>
+                      <p className="text-[10px] text-muted-foreground">3 görsel • 2 kredi</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setPackageType('4k-temp')}
+                  className={`p-3 rounded-xl border-2 transition-all text-left relative ${
+                    packageType === '4k-temp' 
+                      ? 'border-amber-500 bg-amber-500/10' 
+                      : 'border-border hover:border-amber-500/30'
+                  }`}
+                >
+                  <div className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    4K
+                  </div>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Zap className="h-5 w-5 text-amber-500" />
+                    <div>
+                      <p className="font-medium text-xs">4K Hızlı</p>
+                      <p className="text-[10px] text-muted-foreground">1 görsel • ücretsiz</p>
                     </div>
                   </div>
                 </button>
               </div>
+              
+              {/* 4K Temp Warning */}
+              {packageType === '4k-temp' && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs">
+                    <strong>Geçici görsel:</strong> 4K görsel oluşturulacak ancak sunucuda kaydedilmeyecek. Sayfayı yenilemeden önce indirin!
+                  </p>
+                </div>
+              )}
+            </div>
             </div>
 
             {/* Product Type Selection */}
@@ -468,6 +554,11 @@ export default function Generate() {
                     </div>
                   </div>
                 </div>
+              ) : packageType === '4k-temp' ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <span>4K Hızlı - 1 Geçici Görsel</span>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 text-sm">
                   <ImageIcon className="h-4 w-4 text-muted-foreground" />
@@ -536,10 +627,9 @@ export default function Generate() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Model Selection Dialog */}
-      <Dialog open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
+        {/* Model Selection Dialog */}
+        <Dialog open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Model Seçin</DialogTitle>
@@ -609,6 +699,60 @@ export default function Generate() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 4K Temp Result Dialog */}
+      <Dialog open={temp4KDialogOpen} onOpenChange={setTemp4KDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-500" />
+              4K Görsel Hazır
+            </DialogTitle>
+            <DialogDescription>
+              Görseliniz başarıyla oluşturuldu. Sayfa yenilenmeden önce indirmeyi unutmayın!
+            </DialogDescription>
+          </DialogHeader>
+          
+          {temp4KResult && (
+            <div className="space-y-4">
+              <div className="relative rounded-xl overflow-hidden bg-muted">
+                <img 
+                  src={temp4KResult.dataUrl} 
+                  alt="Generated 4K Jewelry" 
+                  className="w-full h-auto max-h-[60vh] object-contain"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Bu görsel geçicidir ve sunucuda kaydedilmez. Sayfayı kapatmadan önce indirin!
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => downloadDataUrl(temp4KResult.dataUrl, `jewelry-4k-${Date.now()}.png`)}
+                  className="flex-1 gap-2"
+                  size="lg"
+                >
+                  <Download className="h-4 w-4" />
+                  4K Görseli İndir
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTemp4KDialogOpen(false);
+                    setTemp4KResult(null);
+                  }}
+                >
+                  Kapat
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>
