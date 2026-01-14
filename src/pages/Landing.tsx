@@ -459,7 +459,7 @@ export default function Landing() {
               >
                 <div className="text-center mb-8">
                   <h3 className="text-xl font-semibold mb-2">Starter</h3>
-                  <p className="text-muted-foreground text-sm mb-4">Küçük işletmeler için</p>
+                  <p className="text-muted-foreground text-sm mb-4">Keşfetmek için</p>
                   <div className="flex items-baseline justify-center gap-1">
                     <span className="text-4xl font-bold">10</span>
                     <span className="text-muted-foreground">kredi</span>
@@ -524,10 +524,6 @@ export default function Landing() {
                     <Check className="h-4 w-4 text-primary flex-shrink-0" />
                     <span>Manken görselleri</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Öncelikli destek</span>
-                  </li>
                 </ul>
                 <Link to="/kayit" className="block">
                   <Button className="w-full rounded-full">
@@ -554,7 +550,11 @@ export default function Landing() {
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Sınırsız görsel üretimi</span>
+                    <span>Markanıza özel çalışmalar</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span>Firma içi entegrasyon</span>
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="h-4 w-4 text-primary flex-shrink-0" />
@@ -563,10 +563,6 @@ export default function Landing() {
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="h-4 w-4 text-primary flex-shrink-0" />
                     <span>API erişimi</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Dedicated destek</span>
                   </li>
                 </ul>
                 <a href="mailto:info@tryonjewel.com" className="block">
