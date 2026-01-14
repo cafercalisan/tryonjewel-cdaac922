@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -22,7 +23,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
+import { getSignedImageUrl } from "@/lib/getSignedImageUrl";
+import {
   User, 
   Plus, 
   Trash2, 
@@ -80,6 +82,7 @@ export default function ModelGallery() {
   const [generatedPoses, setGeneratedPoses] = useState<GeneratedPose[]>([]);
   const [selectedPoseIndex, setSelectedPoseIndex] = useState<number>(0);
   const [showPoseGallery, setShowPoseGallery] = useState(false);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const { data: models, isLoading, refetch } = useQuery({
     queryKey: ['user-models', user?.id],
@@ -97,6 +100,40 @@ export default function ModelGallery() {
     },
     enabled: !!user,
   });
+
+  // Load signed URLs for model preview images
+  useEffect(() => {
+    if (!models || models.length === 0) return;
+    
+    const loadSignedUrls = async () => {
+      const urlMap: Record<string, string> = {};
+      
+      await Promise.all(
+        models.map(async (model) => {
+          if (model.preview_image_url) {
+            const signedUrl = await getSignedImageUrl(model.preview_image_url);
+            if (signedUrl) {
+              urlMap[model.id] = signedUrl;
+            }
+          }
+        })
+      );
+      
+      setSignedUrls(urlMap);
+    };
+    
+    loadSignedUrls();
+  }, [models]);
+
+  // Helper to get image URL for a model
+  const getModelImageUrl = useCallback((model: UserModel): string | null => {
+    // First check if we have a signed URL
+    if (signedUrls[model.id]) {
+      return signedUrls[model.id];
+    }
+    // Fallback to original URL (might not work for private bucket)
+    return model.preview_image_url;
+  }, [signedUrls]);
 
   const generatePoseMutation = useMutation({
     mutationFn: async ({ model, poseId }: { model: UserModel; poseId: string }) => {
@@ -282,11 +319,15 @@ export default function ModelGallery() {
                     className="relative aspect-[3/4] bg-muted cursor-pointer"
                     onClick={() => setSelectedModel(model)}
                   >
-                    {model.preview_image_url ? (
+                    {getModelImageUrl(model) ? (
                       <img
-                        src={model.preview_image_url}
+                        src={getModelImageUrl(model)!}
                         alt={model.name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Hide broken images
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -359,6 +400,9 @@ export default function ModelGallery() {
                 <User className="h-5 w-5 text-primary" />
                 {selectedModel?.name}
               </DialogTitle>
+              <DialogDescription>
+                Modelinizi farklı pozlarda görüntüleyin ve mücevher çekimlerinizde kullanın.
+              </DialogDescription>
             </DialogHeader>
 
             {selectedModel && (
@@ -366,11 +410,14 @@ export default function ModelGallery() {
                 {/* Model Preview */}
                 <div className="space-y-4">
                   <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
-                    {selectedModel.preview_image_url ? (
+                    {getModelImageUrl(selectedModel) ? (
                       <img
-                        src={selectedModel.preview_image_url}
+                        src={getModelImageUrl(selectedModel)!}
                         alt={selectedModel.name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
