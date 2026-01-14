@@ -104,7 +104,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Actions Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-8">
           <Link to="/olustur">
             <QuickActionCard
               icon={<Sparkles className="h-5 w-5" />}
@@ -124,13 +124,6 @@ export default function Dashboard() {
               icon={<Wand2 className="h-5 w-5" />}
               title="Tasarım Oluştur"
               color="bg-purple-500/10 text-purple-500"
-            />
-          </Link>
-          <Link to="/sahneler">
-            <QuickActionCard
-              icon={<Share2 className="h-5 w-5" />}
-              title="Sahneler"
-              color="bg-orange-500/10 text-orange-500"
             />
           </Link>
         </div>
@@ -214,13 +207,17 @@ export default function Dashboard() {
                   
                   {/* Hover Overlay */}
                   {!isSelectionMode && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Link 
+                      to="/gorsellerim"
+                      className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="absolute bottom-3 left-3 right-3">
-                        <Button size="sm" variant="secondary" className="w-full">
+                        <Button size="sm" variant="secondary" className="w-full pointer-events-none">
                           Görüntüle
                         </Button>
                       </div>
-                    </div>
+                    </Link>
                   )}
                 </motion.div>
               ))}
