@@ -32,25 +32,27 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// 4K Resolution prompt prefix for all generations
+// 4K Resolution prompt prefix for all generations - Professional jewelry photography standards
 const RESOLUTION_PREFIX = `
-OUTPUT SPECIFICATIONS (CRITICAL):
-- Resolution: ULTRA HIGH DEFINITION 4K (3840x2160 minimum)
-- Image quality: Maximum sharpness, no compression artifacts
-- Detail level: EXTREME - every facet, prong, and texture must be crystal clear
-- Pixel density: Maximum available
-- Focus: TACK SHARP on jewelry product
-- No blur, no softness, no pixelation
-- Export quality: Highest possible bit depth
+PROFESSIONAL JEWELRY PHOTOGRAPHY SPECIFICATIONS (CRITICAL):
+- Resolution: ULTRA HIGH DEFINITION 4K (3840x2160 minimum resolution)
+- Image quality: Maximum sharpness, zero compression artifacts, museum-quality clarity
+- Detail level: EXTREME - every facet, prong, texture, and metalwork must be crystal clear
+- Focus: TACK SHARP razor-sharp focus on jewelry product
+- Lighting: Professional three-point softbox setup with key light at 45 degrees creating brilliant diamond reflections, fill light to soften shadows, rim light for metal luster
+- Quality: Ultra-realistic, photorealistic, high-end commercial photography standard
+- No blur, no softness, no pixelation, no artifacts
 
 `;
 
 async function callGeminiImageGeneration({
   base64Image,
   prompt,
+  aspectRatio = '1:1',
 }: {
   base64Image: string;
   prompt: string;
+  aspectRatio?: string;
 }) {
   // Prepend 4K resolution requirements to every prompt
   const enhancedPrompt = RESOLUTION_PREFIX + prompt;
@@ -69,8 +71,13 @@ async function callGeminiImageGeneration({
         },
       ],
       generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
+        responseModalities: ['IMAGE'],
         temperature: 0.4,
+      },
+      // 4K image configuration for maximum quality
+      imageConfig: {
+        aspectRatio: aspectRatio,
+        imageSize: '4K',
       },
     }),
   });
