@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Loader2, Sparkles, ChevronDown, ChevronUp, HelpCircle, Maximize2 } from "lucide-react";
+import { User, Loader2, Sparkles, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,9 +46,25 @@ const ageRanges = [
   { id: '50+', name: '50+ yaş' },
 ];
 
-// ====== YÜZ & TEN BÖLÜMÜ ======
+// ====== TARZ & MOOD ======
+const moods = [
+  { id: 'cool', name: 'Cool', description: 'Serin, rahat, özgüvenli' },
+  { id: 'sophisticated', name: 'Sofistike', description: 'Zarif, entelektüel' },
+  { id: 'melancholic', name: 'Melankolik', description: 'Derin, düşünceli' },
+  { id: 'powerful', name: 'Güçlü', description: 'Dominant, etkileyici' },
+  { id: 'romantic', name: 'Romantik', description: 'Yumuşak, rüya gibi' },
+  { id: 'mysterious', name: 'Gizemli', description: 'Büyüleyici, enigmatik' },
+  { id: 'minimal-luxury', name: 'Minimal Lüks', description: 'Sade, sessiz lüks' },
+];
 
-// Skin tone options
+// ====== VÜCUT TİPİ ======
+const bodyTypes = [
+  { id: 'slim', name: 'İnce', description: 'Zarif, narin yapı' },
+  { id: 'proportional', name: 'Orantılı', description: 'Dengeli, klasik' },
+  { id: 'athletic', name: 'Atletik', description: 'Fit, güçlü' },
+];
+
+// ====== YÜZ & TEN BÖLÜMÜ ======
 const skinTones = [
   { id: 'fair', name: 'Açık', description: 'Porselen, çok açık ten' },
   { id: 'light', name: 'Açık-Orta', description: 'Açık, hafif pembe' },
@@ -59,7 +75,6 @@ const skinTones = [
   { id: 'dark', name: 'Koyu', description: 'Koyu kahve, espresso' },
 ];
 
-// Face shape options
 const faceShapes = [
   { id: 'oval', name: 'Oval' },
   { id: 'angular', name: 'Kemikli & Keskin' },
@@ -69,7 +84,6 @@ const faceShapes = [
   { id: 'diamond', name: 'Elmas' },
 ];
 
-// Eye color options
 const eyeColors = [
   { id: 'dark-brown', name: 'Koyu Kahve' },
   { id: 'brown', name: 'Kahverengi' },
@@ -79,7 +93,6 @@ const eyeColors = [
   { id: 'gray', name: 'Gri' },
 ];
 
-// Expression options
 const expressions = [
   { id: 'serene-confident', name: 'Serin & Özgüvenli', description: 'Sakin ama güçlü' },
   { id: 'mysterious', name: 'Gizemli', description: 'Derin, büyüleyici' },
@@ -89,8 +102,6 @@ const expressions = [
 ];
 
 // ====== SAÇ BÖLÜMÜ ======
-
-// Hair color options
 const hairColors = [
   { id: 'black', name: 'Siyah' },
   { id: 'dark-brown', name: 'Koyu Kahve' },
@@ -103,17 +114,16 @@ const hairColors = [
   { id: 'gray', name: 'Gri' },
 ];
 
-// Hair style options
+// Updated hair styles
 const hairStyles = [
-  { id: 'slicked-back', name: 'Geriye Taranmış' },
-  { id: 'loose-elegant', name: 'Serbest & Zarif' },
-  { id: 'updo', name: 'Topuz' },
-  { id: 'side-part', name: 'Yandan Ayrık' },
-  { id: 'natural-waves', name: 'Doğal Dalgalı' },
-  { id: 'straight-sleek', name: 'Düz & Parlak' },
+  { id: 'updo-clean', name: 'Toplu (clean editorial)', description: 'Temiz, profesyonel' },
+  { id: 'messy-fashion', name: 'Dağınık (fashion)', description: 'Efektli, modern' },
+  { id: 'wet-look', name: 'Islak Saç Efekti', description: 'High-fashion wet look' },
+  { id: 'slicked-back', name: 'Geriye Taranmış', description: 'Sleek, şık' },
+  { id: 'loose-elegant', name: 'Serbest & Zarif', description: 'Doğal, akıcı' },
+  { id: 'side-part', name: 'Yandan Ayrık', description: 'Klasik, sofistike' },
 ];
 
-// Skin undertone options (still used in prompt but simplified UI)
 const skinUndertones = [
   { id: 'warm', name: 'Sıcak', description: 'Altın tonlar' },
   { id: 'neutral', name: 'Nötr', description: 'Dengeli' },
@@ -129,6 +139,10 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
   const [ethnicity, setEthnicity] = useState('');
   const [ageRange, setAgeRange] = useState('');
   
+  // Tarz & Vücut
+  const [mood, setMood] = useState('');
+  const [bodyType, setBodyType] = useState('');
+  
   // Yüz & Ten
   const [skinTone, setSkinTone] = useState('');
   const [skinUndertone, setSkinUndertone] = useState('neutral');
@@ -142,10 +156,11 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
   
   // Section collapse states
   const [identityOpen, setIdentityOpen] = useState(true);
+  const [styleOpen, setStyleOpen] = useState(true);
   const [faceOpen, setFaceOpen] = useState(true);
   const [hairOpen, setHairOpen] = useState(true);
 
-  const canGenerate = name && gender && ethnicity && ageRange && skinTone && faceShape && eyeColor && expression && hairColor && hairStyle;
+  const canGenerate = name && gender && ethnicity && ageRange && skinTone && faceShape && eyeColor && expression && hairColor && hairStyle && mood && bodyType;
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -153,6 +168,39 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
     setIsGenerating(true);
 
     try {
+      // Build comprehensive model JSON for consistency
+      const modelConfig = {
+        identity: {
+          name,
+          gender,
+          ethnicity,
+          ageRange,
+        },
+        style: {
+          mood,
+          bodyType,
+        },
+        face: {
+          skinTone,
+          skinUndertone,
+          faceShape,
+          eyeColor,
+          expression,
+        },
+        hair: {
+          color: hairColor,
+          style: hairStyle,
+        },
+        // Additional auto-generated enhancement data for model consistency
+        enhancement: {
+          naturalAsymmetry: true,
+          poreDetail: 'high',
+          skinImperfections: 'subtle-realistic',
+          eyeCatchlight: 'natural-studio',
+          hairTextureDetail: 'high',
+        }
+      };
+
       const { data, error } = await supabase.functions.invoke('generate-model', {
         body: {
           name,
@@ -166,14 +214,17 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
           expression,
           hairColor,
           hairStyle,
-          // Keep hairTexture for backward compatibility
           hairTexture: 'natural',
+          // New fields
+          mood,
+          bodyType,
+          modelConfig: JSON.stringify(modelConfig),
         },
       });
 
       if (error) throw error;
 
-      toast.success('Model başarıyla oluşturuldu!');
+      toast.success('Model başarıyla oluşturuldu! 3 farklı açıdan 4K görseller hazırlandı.');
       onModelCreated();
       onOpenChange(false);
       
@@ -182,6 +233,8 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
       setGender('');
       setEthnicity('');
       setAgeRange('');
+      setMood('');
+      setBodyType('');
       setSkinTone('');
       setSkinUndertone('neutral');
       setFaceShape('');
@@ -228,7 +281,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
           </Tooltip>
         </TooltipProvider>
       </div>
-      <Maximize2 className="h-4 w-4 text-muted-foreground" />
     </div>
   );
 
@@ -240,6 +292,9 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
             <User className="h-5 w-5 text-primary" />
             Yeni Model Oluştur
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            3 farklı açıdan tutarlı, 4K profesyonel marka yüzü oluşturun
+          </p>
         </DialogHeader>
 
         <AnimatePresence mode="wait">
@@ -263,7 +318,7 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
               </div>
               <h3 className="text-lg font-semibold mb-2">Model Oluşturuluyor</h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Editöryel kalitede hiper-gerçekçi model oluşturuluyor. Bu işlem 30-60 saniye sürebilir.
+                3 farklı açıdan tutarlı, hiper-gerçekçi 4K model görselleri oluşturuluyor. Bu işlem 60-90 saniye sürebilir.
               </p>
             </motion.div>
           ) : (
@@ -300,7 +355,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="grid grid-cols-3 gap-4 pt-4">
-                    {/* Gender */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Cinsiyet</Label>
                       <Select value={gender} onValueChange={setGender}>
@@ -314,8 +368,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                         </SelectContent>
                       </Select>
                     </div>
-
-                    {/* Ethnicity */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Etnisite</Label>
                       <Select value={ethnicity} onValueChange={setEthnicity}>
@@ -329,8 +381,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                         </SelectContent>
                       </Select>
                     </div>
-
-                    {/* Age Range */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Yaş</Label>
                       <Select value={ageRange} onValueChange={setAgeRange}>
@@ -343,6 +393,61 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ====== TARZ & VÜCUT ====== */}
+              <Collapsible open={styleOpen} onOpenChange={setStyleOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader 
+                      title="TARZ & VÜCUT" 
+                      isOpen={styleOpen} 
+                      onToggle={() => setStyleOpen(!styleOpen)}
+                      tooltip="Modelin genel havası ve fiziksel yapısı"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Tarz / Mood</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {moods.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => setMood(m.id)}
+                            className={`p-2 rounded-lg border text-xs text-center transition-all ${
+                              mood === m.id
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Vücut Tipi</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {bodyTypes.map((b) => (
+                          <button
+                            key={b.id}
+                            onClick={() => setBodyType(b.id)}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              bodyType === b.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-sm">{b.name}</div>
+                            <div className="text-xs text-muted-foreground">{b.description}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -362,7 +467,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-4 pt-4">
-                    {/* Row 1: Skin Tone & Face Shape */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Ten Rengi</Label>
@@ -391,8 +495,6 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                         </Select>
                       </div>
                     </div>
-
-                    {/* Row 2: Eye Color & Expression */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Göz Rengi</Label>
@@ -440,8 +542,7 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="grid grid-cols-2 gap-4 pt-4">
-                    {/* Hair Color */}
+                  <div className="space-y-4 pt-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Saç Rengi</Label>
                       <Select value={hairColor} onValueChange={setHairColor}>
@@ -455,19 +556,24 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                         </SelectContent>
                       </Select>
                     </div>
-                    {/* Hair Style */}
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Saç Stili</Label>
-                      <Select value={hairStyle} onValueChange={setHairStyle}>
-                        <SelectTrigger className="bg-background/50">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {hairStyles.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-2 gap-2">
+                        {hairStyles.map((h) => (
+                          <button
+                            key={h.id}
+                            onClick={() => setHairStyle(h.id)}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              hairStyle === h.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-sm">{h.name}</div>
+                            <div className="text-xs text-muted-foreground">{h.description}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -475,18 +581,20 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
 
               {/* Generate Button */}
               <Button
-                size="lg"
-                disabled={!canGenerate || isGenerating}
                 onClick={handleGenerate}
-                className="w-full h-12 mt-6"
+                disabled={!canGenerate}
+                className="w-full"
+                size="lg"
               >
-                <Sparkles className="mr-2 h-5 w-5" />
-                Model Oluştur
+                <Sparkles className="mr-2 h-4 w-4" />
+                Model Oluştur (3 Açı, 4K)
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                Editöryel reklam kalitesinde, hiper-gerçekçi model oluşturulacaktır.
-              </p>
+              {!canGenerate && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Tüm alanları doldurun
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

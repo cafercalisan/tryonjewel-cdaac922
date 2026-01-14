@@ -192,7 +192,7 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 gap-6 md:gap-8">
               {/* Traditional Method Card */}
               <motion.div
-                className="relative rounded-3xl border border-border/50 bg-muted/30 p-8 md:p-10"
+                className="relative rounded-3xl border-2 border-border/30 bg-muted/20 p-8 md:p-10"
                 initial={{ opacity: 0, x: -30 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
@@ -206,20 +206,20 @@ export default function Landing() {
                 <h3 className="text-xl font-semibold mb-6 text-muted-foreground">Geleneksel Yöntem</h3>
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
+                    <TrendingUp className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <span className="text-muted-foreground">Profesyonel görseller için yüzlerce dolar</span>
+                  </li>
+                  <li className="flex items-start gap-3">
                     <Clock className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <span className="text-muted-foreground">Günlerce süren stüdyo çekimleri</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Yüksek fotoğrafçı ve ekipman maliyetleri</span>
-                  </li>
-                  <li className="flex items-start gap-3">
                     <Image className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Sınırlı sahne ve poz seçenekleri</span>
+                    <span className="text-muted-foreground">Manken ve model ücretleri</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Shield className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Tutarsız marka görünümü</span>
+                    <span className="text-muted-foreground">Sınırlı revizyon hakkı</span>
                   </li>
                 </ul>
               </motion.div>
@@ -241,19 +241,19 @@ export default function Landing() {
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
                     <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Saniyeler içinde profesyonel görseller</span>
+                    <span>İşinizi yapay zekaya bırakın</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Zamandan tasarruf edin</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Image className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Kendi modeliniz ile manken ücretlerinden tasarruf</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <TrendingUp className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>%90'a varan maliyet tasarrufu</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Image className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Sınırsız sahne ve yaşam tarzı seçeneği</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Shield className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Her görselde tutarlı marka kimliği</span>
                   </li>
                 </ul>
               </motion.div>
@@ -267,15 +267,15 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
             >
-              <div className="text-center p-6 rounded-2xl bg-muted/30">
+              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
                 <Sparkles className="h-6 w-6 text-primary mx-auto mb-3" />
                 <p className="text-sm font-medium">AI Destekli</p>
               </div>
-              <div className="text-center p-6 rounded-2xl bg-muted/30">
+              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
                 <Image className="h-6 w-6 text-primary mx-auto mb-3" />
                 <p className="text-sm font-medium">4K Kalite</p>
               </div>
-              <div className="text-center p-6 rounded-2xl bg-muted/30">
+              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
                 <Shield className="h-6 w-6 text-primary mx-auto mb-3" />
                 <p className="text-sm font-medium">Detay Koruma</p>
               </div>
