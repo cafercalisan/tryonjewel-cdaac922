@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
@@ -97,40 +97,69 @@ export default function Examples() {
 
   return (
     <div ref={containerRef} className="bg-background min-h-screen">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 p-4 md:p-6">
+      {/* Floating Navigation - Elegant glass morphism */}
+      <motion.div 
+        className="fixed top-6 left-0 right-0 z-50 px-4 md:px-6"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link to="/">
-            <Button variant="secondary" size="sm" className="rounded-full backdrop-blur-md bg-background/80 shadow-lg border border-border/50">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Ana Sayfa
-            </Button>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="rounded-full backdrop-blur-xl bg-background/60 shadow-lg border border-white/10 hover:bg-background/80 transition-all duration-300"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Ana Sayfa
+              </Button>
+            </motion.div>
           </Link>
+          
           <Link to="/kayit">
-            <Button size="sm" className="rounded-full shadow-lg">
-              Hemen Deneyin
-            </Button>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button 
+                size="sm" 
+                className="rounded-full shadow-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300"
+              >
+                Hemen Deneyin
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </motion.div>
           </Link>
         </div>
-      </div>
+      </motion.div>
       
-      {/* Scroll Hint */}
+      {/* Scroll Hint - More elegant */}
       <AnimatePresence>
         {showScrollHint && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3"
           >
-            <span className="text-sm text-muted-foreground bg-background/80 backdrop-blur-md px-4 py-2 rounded-full border border-border/50">
+            <motion.span 
+              className="text-sm text-foreground/70 bg-background/60 backdrop-blur-xl px-6 py-2.5 rounded-full border border-white/10 shadow-lg font-medium"
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
               Kaydırarak keşfedin
-            </span>
+            </motion.span>
             <motion.div
               animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              className="bg-background/40 backdrop-blur-sm rounded-full p-2"
             >
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              <ChevronDown className="h-5 w-5 text-foreground/60" />
             </motion.div>
           </motion.div>
         )}
@@ -143,26 +172,51 @@ export default function Examples() {
         ))}
       </div>
       
-      {/* Final CTA Section */}
+      {/* Final CTA Section - More refined */}
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
         viewport={{ once: true }}
-        className="h-screen flex items-center justify-center snap-start"
+        className="h-screen flex items-center justify-center snap-start relative"
       >
-        <div className="text-center px-4">
-          <h2 className="text-3xl md:text-5xl font-semibold mb-6">
+        {/* Background glow */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="text-center px-4 relative z-10">
+          <motion.h2 
+            className="text-3xl md:text-5xl font-semibold mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true }}
+          >
             Kendi <span className="italic text-primary font-serif">Dönüşümünüzü</span> Yaratın
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-xl mx-auto text-lg">
+          </motion.h2>
+          <motion.p 
+            className="text-muted-foreground mb-10 max-w-xl mx-auto text-lg"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+          >
             Ürün fotoğraflarınızı profesyonel kampanya görsellerine dönüştürün
-          </p>
-          <Link to="/kayit">
-            <Button size="lg" className="px-12 rounded-full text-base">
-              Hemen Başlayın
-            </Button>
-          </Link>
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            viewport={{ once: true }}
+          >
+            <Link to="/kayit">
+              <Button size="lg" className="px-12 rounded-full text-base shadow-xl hover:shadow-2xl transition-all duration-300">
+                Hemen Başlayın
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
       </motion.div>
     </div>
