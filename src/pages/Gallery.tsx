@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut, Video } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
+import { getSignedImageUrl } from '@/lib/getSignedImageUrl';
 
 interface ImageRecord {
   id: string;
@@ -31,6 +32,7 @@ export default function Gallery() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxKey, setLightboxKey] = useState(0); // Key to force re-render and reset state
   const [lightboxScale, setLightboxScale] = useState(1);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string[]>>({});
 
   const { data: images, isLoading } = useQuery({
     queryKey: ['images', user?.id],
@@ -46,6 +48,40 @@ export default function Gallery() {
     },
     enabled: !!user,
   });
+
+  // Load signed URLs for images
+  useEffect(() => {
+    if (!images || images.length === 0) return;
+    
+    const loadSignedUrls = async () => {
+      const urlMap: Record<string, string[]> = {};
+      
+      await Promise.all(
+        images.map(async (image) => {
+          if (image.generated_image_urls && image.generated_image_urls.length > 0) {
+            const signedImageUrls = await Promise.all(
+              image.generated_image_urls.map(url => getSignedImageUrl(url))
+            );
+            urlMap[image.id] = signedImageUrls.filter(Boolean) as string[];
+          }
+        })
+      );
+      
+      setSignedUrls(urlMap);
+    };
+    
+    loadSignedUrls();
+  }, [images]);
+
+  // Helper to get image URLs for an image record
+  const getImageUrls = useCallback((image: ImageRecord): string[] => {
+    // First check if we have signed URLs
+    if (signedUrls[image.id] && signedUrls[image.id].length > 0) {
+      return signedUrls[image.id];
+    }
+    // Fallback to original URLs
+    return image.generated_image_urls || [];
+  }, [signedUrls]);
 
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
@@ -139,11 +175,14 @@ export default function Gallery() {
                         setLightboxKey(prev => prev + 1); // Force fresh lightbox state
                       }}
                     >
-                      {image.generated_image_urls?.[0] && (
+                      {getImageUrls(image)?.[0] && (
                         <img 
-                          src={image.generated_image_urls[0]} 
+                          src={getImageUrls(image)[0]} 
                           alt="Generated jewelry"
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
                       )}
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -176,6 +215,9 @@ export default function Gallery() {
               <DialogTitle className="text-base">
                 {selectedImage?.scenes?.name_tr || 'Görsel Detayı'}
               </DialogTitle>
+              <DialogDescription>
+                Görsellerinizi büyütebilir ve indirebilirsiniz.
+              </DialogDescription>
             </DialogHeader>
             
             {selectedImage && (
@@ -189,9 +231,9 @@ export default function Gallery() {
                     setLightboxScale(1);
                   }}
                 >
-                  {selectedImage.generated_image_urls?.[selectedVariation] && (
+                  {getImageUrls(selectedImage)?.[selectedVariation] && (
                     <img 
-                      src={selectedImage.generated_image_urls[selectedVariation]} 
+                      src={getImageUrls(selectedImage)[selectedVariation]} 
                       alt="Generated jewelry"
                       className="w-full h-full object-contain"
                     />
@@ -202,9 +244,9 @@ export default function Gallery() {
                 </div>
                 
                 {/* Thumbnails - Horizontal */}
-                {selectedImage.generated_image_urls?.length > 1 && (
+                {getImageUrls(selectedImage)?.length > 1 && (
                   <div className="flex justify-center gap-2">
-                    {selectedImage.generated_image_urls.map((url, index) => (
+                    {getImageUrls(selectedImage).map((url, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedVariation(index)}
@@ -224,7 +266,10 @@ export default function Gallery() {
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDownload(selectedImage.generated_image_urls[selectedVariation], selectedVariation);
+                      const urls = getImageUrls(selectedImage);
+                      if (urls[selectedVariation]) {
+                        handleDownload(urls[selectedVariation], selectedVariation);
+                      }
                     }}
                   >
                     <Download className="mr-1.5 h-4 w-4" />
@@ -242,10 +287,9 @@ export default function Gallery() {
                     <ZoomIn className="mr-1.5 h-4 w-4" />
                     Büyüt
                   </Button>
-                  
                   {/* Video Generate Button */}
                   <VideoGenerateButton 
-                    imageUrl={selectedImage.generated_image_urls[selectedVariation]}
+                    imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
                     variant="outline"
                     size="sm"
                   />
@@ -278,7 +322,7 @@ export default function Gallery() {
 
         {/* Fullscreen Lightbox */}
         <AnimatePresence mode="wait">
-          {lightboxOpen && selectedImage?.generated_image_urls?.[selectedVariation] && (
+          {lightboxOpen && selectedImage && getImageUrls(selectedImage)?.[selectedVariation] && (
             <motion.div
               key={`lightbox-${lightboxKey}-${selectedVariation}`}
               initial={{ opacity: 0 }}
@@ -317,7 +361,10 @@ export default function Gallery() {
                   variant="secondary"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDownload(selectedImage.generated_image_urls[selectedVariation], selectedVariation);
+                    const urls = getImageUrls(selectedImage);
+                    if (urls[selectedVariation]) {
+                      handleDownload(urls[selectedVariation], selectedVariation);
+                    }
                   }}
                 >
                   <Download className="h-4 w-4" />
@@ -336,7 +383,7 @@ export default function Gallery() {
 
               {/* Image */}
               <motion.img
-                src={selectedImage.generated_image_urls[selectedVariation]}
+                src={getImageUrls(selectedImage)[selectedVariation]}
                 alt="Generated jewelry fullscreen"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: lightboxScale }}

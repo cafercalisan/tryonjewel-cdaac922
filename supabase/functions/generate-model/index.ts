@@ -528,17 +528,24 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
       throw new Error('Failed to upload model image');
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    // Create signed URL since bucket is private (7 days expiry)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('jewelry-images')
-      .getPublicUrl(filePath);
+      .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+    
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error('Signed URL error:', signedUrlError);
+      throw new Error('Failed to generate image URL');
+    }
 
-    console.log('Image uploaded:', publicUrl);
+    const imageUrl = signedUrlData.signedUrl;
+    console.log('Image uploaded with signed URL');
 
     if (isPoseGeneration) {
       // For pose generation, just return the image URL
       console.log('Pose generated successfully');
       return new Response(
-        JSON.stringify({ success: true, imageUrl: publicUrl }),
+        JSON.stringify({ success: true, imageUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -556,7 +563,7 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
         hair_texture: hairTexture || 'natural',
         gender,
         age_range: ageRange,
-        preview_image_url: publicUrl,
+        preview_image_url: imageUrl,
         // New enhanced fields
         face_shape: faceShape,
         eye_color: eyeColor,
