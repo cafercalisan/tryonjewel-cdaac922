@@ -602,10 +602,10 @@ Ultra high resolution output.`;
         scaleNote = 'Necklace appears at NATURAL DELICATE SIZE relative to neck - DO NOT ENLARGE. If reference shows a delicate chain, it must remain delicate. Pendant size proportional to reference.';
       } else if (productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing')) {
         modelBodyPart = 'ear and jawline';
-        wearingDescription = 'adorning the ear in natural position';
-        framingDescription = 'TIGHT CROP on ear area, jawline to temple visible, earring dominates 60% of frame';
+        wearingDescription = 'adorning the ear in correct anatomical position - SINGLE earring per ear for pairs, both ears visible if pair';
+        framingDescription = 'TIGHT CROP showing BOTH ears if earring pair exists, or single ear for single earring - jawline to temple visible, earring(s) dominate 60% of frame';
         cameraLens = '100mm macro lens';
-        scaleNote = 'Earring at natural ear proportion - stud earrings remain small, drop earrings at realistic length';
+        scaleNote = 'Earring at natural ear proportion - stud earrings remain small, drop earrings at realistic length. CRITICAL: ONE earring per ear ONLY for pairs. NEVER place two earrings on same ear.';
       } else if (productTypeUpper.includes('bileklik') || productTypeUpper.includes('bracelet') || productTypeUpper.includes('bangle')) {
         modelBodyPart = 'wrist and forearm';
         wearingDescription = 'wrapped around a slender wrist';
@@ -663,7 +663,38 @@ Ultra high resolution output.`;
         dimensionNote = `Reference dimensions: approximately ${realWidthMm}mm x ${realHeightMm}mm - PRESERVE THIS SCALE relative to body part`;
       }
 
-      const modelShotPrompt = `PRODUCT-FOCUSED LUXURY JEWELRY CLOSE-UP. Commercial-grade luxury jewelry rendering with product fidelity first, aesthetics second.
+      // Determine if this is an earring pair (for special handling)
+      const isEarringType = productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing');
+      
+      // Build earring-specific constraints
+      const earringConstraints = isEarringType ? `
+⚠️ EARRING PLACEMENT RULES (CRITICAL - ZERO TOLERANCE) ⚠️
+- If the reference shows a PAIR of earrings: show BOTH ears, ONE earring per ear
+- If the reference shows a SINGLE earring: show only one ear with the earring
+- NEVER place two earrings on the same ear
+- NEVER duplicate/mirror earrings on one ear
+- NEVER stack multiple earrings on one ear unless explicitly shown in reference
+- Each ear can have ONLY ONE earring from the pair
+- Both earrings of a pair must be IDENTICAL (not mirrored incorrectly)
+- Earring position: natural earlobe piercing position, not cartilage unless specified
+- If pair: frame composition should show BOTH ears (3/4 view or front view, NOT profile)
+
+EARRING ANATOMY RULES:
+- Correct earlobe thickness and cartilage definition
+- Natural piercing hole position (center of earlobe for standard piercing)
+- Earring back/clasp not visible from front view
+- Natural ear angle relative to head
+
+FAILURE CONDITIONS FOR EARRINGS:
+- ❌ Two earrings on one ear = INVALID OUTPUT
+- ❌ Stacked earrings = INVALID OUTPUT
+- ❌ Duplicate jewelry on same ear = INVALID OUTPUT
+- ❌ Mirrored earring on same ear = INVALID OUTPUT
+` : '';
+
+      const modelShotPrompt = `PRODUCT-FOCUSED LUXURY JEWELRY CLOSE-UP. Commercial-grade luxury jewelry rendering engine.
+Your primary objective is product fidelity first, aesthetics second, mood third.
+Behave like a high-end jewelry photographer + retoucher, not an artist.
 
 ${fidelityBlock}
 
@@ -675,6 +706,8 @@ PRIORITY ORDER (IMMUTABLE - HIGHER OVERRIDES LOWER):
 4. LIGHTING REALISM
 5. EDITORIAL LUXURY MOOD
 ═══════════════════════════════════════════════════════════════
+
+${earringConstraints}
 
 ⚠️ SCALE PRESERVATION (CRITICAL - DO NOT ENLARGE JEWELRY) ⚠️
 ${scaleNote}
@@ -689,7 +722,7 @@ FRAMING SPECIFICATION:
 - Product occupies majority of frame (60-80%)
 - Jewelry details (stones, setting, metal texture) CLEARLY READABLE
 - Shallow but natural depth of field: jewelry razor-sharp, skin slightly softer
-- Camera: Full-frame sensor, ${cameraLens}
+- Camera: Full-frame commercial sensor, ${cameraLens}
 - Aperture: f/4 – f/5.6 (controlled depth, natural bokeh)
 - ISO: 50–100 (clean tonal range)
 
@@ -700,53 +733,67 @@ MODEL (SUPPORTING ROLE - PRODUCT IS HERO):
   • Visible pores with non-uniform distribution
   • Subsurface scattering appropriate for skin tone
   • NO plastic, waxy, or beauty-filtered appearance
-  • Fine vellus hair visible in appropriate lighting
+  • Fine vellus hair (peach fuzz) visible under rim light
+  • Natural imperfections: subtle freckles, micro color variations
+  • Skin must appear biologically alive, never synthetic
 - Body part featured: ${modelBodyPart}
 - Jewelry placement: ${wearingDescription}
 
-HAND / BODY POSE (IF APPLICABLE):
+HAND / BODY ANATOMY (IF APPLICABLE):
+- Physically accurate proportions, bone structure, joint alignment
+- Hands: realistic finger length, knuckle definition, nail beds, subtle asymmetry
+- Skin behavior varies by area (thinner on fingers, denser on knuckles, natural folds at joints)
 - Elegant, editorial, confident pose
-- Natural anatomy - anatomically correct proportions
-- Relaxed but refined gesture
+- Natural tension and relaxed refinement
 - Jewelry FRAMED by the body, never competing with it
 - Nails: clean, neutral, non-distracting
 
 SKIN & PRODUCT BALANCE:
-- Skin texture realistic and natural
+- Skin texture realistic and natural (unretouched, no beauty filters)
 - Jewelry SHARPER and more CONTRAST-RICH than skin
+- Jewelry must interact physically with skin:
+  • Metal shows realistic contact pressure
+  • Micro shadows where jewelry touches skin
+  • Natural occlusion effects
 - Harmonized tones between skin and metal
 - Jewelry is the visual anchor, skin is supporting context
 
-LIGHTING (LOCKED):
-- Soft, directional beauty-style lighting
+LIGHTING SYSTEM (LOCKED):
+- Lighting temperature: 3000K warm luxury tone, preserving gemstone color accuracy
+- Natural overcast daylight simulation, diffused and even
 - Large diffused key light (approximately 45°) for skin
 - Precision fill to reveal jewelry facets
 - Light FAVORS jewelry detail and facet visibility
 - Controlled highlights, NO clipping on metal or stones
-- Natural overcast daylight simulation
 - NO dramatic rim lights that introduce color casts
 - NO glamour lighting, NO commercial sparkle
+- Light falloff natural, no flat illumination
 
-METAL COLOR ENFORCEMENT (ABSOLUTE):
+METAL COLOR ENFORCEMENT (ABSOLUTE - ZERO TOLERANCE):
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Metal color MUST remain EXACTLY as in reference image
 - Lighting may affect reflection INTENSITY only
 - Lighting MUST NOT affect: hue, temperature, undertone, saturation
+- If mood/lighting/style conflicts with metal color → metal color WINS
 - Any deviation from reference metal color = GENERATION FAILURE
 
-DIAMOND & STONE BEHAVIOR:
+DIAMOND & STONE BEHAVIOR (PHYSICAL REALISM):
 - Diamonds reflect existing light ONLY
-- NO artificial sparkle
-- NO exaggerated scintillation  
+- NO artificial sparkle, NO exaggerated scintillation
 - NO rainbow dispersion unless physically justified
-- CLARITY over sparkle
-- DEPTH over flash
+- Real diamond light behavior: fire (spectral dispersion), brilliance (white light reflection)
+- Authentic internal light refraction patterns
+- Natural inclusions visible in realistic diamonds
+- Depth and three-dimensionality inside the stone
+- Realistic facet edges with crisp precision
+- CLARITY over sparkle, DEPTH over flash
+- No artificial HDR glow, no CGI-like perfection
 
 BACKGROUND:
-- Muted and calm
-- Stays secondary
-- Low-contrast
-- NEVER contaminates metal color
+- Muted and calm, stays secondary
+- Low-contrast, NEVER contaminates metal color
 - Allowed: stone, water, matte fabric, architectural minimalism
+- Forbidden: busy textures, high-saturation colors, reflective surfaces
 - Background tones slightly darker than jewelry for separation
 
 MOOD:
@@ -755,29 +802,46 @@ MOOD:
 - Product-first visual hierarchy
 - Quiet luxury, intellectual restraint
 - Editorial, NOT commercial
+- Silent confidence, fashion-editorial restraint
+- High-fashion lookbook or art-driven luxury campaign aesthetic
 
 COLOR GRADING:
-- Low saturation
-- Soft contrast
-- Neutral–cool balance
+- Low saturation, soft contrast, neutral–cool balance
 - Grading applies to: background, skin, fabric
 - Grading NEVER applies to: metal
+- Whites: clean, not blue
+- Gold: warm but desaturated
+- Diamonds: sharp dispersion, no rainbow artifacts
 
-STRICT AVOIDANCE:
+STRICT AVOIDANCE (NEGATIVE PROMPT):
 - ❌ NO enlarging/scaling up jewelry beyond reference proportions
 - ❌ NO metal color changes (yellow↔white↔rose)
-- ❌ NO high saturation
-- ❌ NO glamour or HDR lighting
-- ❌ NO commercial sparkle or glow
+- ❌ NO high saturation, NO glamour or HDR lighting
+- ❌ NO commercial sparkle, glow, or bloom
 - ❌ NO over-sharpening or beauty retouching
 - ❌ NO warm yellow lighting bias
-- ❌ NO cinematic effects or bloom
-- ❌ NO plastic/CGI skin appearance
+- ❌ NO cinematic effects
+- ❌ NO plastic/waxy/CGI skin appearance
 - ❌ NO jewelry that looks "repainted" or synthetic
+- ❌ NO beauty filters, NO airbrushed skin
+- ❌ NO extra fingers, deformed anatomy, incorrect proportions
+- ❌ NO two earrings on one ear (for earring products)
+- ❌ NO duplicate jewelry, mirrored earrings, stacked earrings
+
+FINAL OUTPUT VERIFICATION:
+✔ Metal color matches reference exactly
+✔ Stones behave physically (no artificial effects)
+✔ No artistic recoloring
+✔ Product looks sellable
+✔ Output suitable for luxury brand campaign
+✔ Jewelry scale is natural and proportional
+✔ Skin appears biologically real (not synthetic)
 
 OUTPUT: 4K ultra-high resolution (3840x4800px minimum). 
-Product looks SELLABLE. Suitable for luxury brand campaign.
-PHOTOREALISM prioritized. Ultra high resolution output.`;
+PHOTOREALISM prioritized. The final image must look like a high-budget luxury jewelry campaign photograph.
+It must feel CAPTURED, not generated. No stylization, no fantasy, no illustration.
+Pure photographic realism with editorial-level aesthetics.
+Ultra high resolution output.`;
 
       console.log('Generating Model Shot image...');
       const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);

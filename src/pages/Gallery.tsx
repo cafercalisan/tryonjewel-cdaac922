@@ -29,6 +29,7 @@ export default function Gallery() {
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null);
   const [selectedVariation, setSelectedVariation] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxKey, setLightboxKey] = useState(0); // Key to force re-render and reset state
   const [lightboxScale, setLightboxScale] = useState(1);
 
   const { data: images, isLoading } = useQuery({
@@ -130,8 +131,12 @@ export default function Gallery() {
                       key={image.id}
                       className="group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer"
                       onClick={() => {
+                        // Reset all state when opening a new image
                         setSelectedImage(image);
                         setSelectedVariation(0);
+                        setLightboxOpen(false);
+                        setLightboxScale(1);
+                        setLightboxKey(prev => prev + 1); // Force fresh lightbox state
                       }}
                     >
                       {image.generated_image_urls?.[0] && (
@@ -272,14 +277,18 @@ export default function Gallery() {
         </Dialog>
 
         {/* Fullscreen Lightbox */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {lightboxOpen && selectedImage?.generated_image_urls?.[selectedVariation] && (
             <motion.div
+              key={`lightbox-${lightboxKey}-${selectedVariation}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
-              onClick={() => setLightboxOpen(false)}
+              onClick={() => {
+                setLightboxOpen(false);
+                setLightboxScale(1);
+              }}
             >
               {/* Controls */}
               <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
@@ -316,7 +325,10 @@ export default function Gallery() {
                 <Button
                   size="icon"
                   variant="secondary"
-                  onClick={() => setLightboxOpen(false)}
+                  onClick={() => {
+                    setLightboxOpen(false);
+                    setLightboxScale(1);
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
