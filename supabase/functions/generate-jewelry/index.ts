@@ -32,38 +32,14 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// 4K Resolution prompt prefix for all generations - Professional jewelry photography standards
-const RESOLUTION_PREFIX = `
-PROFESSIONAL JEWELRY PHOTOGRAPHY SPECIFICATIONS (CRITICAL):
-- Resolution: ULTRA HIGH DEFINITION 4K (3840x2160 minimum resolution)
-- Image quality: Maximum sharpness, zero compression artifacts, museum-quality clarity
-- Detail level: EXTREME - every facet, prong, texture, and metalwork must be crystal clear
-- Focus: TACK SHARP razor-sharp focus on jewelry product
-- Lighting: Professional three-point softbox setup with key light at 45 degrees creating brilliant diamond reflections, fill light to soften shadows, rim light for metal luster
-- Quality: Ultra-realistic, photorealistic, high-end commercial photography standard
-- No blur, no softness, no pixelation, no artifacts
-
-`;
-
 async function callGeminiImageGeneration({
   base64Image,
   prompt,
-  aspectRatio = '1:1',
 }: {
   base64Image: string;
   prompt: string;
-  aspectRatio?: string;
 }) {
-  // Prepend 4K resolution requirements to every prompt
-  const enhancedPrompt = RESOLUTION_PREFIX + prompt;
-  
-  // Use v1beta endpoint - correct structure per Gemini API docs
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
-  
-  console.log('Calling Gemini API with 4K imageConfig, aspect ratio:', aspectRatio);
-  
-  // Per Gemini docs: generationConfig contains responseModalities
-  // imageConfig is a SEPARATE top-level field (not nested in generationConfig)
+  const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -71,19 +47,14 @@ async function callGeminiImageGeneration({
       contents: [
         {
           parts: [
-            { text: enhancedPrompt },
+            { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
           ],
         },
       ],
       generationConfig: {
-        responseModalities: ['IMAGE'],
+        responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
-      },
-      // imageConfig is a SEPARATE top-level field per Gemini API docs
-      imageConfig: {
-        aspectRatio: aspectRatio,
-        imageSize: '4K',  // Capital K is required for 4K resolution
       },
     }),
   });
@@ -100,9 +71,6 @@ async function callLovableImageGeneration({
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
   const imageDataUrl = `data:image/jpeg;base64,${base64Image}`;
-  
-  // Prepend 4K resolution requirements to every prompt
-  const enhancedPrompt = RESOLUTION_PREFIX + prompt;
 
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -116,7 +84,7 @@ async function callLovableImageGeneration({
         {
           role: 'user',
           content: [
-            { type: 'text', text: enhancedPrompt },
+            { type: 'text', text: prompt },
             { type: 'image_url', image_url: { url: imageDataUrl } },
           ],
         },
@@ -519,13 +487,9 @@ FORBIDDEN:
 
     const generatedUrls: string[] = [];
 
-    // Check if model is selected for master package (determines 3 or 4 images)
-    const hasModelSelected = modelId && uuidRegex.test(modelId);
-    
     if (isMasterPackage) {
-      // MASTER PACKAGE: 3 images (no model) or 4 images (with model) sequentially
-      const imageCount = hasModelSelected ? 4 : 3;
-      console.log(`Master Package: Generating ${imageCount} images sequentially...`);
+      // MASTER PACKAGE: 3 images sequentially
+      console.log('Master Package: Generating 3 images sequentially...');
 
       // Color mapping for e-commerce background (NON-METALLIC to prevent metal color contamination)
       const colorMap: Record<string, { name: string; prompt: string }> = {
@@ -900,180 +864,6 @@ Ultra high resolution output.`;
       console.log('Generating Model Shot image...');
       const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);
       if (modelUrl) generatedUrls.push(modelUrl);
-
-      // Image 4: MODEL PORTRAIT WITH HAND POSE - Only if model is selected
-      // Shows the ring on hand with clear face and skin details visible
-      if (hasModelSelected) {
-        // Fetch model data again for the portrait shot
-        let modelPortraitDescription = 'elegant female model with natural beauty, sophisticated appearance';
-        let portraitSkinTone = 'natural healthy skin with visible pores';
-        let portraitSkinUndertone = 'neutral undertone';
-        let modelHairDesc = 'elegant dark hair';
-        let modelEyeDesc = 'natural expressive eyes';
-        let modelExpressionDesc = 'serene and confident';
-        let modelFaceShape = 'balanced proportions';
-        
-        const { data: portraitModelData } = await supabase
-          .from('user_models')
-          .select('*')
-          .eq('id', modelId)
-          .single();
-        
-        if (portraitModelData) {
-          const genderDesc = portraitModelData.gender === 'female' ? 'female' : portraitModelData.gender === 'male' ? 'male' : 'androgynous';
-          const ageDesc = portraitModelData.age_range || 'young adult';
-          const ethnicityDesc = portraitModelData.ethnicity || 'diverse';
-          const skinDesc = portraitModelData.skin_tone || 'medium';
-          const undertoneDesc = portraitModelData.skin_undertone || 'neutral';
-          const hairColorDesc = portraitModelData.hair_color || 'dark';
-          const hairTextureDesc = portraitModelData.hair_texture || 'straight';
-          const faceShapeDesc = portraitModelData.face_shape || 'balanced';
-          const eyeColorDesc = portraitModelData.eye_color || 'natural';
-          const expressionDesc = portraitModelData.expression || 'serene-confident';
-          const hairStyleDesc = portraitModelData.hair_style || 'elegant';
-          
-          modelPortraitDescription = `${ethnicityDesc} ${genderDesc} model, ${ageDesc} age range`;
-          portraitSkinTone = `${skinDesc} skin tone with visible pores, natural micro-texture, healthy appearance`;
-          portraitSkinUndertone = `${undertoneDesc} undertone`;
-          modelHairDesc = `${hairColorDesc} ${hairTextureDesc} hair styled ${hairStyleDesc}`;
-          modelEyeDesc = `${eyeColorDesc} eyes with natural catchlights`;
-          modelExpressionDesc = `${expressionDesc} expression`;
-          modelFaceShape = `${faceShapeDesc} face shape`;
-        }
-
-        const modelPortraitPrompt = `LUXURY JEWELRY PORTRAIT - MODEL WITH RING AND HAND POSE. Ultra-photorealistic commercial photography.
-Your primary objective is product fidelity combined with model beauty, creating a brand ambassador aesthetic.
-Behave like a high-end jewelry photographer capturing a campaign portrait.
-
-${fidelityBlock}
-
-═══════════════════════════════════════════════════════════════
-SHOT CONCEPT: PORTRAIT WITH HAND POSE
-This is a beauty portrait where the model displays the ring with an elegant hand pose.
-The ring is worn on the hand, which is positioned near the face (touching chin, cheek, or near face).
-BOTH the model's face AND the ring on hand are clearly visible and in focus.
-═══════════════════════════════════════════════════════════════
-
-COMPOSITION & FRAMING:
-- Frame: Head-and-shoulders portrait with hand visible
-- Hand position: Elegantly posed near face (touching chin, resting on cheek, or gracefully near jawline)
-- Ring visibility: Ring clearly visible on the hand in the pose
-- Focus plane: BOTH face AND ring are sharp (f/5.6 - f/8 for depth)
-- Model's face occupies 40-50% of frame
-- Ring on hand clearly readable, approximately 15-20% of frame
-- Camera: 85mm portrait lens, full-frame sensor
-- Aspect ratio: 4:5 portrait
-
-MODEL SPECIFICATIONS:
-- ${modelPortraitDescription}
-- Face: ${modelFaceShape}, photogenic bone structure
-- Eyes: ${modelEyeDesc}
-- Expression: ${modelExpressionDesc}
-- Hair: ${modelHairDesc}
-
-SKIN RENDERING (FACE & HAND - CRITICAL):
-- Skin tone: ${portraitSkinTone}
-- Undertone: ${portraitSkinUndertone}
-- Face skin: 
-  • Editorial quality with natural texture
-  • Visible pores, subtle skin variations
-  • Natural complexion imperfections (micro freckles, slight color variations)
-  • Subsurface scattering visible in cheeks
-  • NO beauty filter, NO plastic appearance
-- Hand skin:
-  • Realistic finger proportions and bone structure
-  • Natural knuckle definition and skin folds at joints
-  • Visible nail beds with clean, neutral nails
-  • Same skin tone as face (consistent lighting)
-  • Natural shadows and highlights on fingers
-
-HAND POSE (CRITICAL):
-- Elegant, relaxed hand pose near face
-- Ring finger prominently displayed
-- Natural finger spacing and curvature
-- Hand appears graceful and refined
-- Correct anatomical proportions
-- Pose options: 
-  • Chin rest (fingers under chin, ring visible)
-  • Cheek touch (fingers on cheek, ring toward camera)
-  • Jawline trace (fingers along jaw, ring displayed)
-  • Temple touch (hand near temple/hair, ring visible)
-- NEVER: Clenched fist, spread fingers, unnatural angles
-
-RING DISPLAY:
-- Ring worn correctly on finger (index, middle, or ring finger based on design)
-- Ring stone/setting angled toward camera for maximum visibility
-- Natural interaction between ring and finger
-- Micro shadows where ring meets skin
-- Metal reflects ambient light naturally
-
-LIGHTING SYSTEM:
-- Main light: Large softbox at 45° creating beautiful facial modeling
-- Fill: Subtle fill to reveal ring details without flattening
-- Hair light: Subtle separation from background
-- Catchlights in eyes: Natural, positioned at 10 or 2 o'clock
-- Skin rendered with dimensional quality
-- Ring facets and metal surfaces properly lit
-- NO harsh shadows, NO flat lighting
-- Warm 3000K luxury tone
-
-METAL COLOR ENFORCEMENT (ABSOLUTE):
-- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Metal color MUST remain EXACTLY as in reference image
-- Lighting enhances but NEVER changes metal hue
-- If lighting conflicts with metal color → metal color WINS
-
-BACKGROUND:
-- Neutral, low-contrast studio background
-- Suggested: soft gray, warm taupe, or muted tone
-- NO busy patterns, NO competing elements
-- Slight gradient for depth (darker edges)
-- Background must NOT contaminate metal color
-
-MOOD & STYLE:
-- High-end jewelry brand campaign aesthetic
-- Tiffany & Co., Cartier, Bulgari campaign quality
-- Elegant, aspirational, sophisticated
-- Model appears as brand ambassador
-- Quiet luxury, modern classicism
-- The image should feel like a magazine cover or luxury print ad
-
-COLOR GRADING:
-- Low saturation, soft contrast
-- Skin tones: warm, healthy, natural
-- Grading applies to skin and background
-- Metal grading: NONE (preserve original color)
-- Overall: refined, premium, editorial
-
-STRICT AVOIDANCE:
-- ❌ NO metal color changes
-- ❌ NO beauty filters or over-retouching
-- ❌ NO plastic/waxy skin
-- ❌ NO awkward hand poses
-- ❌ NO ring obscured or unclear
-- ❌ NO face out of focus
-- ❌ NO glamour/HDR lighting
-- ❌ NO extra fingers or anatomical errors
-- ❌ NO face partially cropped (full face visible)
-
-FINAL VERIFICATION:
-✔ Face clearly visible and in focus
-✔ Ring clearly visible on elegantly posed hand
-✔ Metal color matches reference exactly
-✔ Skin appears natural and realistic
-✔ Hand anatomy correct
-✔ Portrait suitable for luxury brand campaign
-✔ Image feels captured, not generated
-
-OUTPUT: 4K ultra-high resolution (3840x4800px minimum).
-Professional beauty portrait with product integration.
-Must look like an actual luxury jewelry campaign photograph.
-Ultra high resolution output.`;
-
-        console.log('Generating Model Portrait with Hand Pose...');
-        const portraitUrl = await generateSingleImage(base64Image, modelPortraitPrompt, userId, imageRecord.id, 4, supabase);
-        if (portraitUrl) generatedUrls.push(portraitUrl);
-      }
 
     } else {
       // STANDARD: Single image with scene
