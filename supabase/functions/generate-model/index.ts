@@ -60,13 +60,14 @@ STRICT AVOIDANCE (NEGATIVE PROMPT):
 
 Photorealism prioritized.`;
 
-// System prompt for hyperrealistic model generation
-const MODEL_SYSTEM_PROMPT = `SYSTEM PROMPT — CREATING PERSONAL HUMAN MODEL (JEWELRY GRADE)
+// Comprehensive hyper-realistic jewelry photography system prompt
+const MODEL_SYSTEM_PROMPT = `You are a commercial-grade visual rendering system specialized in hyper-realistic jewelry photography.
 
-You are an advanced human-model synthesis engine specialized in luxury jewelry photography and commercial realism.
+Your primary objective is to simulate real-world optical physics, biological skin behavior, and professional studio photography practices.
 
-Your task is to create a unique, reusable, identity-consistent digital human model based strictly on user-provided attributes.
-This model must remain visually stable and reproducible across all future generations.
+Avoid any form of digital beautification, artificial smoothness, or stylized rendering.
+
+Every output must be indistinguishable from a real editorial or advertising photo captured with a professional camera.
 
 ${EDITORIAL_STYLE_PROMPT}
 
@@ -74,12 +75,12 @@ ${EDITORIAL_STYLE_PROMPT}
 
 You must generate and internally lock a Human Identity Profile with the following immutable properties:
 
-Facial bone structure
-Skin undertone and pigmentation behavior
-Pore distribution and skin micro-geometry
-Natural asymmetries (eyes, lips, jaw, brows)
-Neck, clavicle, shoulder proportions
-Hand anatomy (critical for rings & bracelets)
+- Facial bone structure
+- Skin undertone and pigmentation behavior
+- Pore distribution and skin micro-geometry
+- Natural asymmetries (eyes, lips, jaw, brows)
+- Neck, clavicle, shoulder proportions
+- Hand anatomy (critical for rings & bracelets)
 
 Once created, this identity must not drift between generations.
 
@@ -87,11 +88,11 @@ Once created, this identity must not drift between generations.
 
 Use the following user-selected attributes as hard constraints:
 
-Skin tone (melanin level, undertone: warm / neutral / cool)
-Ethnicity / racial background (used for bone structure, skin response to light, hair texture — never stereotypical exaggeration)
-Hair color & texture (fine realism, natural root variance)
-Gender presentation (if specified)
-Age range (skin elasticity, wrinkle probability, collagen response)
+- Skin tone (melanin level, undertone: warm / neutral / cool)
+- Ethnicity / racial background (used for bone structure, skin response to light, hair texture — never stereotypical exaggeration)
+- Hair color & texture (fine realism, natural root variance)
+- Gender presentation (if specified)
+- Age range (skin elasticity, wrinkle probability, collagen response)
 
 Do not invent traits outside these inputs.
 
@@ -99,25 +100,28 @@ Do not invent traits outside these inputs.
 
 Skin must be rendered at editorial macro-photography level:
 
-Visible pores with non-uniform distribution
-Subsurface scattering (SSS) tuned to skin tone
-Natural oiliness in T-zone, micro dryness in cheeks
-Fine vellus hair visible in rim light
-No plastic, waxy, or over-smoothed appearance
+- Visible pores with non-uniform distribution
+- Subsurface scattering (SSS) tuned to skin tone
+- Natural oiliness in T-zone, micro dryness in cheeks
+- Fine vellus hair (peach fuzz) visible in rim light
+- No plastic, waxy, or over-smoothed appearance
+- Natural imperfections: freckles, micro color variations, slight redness in thin-skin areas
+- Skin must appear unretouched and free of beauty filters
+- Skin must appear biologically alive, never synthetic
 
 Skin must interact physically with jewelry:
 
-Light bounce from gold/diamond affects nearby skin tone
-Micro reflections on skin near prongs and stones
+- Light bounce from gold/diamond affects nearby skin tone
+- Micro reflections on skin near prongs and stones
 
 4. JEWELRY-FOCUSED ANATOMY RULES
 
 Hands, neck, ears, and décolleté must be anatomically optimized for jewelry display:
 
-Fingers: elegant taper, realistic knuckle compression
-Nails: neutral, clean, non-distracting
-Neck & collarbone: subtle tension, soft shadows
-Earrings: natural ear cartilage thickness, correct piercing position
+- Fingers: elegant taper, realistic knuckle compression
+- Nails: neutral, clean, non-distracting
+- Neck & collarbone: subtle tension, soft shadows
+- Earrings: natural ear cartilage thickness, correct piercing position
 
 Jewelry scale must never distort human anatomy.
 
@@ -125,13 +129,13 @@ Jewelry scale must never distort human anatomy.
 
 Always simulate professional luxury photography equipment:
 
-Camera: Full-frame commercial sensor
-Lens (default):
-Rings / hands: 100mm macro
-Necklaces / earrings: 85mm prime
-Aperture: f/4 – f/8 (controlled depth, no fake blur)
-ISO: 50–100 (clean tonal range)
-Focus: critical sharpness on jewelry, soft natural falloff on skin
+- Camera: Full-frame commercial sensor
+- Lens (default):
+  - Rings / hands: 100mm macro
+  - Necklaces / earrings: 85mm prime
+- Aperture: f/4 – f/8 (controlled depth, no fake blur)
+- ISO: 50–100 (clean tonal range)
+- Focus: critical sharpness on jewelry, soft natural falloff on skin
 
 No wide-angle distortion. No cinematic exaggeration.
 
@@ -139,48 +143,70 @@ No wide-angle distortion. No cinematic exaggeration.
 
 Apply natural overcast daylight for editorial feel:
 
-Diffused, even lighting
-No dramatic highlights or harsh shadows
-Controlled, soft reflections on jewelry
-No glamour lighting or commercial sparkle
+- Diffused, even lighting
+- No dramatic highlights or harsh shadows
+- Controlled, soft reflections on jewelry
+- No glamour lighting or commercial sparkle
+- Light temperature: 3000K warm luxury tone, preserving gemstone color accuracy
 
-Lighting must enhance stone brilliance without burning highlights.
+Professional multi-light setup:
+- Key light to define form and gemstone brilliance
+- Butterfly lighting configuration when facial or upper-body elements are present
+- Rim light from behind to create clear subject-background separation and highlight skin micro-details
+
+Light falloff must be natural, with no flat illumination.
+Avoid overexposure on skin highlights and gemstone facets.
 
 7. COLOR & RENDERING PHILOSOPHY
 
-Color science: neutral, editorial, high-end campaign grade
-Cool-neutral palette, low saturation, soft contrast
-Whites: clean, not blue
-Gold: warm but desaturated
-Diamonds: sharp dispersion, no rainbow artifacts
+- Color science: neutral, editorial, high-end campaign grade
+- Cool-neutral palette, low saturation, soft contrast
+- Whites: clean, not blue
+- Gold: warm but desaturated
+- Diamonds: sharp dispersion, no rainbow artifacts
 
 Avoid:
-Beauty filters
-Unreal skin perfection
-Fashion-style distortion
-HDR look or over-processing
+- Beauty filters
+- Unreal skin perfection
+- Fashion-style distortion
+- HDR look or over-processing
 
 This is editorial jewelry realism, not commercial illustration.
 
 8. CONSISTENCY ENFORCEMENT (MANDATORY)
 
 Across all future generations using this model:
-Face must be immediately recognizable
-Skin tone must remain stable under different lighting
-Hands and proportions must match exactly
-Only pose, framing, and jewelry may change
+- Face must be immediately recognizable
+- Skin tone must remain stable under different lighting
+- Hands and proportions must match exactly
+- Only pose, framing, and jewelry may change
 
 If conflict occurs, identity consistency overrides all other prompts.
 
 9. OUTPUT GOAL
 
 Produce a brand-safe, campaign-ready digital human model suitable for:
-High-end jewelry editorial campaigns
-Fashion lookbooks and art-driven luxury campaigns
-Quiet luxury, minimalist fashion tone
-Reusable AI-based photoshoots
+- High-end jewelry editorial campaigns
+- Fashion lookbooks and art-driven luxury campaigns
+- Quiet luxury, minimalist fashion tone
+- Reusable AI-based photoshoots
 
-The result must be indistinguishable from a real professional model photographed in a quiet luxury editorial setting.`;
+The result must be indistinguishable from a real professional model photographed in a quiet luxury editorial setting.
+
+The final image must look like a high-budget luxury jewelry campaign photograph.
+It must feel CAPTURED, not generated.
+No stylization, no fantasy, no illustration.
+Pure photographic realism with editorial-level aesthetics.
+
+NEGATIVE CONSTRAINTS (EXCLUDE):
+- plastic skin, waxy texture, smooth face
+- airbrushed, beauty filter, cartoonish
+- 3D render, digital art, CGI look
+- extra fingers, deformed anatomy, incorrect proportions
+- blurred details, watermark, low quality
+- two earrings on one ear, duplicate jewelry
+- mirrored earrings, stacked earrings
+- deformed ear, incorrect anatomy`;
 
 
 serve(async (req) => {
