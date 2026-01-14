@@ -100,12 +100,7 @@ serve(async (req) => {
           },
         ],
         generationConfig: {
-          responseModalities: ['IMAGE'],
-          temperature: 0.4,
-        },
-        imageConfig: {
-          aspectRatio: aspectRatio,
-          imageSize: '4K',
+          responseModalities: ['IMAGE', 'TEXT'],
         },
       }),
     });
