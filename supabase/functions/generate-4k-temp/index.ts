@@ -7,34 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_IMAGE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
-
-// Helper: Convert ArrayBuffer to base64 in chunks
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 8192;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
-}
-
 // 4K Resolution prompt prefix
-const RESOLUTION_PREFIX = `
-PROFESSIONAL JEWELRY PHOTOGRAPHY - 4K ULTRA HIGH DEFINITION:
-- Resolution: 4K (3840x2160 minimum)
+const RESOLUTION_PREFIX = `PROFESSIONAL JEWELRY PHOTOGRAPHY - 4K ULTRA HIGH DEFINITION:
+- Resolution: 4K (3840x2160 minimum), ultra-sharp details
 - Quality: Maximum sharpness, museum-quality clarity
 - Focus: Razor-sharp on jewelry product
-- Lighting: Professional softbox setup
-- No blur, no artifacts, ultra-realistic
+- Lighting: Professional softbox setup with natural reflections
+- Metal accuracy: Preserve exact metal color from reference
+- No blur, no artifacts, photorealistic quality
 
-`;
+INSTRUCTION: `;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -73,68 +59,106 @@ serve(async (req) => {
       );
     }
 
-    if (!GOOGLE_IMAGE_API_KEY) {
+    if (!LOVABLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'GOOGLE_API_KEY not configured' }),
+        JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Generating 4K temporary image, aspect ratio:', aspectRatio);
+    console.log('Generating 4K temporary image via Lovable AI Gateway, aspect ratio:', aspectRatio);
 
     const enhancedPrompt = RESOLUTION_PREFIX + prompt;
 
-    // Call Gemini API
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
-    
-    const genResponse = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    // Call Lovable AI Gateway for image editing
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        contents: [
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
           {
-            parts: [
-              { text: enhancedPrompt },
-              { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
-            ],
-          },
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: enhancedPrompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`
+                }
+              }
+            ]
+          }
         ],
-        generationConfig: {
-          responseModalities: ['IMAGE', 'TEXT'],
-        },
-      }),
+        modalities: ["image", "text"]
+      })
     });
 
-    if (!genResponse.ok) {
-      const errText = await genResponse.text();
-      console.error('Gemini API error:', errText);
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Lovable AI Gateway error:', response.status, errText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Image generation failed', details: errText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const genData = await genResponse.json();
-    const parts = genData.candidates?.[0]?.content?.parts || [];
+    const data = await response.json();
+    console.log('Lovable AI response received');
+
+    // Extract generated image from response
+    const images = data.choices?.[0]?.message?.images;
     
-    let generatedBase64: string | null = null;
-    let mimeType = 'image/png';
-
-    for (const part of parts) {
-      if (part.inlineData?.mimeType?.startsWith('image/')) {
-        generatedBase64 = part.inlineData.data;
-        mimeType = part.inlineData.mimeType;
-        break;
-      }
-    }
-
-    if (!generatedBase64) {
-      console.error('No image in response');
+    if (!images || images.length === 0) {
+      console.error('No images in response:', JSON.stringify(data));
       return new Response(
         JSON.stringify({ error: 'No image generated' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const imageUrl = images[0]?.image_url?.url;
+    
+    if (!imageUrl || !imageUrl.startsWith('data:')) {
+      console.error('Invalid image URL format');
+      return new Response(
+        JSON.stringify({ error: 'Invalid image format returned' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse data URL: data:image/png;base64,xxxx
+    const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      console.error('Could not parse data URL');
+      return new Response(
+        JSON.stringify({ error: 'Could not parse image data' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const mimeType = matches[1];
+    const generatedBase64 = matches[2];
 
     console.log('4K image generated successfully (temporary - not stored)');
 
