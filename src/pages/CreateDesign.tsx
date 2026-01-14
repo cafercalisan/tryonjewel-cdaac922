@@ -39,12 +39,22 @@ export default function CreateDesign() {
     enabled: !!user,
   });
 
-  const designModes = [
-    { id: 'kampanya', label: 'Kampanya', desc: 'İndirim & Promosyon' },
-    { id: 'koleksiyon', label: 'Koleksiyon', desc: 'Yeni Sezon Tanıtım' },
-    { id: 'reklam', label: 'Reklam Filmi', desc: 'Sinematik Reklam' },
-    { id: 'sinematik', label: 'Sinematik', desc: 'Film Afişi Tarzı' },
-  ];
+  // Design modes based on design type
+  const getDesignModes = () => {
+    if (designType === 'instagram') {
+      return [
+        { id: 'kampanya', label: 'Kampanya', desc: 'İndirim & Sale kurdeleli tasarım' },
+        { id: 'koleksiyon', label: 'Koleksiyon', desc: 'Premium Tiffany & Co tarzı' },
+      ];
+    } else {
+      return [
+        { id: 'kampanya', label: 'Kampanya Banner', desc: 'Yatay lüks ürün sergileme' },
+        { id: 'kurumsal', label: 'Kurumsal Banner', desc: 'Marka tanıtım, sade şık' },
+      ];
+    }
+  };
+
+  const designModes = getDesignModes();
 
   // Flatten all generated images
   const allGeneratedImages: { url: string; id: string }[] = [];
@@ -181,20 +191,20 @@ export default function CreateDesign() {
               </div>
 
               {isLoading ? (
-                <div className="grid grid-cols-3 gap-3">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="aspect-[4/5] bg-muted rounded-xl animate-pulse" />
+                <div className="grid grid-cols-4 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div key={i} className="aspect-square bg-muted rounded-xl animate-pulse" />
                   ))}
                 </div>
               ) : allGeneratedImages.length > 0 ? (
-                <div className="grid grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-2">
+                <div className="grid grid-cols-4 gap-3 max-h-[500px] overflow-y-auto pr-2">
                   {allGeneratedImages.map((image) => (
                     <motion.div
                       key={image.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => toggleImageSelection(image.url)}
-                      className={`relative aspect-[4/5] rounded-xl overflow-hidden cursor-pointer transition-all ${
+                      className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all ${
                         selectedImages.includes(image.url) 
                           ? 'ring-2 ring-primary ring-offset-2' 
                           : 'hover:opacity-90'
@@ -207,8 +217,8 @@ export default function CreateDesign() {
                       />
                       {selectedImages.includes(image.url) && (
                         <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="h-5 w-5 text-primary-foreground" />
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-4 w-4 text-primary-foreground" />
                           </div>
                         </div>
                       )}
@@ -230,7 +240,10 @@ export default function CreateDesign() {
           {/* Right: Design Options */}
           <div className="space-y-6">
             {/* Design Type Tabs */}
-            <Tabs value={designType} onValueChange={(v) => setDesignType(v as 'instagram' | 'banner')}>
+            <Tabs value={designType} onValueChange={(v) => {
+              setDesignType(v as 'instagram' | 'banner');
+              setDesignMode(v === 'instagram' ? 'kampanya' : 'kampanya');
+            }}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="instagram" className="flex items-center gap-2">
                   <Instagram className="h-4 w-4" />
@@ -294,19 +307,19 @@ export default function CreateDesign() {
             {/* Design Mode Selection */}
             <div>
               <label className="text-sm font-medium mb-3 block">Tasarım Modu</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {designModes.map((mode) => (
                   <button
                     key={mode.id}
                     onClick={() => setDesignMode(mode.id)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`p-4 rounded-xl border text-left transition-all ${
                       designMode === mode.id
                         ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
                         : 'border-border hover:border-primary/50 hover:bg-muted/50'
                     }`}
                   >
                     <div className="font-medium text-sm">{mode.label}</div>
-                    <div className="text-xs text-muted-foreground">{mode.desc}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{mode.desc}</div>
                   </button>
                 ))}
               </div>
@@ -327,7 +340,7 @@ export default function CreateDesign() {
             {/* Logo Upload */}
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Logo <span className="text-muted-foreground">(opsiyonel)</span>
+                Logo <span className="text-muted-foreground">(sahneye entegre edilir)</span>
               </label>
               {logoPreview ? (
                 <div className="flex items-center gap-3">
@@ -343,7 +356,7 @@ export default function CreateDesign() {
                 <label className="flex items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Upload className="h-5 w-5" />
-                    <span className="text-sm">Logo yükle</span>
+                    <span className="text-sm">Logo yükle (kumaşa işlenir)</span>
                   </div>
                   <input
                     type="file"
