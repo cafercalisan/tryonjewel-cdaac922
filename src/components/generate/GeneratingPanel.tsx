@@ -7,7 +7,7 @@ interface GeneratingPanelProps {
   step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
   currentImageIndex?: number;
   totalImages?: number;
-  packageType?: 'standard' | 'master' | '4k-temp';
+  packageType?: 'standard' | 'master';
   previewImage?: string | null;
 }
 
