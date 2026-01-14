@@ -6,6 +6,7 @@ import { Gem, Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Pl
 import { BeforeAfterShowcase } from '@/components/landing/BeforeAfterShowcase';
 import { TransformationGallery } from '@/components/landing/TransformationGallery';
 import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
+import { AnimatedWord } from '@/components/landing/AnimatedWord';
 import emeraldBracelet from '@/assets/showcase/emerald-bracelet-result-1.webp';
 export default function Landing() {
   return <AppLayout>
@@ -449,7 +450,7 @@ export default function Landing() {
                   MARKA KİMLİĞİ
                 </p>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-6">
-                  Dijital Varlığınızın <span className="italic text-primary font-serif">Hikayesi</span>
+                  Satış Getiren <AnimatedWord words={['Görseller', 'Hikayeler']} interval={3000} /> Yaratın
                 </h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed">
                   Logo ve marka renklerinize göre kreatifler oluşturun. Tutarlı bir görsel kimlik ile sosyal medyada öne çıkın.
