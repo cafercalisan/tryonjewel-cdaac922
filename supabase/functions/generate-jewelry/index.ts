@@ -543,14 +543,15 @@ Ultra high resolution output.`;
       const ecomUrl = await generateSingleImage(base64Image, ecommercePrompt, userId, imageRecord.id, 1, supabase);
       if (ecomUrl) generatedUrls.push(ecomUrl);
 
-      // Image 2: Luxury catalog shot (STILL color-locked; avoid dramatic lighting that shifts metal)
-      const catalogPrompt = `High-end luxury catalog photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
+      const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-TASK TYPE (CRITICAL): BACKGROUND/SCENE CHANGE WITHOUT ALTERING THE JEWELRY
+TASK TYPE (CRITICAL): EDITORIAL SCENE INTEGRATION WITHOUT ALTERING THE JEWELRY
 - The jewelry (especially metal color) must remain exactly as reference.
-- Lighting can add depth, but must NOT change metal hue, temperature, or undertone.
+- Product must be INTEGRATED into the scene, NOT staged or floating in air.
+- Lighting can add character and depth, but must NOT change metal hue, temperature, or undertone.
 
 ⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
@@ -559,15 +560,32 @@ ${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
 STRICT RULES:
 - NO metal recoloring or grading on the metal
-- No rim lights that introduce color casts
-- Scene props/background must be neutral and non-metallic
+- Lighting shapes facets and metal naturally without exaggeration
+- Scene props/background must be non-metallic to avoid color contamination
 
-SCENE: Premium catalog presentation
-- Setting: premium matte textured surface (stone, matte ceramic, matte fabric) — NON-METALLIC
-- Lighting: soft but directional studio light, controlled highlights, neutral balance
-- Style: quiet luxury, premium catalog, product-first
-- Macro-level detail visibility, jewelry perfectly sharp
-- Subtle props only (if any), never reflective
+SCENE CONCEPT (NON-TRADITIONAL EDITORIAL ENVIRONMENT):
+- Environment: Non-traditional but realistic editorial setting
+- Surface examples: flowing silk/satin fabrics, refined mineral surfaces (marble, natural stone), sculptural minimal objects, soft organic textures
+- The product must feel NATURALLY INTEGRATED into the scene — resting on, draped against, or nestled within the environment
+- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact
+
+CAMERA & COMPOSITION:
+- Lens feel: Cinematic 85–100mm
+- Perspective: Slightly low or side-angled, creating depth and drama
+- Composition: Asymmetrical but balanced, editorial negative space allowed
+- Focus: Razor-sharp on jewelry with natural depth of field falloff
+
+LIGHTING (CHARACTER-DRIVEN):
+- Directional, character-driven light source
+- Shadows add depth and dimension without heaviness
+- Facets and metal surfaces shaped naturally, not exaggerated
+- Avoid: HDR glow, rim lights that shift color, artificial sparkle
+
+MOOD & STYLE:
+- Luxury fashion editorial aesthetic
+- Calm, sophisticated, timeless atmosphere
+- Artistic vision yet commercially viable
+- Premium catalog/magazine quality
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
