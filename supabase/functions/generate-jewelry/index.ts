@@ -32,6 +32,19 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+// 4K Resolution prompt prefix for all generations
+const RESOLUTION_PREFIX = `
+OUTPUT SPECIFICATIONS (CRITICAL):
+- Resolution: ULTRA HIGH DEFINITION 4K (3840x2160 minimum)
+- Image quality: Maximum sharpness, no compression artifacts
+- Detail level: EXTREME - every facet, prong, and texture must be crystal clear
+- Pixel density: Maximum available
+- Focus: TACK SHARP on jewelry product
+- No blur, no softness, no pixelation
+- Export quality: Highest possible bit depth
+
+`;
+
 async function callGeminiImageGeneration({
   base64Image,
   prompt,
@@ -39,6 +52,9 @@ async function callGeminiImageGeneration({
   base64Image: string;
   prompt: string;
 }) {
+  // Prepend 4K resolution requirements to every prompt
+  const enhancedPrompt = RESOLUTION_PREFIX + prompt;
+  
   const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   return await fetch(url, {
     method: 'POST',
@@ -47,7 +63,7 @@ async function callGeminiImageGeneration({
       contents: [
         {
           parts: [
-            { text: prompt },
+            { text: enhancedPrompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
           ],
         },
@@ -55,6 +71,11 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
+      },
+      // Request highest quality output
+      outputOptions: {
+        mimeType: 'image/png',
+        compressionQuality: 100,
       },
     }),
   });
@@ -71,6 +92,9 @@ async function callLovableImageGeneration({
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
   const imageDataUrl = `data:image/jpeg;base64,${base64Image}`;
+  
+  // Prepend 4K resolution requirements to every prompt
+  const enhancedPrompt = RESOLUTION_PREFIX + prompt;
 
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -84,7 +108,7 @@ async function callLovableImageGeneration({
         {
           role: 'user',
           content: [
-            { type: 'text', text: prompt },
+            { type: 'text', text: enhancedPrompt },
             { type: 'image_url', image_url: { url: imageDataUrl } },
           ],
         },
