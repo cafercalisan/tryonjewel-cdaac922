@@ -72,11 +72,6 @@ async function callGeminiImageGeneration({
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
       },
-      // Request highest quality output
-      outputOptions: {
-        mimeType: 'image/png',
-        compressionQuality: 100,
-      },
     }),
   });
 }
