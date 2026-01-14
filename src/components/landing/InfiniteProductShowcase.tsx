@@ -1,46 +1,32 @@
 import { motion } from 'framer-motion';
 import { useRef, useEffect, useState } from 'react';
 
-// Import all showcase images
-import blueSapphireBraceletOriginal from '@/assets/showcase/blue-sapphire-bracelet-original.webp';
+// Import only AI-generated result images (no originals)
 import blueSapphireBraceletResult from '@/assets/showcase/blue-sapphire-bracelet-result.webp';
-import diamondSetOriginal from '@/assets/showcase/diamond-set-original.webp';
-import earringOriginal from '@/assets/showcase/earring-original.webp';
 import earringResult from '@/assets/showcase/earring-result.webp';
-import emeraldBraceletOriginal from '@/assets/showcase/emerald-bracelet-original.webp';
 import emeraldBraceletResult1 from '@/assets/showcase/emerald-bracelet-result-1.webp';
 import emeraldBraceletResult2 from '@/assets/showcase/emerald-bracelet-result-2.webp';
 import emeraldBraceletResult3 from '@/assets/showcase/emerald-bracelet-result-3.webp';
-import ringOriginal from '@/assets/showcase/ring-original.webp';
 import ringResult from '@/assets/showcase/ring-result.webp';
-import sapphireBraceletOriginal from '@/assets/showcase/sapphire-bracelet-original.webp';
 import sapphireBraceletResult from '@/assets/showcase/sapphire-bracelet-result.webp';
-import heroImage from '/lovable-uploads/d9abf31c-925c-4750-961f-11908e4e649a.webp';
 
-// Organize images into rows
+// Two strips with AI results only - opposite directions
 const topRowImages = [
   blueSapphireBraceletResult,
   emeraldBraceletResult1,
   earringResult,
   ringResult,
   sapphireBraceletResult,
-];
-
-const middleRowImages = [
   emeraldBraceletResult2,
-  diamondSetOriginal,
-  heroImage,
-  emeraldBraceletOriginal,
-  blueSapphireBraceletOriginal,
-  earringOriginal,
 ];
 
 const bottomRowImages = [
   emeraldBraceletResult3,
-  ringOriginal,
-  sapphireBraceletOriginal,
-  emeraldBraceletResult1,
+  ringResult,
+  sapphireBraceletResult,
+  blueSapphireBraceletResult,
   earringResult,
+  emeraldBraceletResult1,
 ];
 
 interface MarqueeRowProps {
@@ -175,7 +161,7 @@ export function InfiniteProductShowcase() {
         <div className="mt-6 w-20 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent mx-auto" />
       </motion.div>
 
-      {/* Diagonal strips container with subtle rotation */}
+      {/* Two diagonal strips - opposite directions */}
       <div className="relative -rotate-2 py-6">
         {/* Top row - scrolls right */}
         <div className="mb-6">
@@ -186,20 +172,11 @@ export function InfiniteProductShowcase() {
           />
         </div>
         
-        {/* Middle row - scrolls left (opposite direction) */}
-        <div className="mb-6">
-          <MarqueeRow 
-            images={middleRowImages} 
-            direction="left" 
-            duration={90}
-          />
-        </div>
-        
-        {/* Bottom row - scrolls right */}
+        {/* Bottom row - scrolls left (opposite direction) */}
         <div>
           <MarqueeRow 
             images={bottomRowImages} 
-            direction="right" 
+            direction="left" 
             duration={75}
           />
         </div>
