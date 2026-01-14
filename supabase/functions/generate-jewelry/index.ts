@@ -57,7 +57,11 @@ async function callGeminiImageGeneration({
   // Prepend 4K resolution requirements to every prompt
   const enhancedPrompt = RESOLUTION_PREFIX + prompt;
   
-  const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  // Use v1beta endpoint for image generation with proper config structure
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  
+  console.log('Calling Gemini API with 4K config, aspect ratio:', aspectRatio);
+  
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,14 +74,13 @@ async function callGeminiImageGeneration({
           ],
         },
       ],
+      // imageConfig MUST be inside generationConfig for 4K to work
       generationConfig: {
         responseModalities: ['IMAGE'],
-        temperature: 0.4,
-      },
-      // 4K image configuration for maximum quality
-      imageConfig: {
-        aspectRatio: aspectRatio,
-        imageSize: '4K',
+        imageConfig: {
+          aspectRatio: aspectRatio,
+          imageSize: '4K',  // Capital K is required!
+        },
       },
     }),
   });
