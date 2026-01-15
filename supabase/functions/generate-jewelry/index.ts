@@ -751,9 +751,10 @@ MODEL (SUPPORTING ROLE - PRODUCT IS HERO):
   • Visible pores with non-uniform distribution
   • Subsurface scattering appropriate for skin tone
   • NO plastic, waxy, or beauty-filtered appearance
-  • Fine vellus hair (peach fuzz) visible under rim light
-  • Natural imperfections: subtle freckles, micro color variations
-  • Skin must appear biologically alive, never synthetic
+  • FEMALE BODY HAIR: Ultra-fine, nearly invisible vellus hair only - NO coarse/dark arm hair, NO visible body hair strands
+  • Hair on arms/hands should be BARELY perceptible, blonde/transparent peach fuzz only, NOT dark or visible strands
+  • Natural imperfections: subtle freckles, micro color variations - but CLEAN, SMOOTH skin texture for female models
+  • Skin must appear biologically alive yet elegantly groomed, feminine and refined
 - Body part featured: ${modelBodyPart}
 - Jewelry placement: ${wearingDescription}
 
