@@ -11,203 +11,495 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Editorial luxury photography style guide
-const EDITORIAL_STYLE_PROMPT = `HIGH-END EDITORIAL JEWELRY PHOTOGRAPHY STYLE:
+// ===== ADVANCED PROMPT SYSTEM =====
 
-Overall color palette: cool-neutral, low saturation, soft contrast.
-Mood: Silent confidence, intellectual luxury, fashion-editorial restraint.
-Feels like a high-fashion lookbook or art-driven luxury campaign, NOT an e-commerce image.
+const IDENTITY_CORE = `IDENTITY PERMANENCE PROTOCOL [HIGHEST PRIORITY]:
 
-LIGHTING:
-- Natural overcast daylight, diffused and even
-- No dramatic highlights, no harsh shadows, no added rim lights
-- Jewelry reflections are controlled, soft, physically accurate, never sparkling excessively
+You are simulating a REAL biological human being with permanent, immutable characteristics.
+This is NOT digital art, NOT illustration, NOT stylization - this is PHOTOGRAPHIC REALISM.
 
-BACKGROUND:
-- Muted and calm: stone, water surface, matte fabric, soft architectural elements or minimal natural scenery
-- Background tones stay slightly darker than the jewelry to create separation without contrast exaggeration
+BIOLOGICAL FINGERPRINT - These create an unchangeable person:
+{IDENTITY_BLOCK}
 
-JEWELRY APPEARANCE:
-- Confident, understated, and timeless
-- No visual noise, no glamour lighting, no commercial shine
+IMMUTABLE TRAITS:
+• Cranial structure: Orbital ridge, cheekbone prominence, jaw angle, chin shape
+• Proportional ratios: Face width-to-height, neck length, shoulder breadth
+• Skin signature: Melanin density map, subsurface scattering depth, pore distribution pattern
+• Micro-features: Specific freckle/mole placement, natural asymmetries, skin texture fingerprint
 
-METAL TONES (REALISTIC):
-- White gold / platinum: cool, matte-leaning reflections
-- Yellow gold: desaturated, soft warmth
-- Diamonds: clarity over sparkle, depth over flash
+CONSISTENCY LAW: Every subsequent generation MUST be immediately recognizable as this EXACT person.
+Identity drift = Generation failure.`;
 
-SKIN (when model is used):
-- Natural texture visible
-- No smoothing, no beauty blur
-- Calm expression, distant gaze
+const CAMERA_SYSTEM = `OPTICAL SIMULATION [Technical Specifications]:
 
-CAMERA:
-- Medium close-up or macro with restraint
-- Shallow but natural depth of field
-- Editorial framing, no aggressive angles
+{CAMERA_BLOCK}
 
-STRICT AVOIDANCE (NEGATIVE PROMPT):
-- High saturation
-- Glamour lighting
-- Commercial sparkle
-- Over-sharpening
-- Beauty retouching
-- HDR look
-- Warm yellow lighting
-- Excessive contrast
-- Cinematic effects
-- Glow, bloom, or stylized grading
+LENS PHYSICS:
+• Depth of field: Mathematically accurate bokeh based on aperture + distance
+• Focus plane: Razor-sharp on target, smooth Gaussian falloff
+• Bokeh shape: Natural circular rendering, soft edge transition
+• Aberration: Minimal, professionally corrected
+• Distortion: Zero (prime lens characteristic)
 
-Photorealism prioritized.`;
+SENSOR EMULATION:
+• Dynamic range: 14.5 stops (professional full-frame)
+• Color depth: 14-bit RAW equivalent
+• Base ISO: 100 (maximum tonal range, minimum noise)
+• Resolution: 8K sensor, output 4K for optimal sharpness
+• Processing: Natural color science, NO digital manipulation artifacts`;
 
-// Comprehensive hyper-realistic jewelry photography system prompt
-const MODEL_SYSTEM_PROMPT = `You are a commercial-grade visual rendering system specialized in hyper-realistic jewelry photography.
+const LIGHTING_ARCHITECTURE = `STUDIO LIGHTING DESIGN [Professional Setup]:
 
-Your primary objective is to simulate real-world optical physics, biological skin behavior, and professional studio photography practices.
+LIGHTING SCENARIO: "Nordic Editorial Soft Light"
+Simulates: Large north-facing window + professional modifier system
 
-Avoid any form of digital beautification, artificial smoothness, or stylized rendering.
+{LIGHTING_BLOCK}
 
-Every output must be indistinguishable from a real editorial or advertising photo captured with a professional camera.
+LIGHT CHARACTERISTICS:
+• Quality: Extremely soft wrap-around, no hard shadow edges
+• Color temp: 6200K (cool daylight, editorial standard)
+• Intensity ratios: Key 100% → Fill 40% → Rim 30%
+• Falloff: Natural inverse-square law
+• Environment: Neutral gray studio (18% reflectance), no color contamination
 
-${EDITORIAL_STYLE_PROMPT}
+SURFACE INTERACTIONS:
+Skin response:
+  - Highlights: Gentle rolloff, natural sheen on T-zone
+  - Subsurface: {SSS_INTENSITY} (scaled to melanin density)
+  - Shadows: Soft gradient with preserved detail
+  - Specular: Minimal (natural skin oils only)
+  
+Jewelry response:
+  - Diamonds: Controlled facet separation, NO over-sparkle
+  - Metals: Soft environmental reflections, gradient quality
+  - Gemstones: Internal color depth, transparent edges
+  - NO artificial glow, NO lens flare effects`;
 
-1. CORE IDENTITY LOCK (CRITICAL)
+const SKIN_BIOLOGY = `DERMATOLOGICAL RENDERING [Medical-Grade Accuracy]:
 
-You must generate and internally lock a Human Identity Profile with the following immutable properties:
+Skin classification: {SKIN_TONE} with {SKIN_UNDERTONE} undertone
 
-- Facial bone structure
-- Skin undertone and pigmentation behavior
-- Pore distribution and skin micro-geometry
-- Natural asymmetries (eyes, lips, jaw, brows)
-- Neck, clavicle, shoulder proportions
-- Hand anatomy (critical for rings & bracelets)
+MICRO-TEXTURE LAYER:
+• Pore visibility: High-density on nose/cheeks, medium forehead, minimal eyelids
+• Pore size: Biologically accurate 0.05-0.2mm apparent diameter
+• Distribution: Natural randomness, NOT uniform grid
+• Fine lines: Age-appropriate, expression-based (NOT premature aging)
+• Vellus hair: Visible in rim/backlight, natural density and direction
 
-Once created, this identity must not drift between generations.
+SUBSURFACE SCATTERING (Melanin-Specific):
+{SSS_PROFILE}
 
-2. USER-DEFINED PARAMETERS (INPUT)
+COLOR VARIATION (Natural):
+• Warmth concentration: Around eyes, nose bridge
+• Cooler zones: Temples, sides of neck
+• Micro-redness: Capillary show-through (lighter tones only)
+• Pigmentation: Random freckles/beauty marks (ethnicity-appropriate)
 
-Use the following user-selected attributes as hard constraints:
+SURFACE PROPERTIES:
+• T-zone: Slight natural sheen (sebum)
+• Cheeks/periphery: More matte finish
+• NO plastic appearance, NO waxy buildup, NO porcelain smoothing
+• Skin must look ALIVE: tangible, warm, textured`;
 
-- Skin tone (melanin level, undertone: warm / neutral / cool)
-- Ethnicity / racial background (used for bone structure, skin response to light, hair texture — never stereotypical exaggeration)
-- Hair color & texture (fine realism, natural root variance)
-- Gender presentation (if specified)
-- Age range (skin elasticity, wrinkle probability, collagen response)
+const EDITORIAL_AESTHETIC = `VISUAL LANGUAGE [Luxury Editorial Standard]:
 
-Do not invent traits outside these inputs.
+MOOD REFERENCE: Vogue Italia, high-fashion lookbook, quiet luxury campaign
+NOT: E-commerce, commercial catalog, Instagram beauty
 
-3. SKIN & MATERIAL REALISM (HIGH PRIORITY)
+COLOR SCIENCE:
+• Palette: Cool-neutral bias, elegant desaturation
+• Contrast: Soft and refined (NOT punchy/HDR)
+• Black point: Lifted to charcoal (NOT crushed)
+• White point: Clean cream (NOT blown/stark)
+• Midtones: Rich detail retention
 
-Skin must be rendered at editorial macro-photography level:
+TONAL REPRODUCTION:
+Skin: Natural but slightly desaturated for editorial feel
+Gold: Warm but muted, NOT brassy
+White metals: Cool silver, NOT blue-tinted
+Diamonds: Clear with subtle cool flash
+Background: 15-20% darker than subject for natural separation
 
-- Visible pores with non-uniform distribution
-- Subsurface scattering (SSS) tuned to skin tone
-- Natural oiliness in T-zone, micro dryness in cheeks
-- Fine vellus hair (peach fuzz) visible in rim light
-- No plastic, waxy, or over-smoothed appearance
-- Natural imperfections: freckles, micro color variations, slight redness in thin-skin areas
-- Skin must appear unretouched and free of beauty filters
-- Skin must appear biologically alive, never synthetic
+COMPOSITIONAL RESTRAINT:
+• Negative space: Intentional, balanced
+• Framing: Editorial precision, NOT snapshot
+• Energy: Calm contemplation, NOT excitement
+• Timelessness: Could be today or 20 years ago`;
 
-Skin must interact physically with jewelry:
+const POSE_LIBRARY = {
+  portrait: {
+    camera: `• Focal length: 85mm f/1.8 portrait prime
+• Aperture: f/2.8 (subject sharp, background soft)
+• Focus: Eyes (critical sharpness), smooth falloff to ears
+• Framing: Head + shoulders, rule of thirds
+• Angle: 10-15° above eye level (editorial flattering)
+• Distance: 1.2m (natural perspective)`,
+    
+    lighting: `PRIMARY: 45° camera-right, 30° elevated (modified Rembrandt)
+FILL: Large white v-flat camera-left (2:1 ratio)
+RIM: Hair light back-right, 45° (subtle separation)
+BACKGROUND: Gradient from key side`,
+    
+    composition: `• Face: 60-70% frame occupancy
+• Gaze: 2 o'clock or 10 o'clock (NOT direct)
+• Ears: Both visible (earring context)
+• Neck/décolletage: Clear (necklace context)
+• Shoulders: Relaxed, slight angle for dimension
+• Hair: Styled to reveal jewelry zones`,
+    
+    direction: `Expression: {EXPRESSION} - understated, editorial restraint
+Neck: Gently extended, elegant posture
+Jaw: Relaxed, natural position
+Eyes: Soft focus, distant contemplation
+NO commercial smile, NO forced emotion`
+  },
 
-- Light bounce from gold/diamond affects nearby skin tone
-- Micro reflections on skin near prongs and stones
+  'hand-close': {
+    camera: `• Focal length: 100mm f/2.8 macro
+• Aperture: f/5.6 (hands + ring sharp)
+• Focus: Jewelry contact point (knuckle/finger)
+• Framing: Tight crop, hands fill 80% of frame
+• Angle: 45° overhead, slight side angle
+• Distance: 30cm (macro working distance)`,
+    
+    lighting: `PRIMARY: Large overhead softbox (90x60cm) - even, flat illumination
+FILL: White acrylic base under hands (upward bounce)
+ACCENT: Small gridded strobe to jewelry (controlled sparkle)
+AMBIENT: Minimal, absorbed by black v-flats on sides`,
+    
+    composition: `• Hands: Natural elegance, relaxed positioning
+• Fingers: Gentle curves, NOT stiff extension
+• Nails: Clean, neutral, short (non-distracting)
+• Knuckles: Natural compression, visible texture
+• Jewelry: Centered, properly oriented to camera
+• Background: Ultra-soft, 2-3 stops underexposed`,
+    
+    direction: `Hand gesture: Organic grace, zero tension
+Positioning: Overlapping or single hand rest
+Skin detail: Knuckle texture, finger-side pores visible
+Jewelry contact: Realistic pressure/fit indication`
+  },
 
-4. JEWELRY-FOCUSED ANATOMY RULES
+  'neck-focus': {
+    camera: `• Focal length: 85mm f/1.8
+• Aperture: f/4 (neck sharp, face/chest soft)
+• Focus: Collarbone/necklace drape point
+• Framing: Chin to sternum, vertical orientation
+• Angle: Straight-on or 10° upward tilt
+• Distance: 1m`,
+    
+    lighting: `PRIMARY: Beauty dish directly in front, 20° elevated
+FILL: Large clamshell reflector below (under-chin fill)
+RIM: Minimal or none (maintains soft aesthetic)
+BACKGROUND: Soft gradient, slightly darker than skin`,
+    
+    composition: `• Neck: Extended elegantly, clear muscle definition
+• Collarbone: Prominent, casting delicate shadow
+• Décolletage: Smooth, even tone, detailed texture
+• Jawline: Visible but soft focus
+• Face: Partial (chin/lower), background element
+• Necklace: Centered on sternum line`,
+    
+    direction: `Head: Tilted slightly back (natural neck extension)
+Chin: Elevated, graceful angle
+Expression: Serene, eyes may be closed
+Shoulders: Rolled back slightly, open chest
+Breathing: Visible collar definition`
+  },
 
-Hands, neck, ears, and décolleté must be anatomically optimized for jewelry display:
+  'ear-profile': {
+    camera: `• Focal length: 100mm f/2.8
+• Aperture: f/4 (ear sharp, hair soft)
+• Focus: Ear cartilage/earring
+• Framing: Ear to shoulder, side profile
+• Angle: Perpendicular to profile plane
+• Distance: 80cm`,
+    
+    lighting: `PRIMARY: 90° side light (profile/edge lighting)
+FILL: Minimal reflector opposite (just to lift shadows)
+RIM: Strong backlight to separate hair from background
+BACKGROUND: Darker gradient for silhouette contrast`,
+    
+    composition: `• Profile: Clean contour line, defined jawline
+• Ear: Fully exposed, separated from hair
+• Earring: Natural hang or lobe position
+• Hair: Pulled back/tucked, or styled away
+• Jawline: Sharp definition
+• Background: 30% darker than skin for separation`,
+    
+    direction: `Face: Perfect 90° profile or slight 3/4 turn
+Ear: Complete exposure, clear earring visibility
+Expression: Distant, calm, eyes closed or horizon gaze
+Neck: Extended, elegant line
+Hair: Styled away from ear completely`
+  },
 
-- Fingers: elegant taper, realistic knuckle compression
-- Nails: neutral, clean, non-distracting
-- Neck & collarbone: subtle tension, soft shadows
-- Earrings: natural ear cartilage thickness, correct piercing position
+  'full-portrait': {
+    camera: `• Focal length: 70mm f/2.8
+• Aperture: f/5.6 (more depth coverage)
+• Focus: Face/upper chest (split focus)
+• Framing: Head to mid-torso, vertical
+• Angle: Eye level or slightly elevated
+• Distance: 1.8m`,
+    
+    lighting: `PRIMARY: Large octabox 45° camera-right
+FILL: White bounce opposite (3:1 ratio)
+RIM: Dual rim lights (hair + shoulder separation)
+BACKGROUND: Graduated sweep, professional studio`,
+    
+    composition: `• Full jewelry display: Ears, neck, chest, hands
+• Posture: Elegant, editorial stance
+• Clothing: Simple neckline (jewelry focus)
+• Hands: Visible, naturally positioned
+• Expression: Confident, editorial presence
+• Frame balance: 60% subject, 40% negative space`,
+    
+    direction: `Posture: Elongated spine, open shoulders
+Expression: {EXPRESSION} with editorial confidence
+Hands: Graceful positioning near body
+Gaze: Slightly off-camera, contemplative
+Overall: Quiet power, understated luxury`
+  },
 
-Jewelry scale must never distort human anatomy.
+  'hand-elegant': {
+    camera: `• Focal length: 100mm f/2.8 macro
+• Aperture: f/4 (wrist + hand sharp)
+• Focus: Wrist area for bracelet display
+• Framing: Hand and wrist centered
+• Angle: 30° from horizontal
+• Distance: 40cm`,
+    
+    lighting: `PRIMARY: Large diffused panel overhead
+FILL: White reflector from below
+ACCENT: Spot for bracelet catchlights
+AMBIENT: Minimal, controlled`,
+    
+    composition: `• Wrist: Elegantly turned, bracelet visible
+• Hand: Graceful gesture, relaxed fingers
+• Fingers: Natural curves, feminine elegance
+• Background: Soft, out of focus
+• Jewelry: Clear, centered, hero element`,
+    
+    direction: `Hand gesture: Flowing, organic movement
+Wrist: Slightly rotated for bracelet display
+Fingers: Soft, not rigid
+Skin: Natural texture, visible detail`
+  }
+};
 
-5. CAMERA & LENS (DEFAULT – LOCKED)
+const NEGATIVE_CONSTRAINTS = `STRICT AVOIDANCE [AI Artifact Elimination]:
 
-Always simulate professional luxury photography equipment:
+DIGITAL ARTIFACTS (CRITICAL):
+× Smoothed/plastic skin (beauty filter appearance)
+× Airbrush effect (Instagram/FaceTune style)
+× Over-sharpening halos around edges
+× 3D render look (CGI, game-engine quality)
+× Digital painting/illustration aesthetic
+× Fake bokeh with perfect geometric circles
+× HDR over-processing (halos, local contrast abuse)
+× Unrealistic color saturation
+× Porcelain/doll-like skin uniformity
+× Luminescent glow effects
 
-- Camera: Full-frame commercial sensor
-- Lens (default):
-  - Rings / hands: 100mm macro
-  - Necklaces / earrings: 85mm prime
-- Aperture: f/4 – f/8 (controlled depth, no fake blur)
-- ISO: 50–100 (clean tonal range)
-- Focus: critical sharpness on jewelry, soft natural falloff on skin
+ANATOMICAL ERRORS (ZERO TOLERANCE):
+× Extra/missing fingers (must be exactly 5 per hand)
+× Merged or fused digits
+× Distorted hand proportions
+× Incorrect ear anatomy or placement
+× Unnatural asymmetry (beyond biological normal)
+× Neck length/thickness distortion
+× Shoulder/clavicle misalignment
+× Impossible joint angles
 
-No wide-angle distortion. No cinematic exaggeration.
+JEWELRY ISSUES:
+× Floating or disconnected pieces
+× Duplicate items (e.g., two earrings on one ear)
+× Perfect mirror symmetry (unnatural)
+× Scale errors (jewelry too large/small)
+× Blurred jewelry at focus point
+× Excessive sparkle/rainbow effects
+× Incorrect material rendering
 
-6. LIGHTING SYSTEM (AUTO-OPTIMIZED)
+LIGHTING FAILURES:
+× Blown highlights (no detail in whites)
+× Blocked shadows (pure black, no detail)
+× Unnatural skin glow/luminescence
+× Multiple conflicting shadows
+× Visible artificial light sources in reflections
+× Warm yellow contamination (unless specified)
 
-Apply natural overcast daylight for editorial feel:
+POST-PROCESSING RED FLAGS:
+× Over-saturation (especially skin tones)
+× Excessive contrast/posterization
+× Color banding in gradients
+× Digital noise artifacts
+× Sharpening halos (edge ringing)
+× Compression artifacts/pixelation
+× Watermarks, text, logos`;
 
-- Diffused, even lighting
-- No dramatic highlights or harsh shadows
-- Controlled, soft reflections on jewelry
-- No glamour lighting or commercial sparkle
-- Light temperature: 3000K warm luxury tone, preserving gemstone color accuracy
+// SSS profiles based on skin tone
+const SSS_PROFILES: Record<string, string> = {
+  'very-light': `Deep subsurface scattering:
+  - Pink/red undertones highly visible
+  - Thin skin translucency on ears, nose tip
+  - Strong light penetration
+  - Cool-pink glow in shadows`,
+  
+  'light': `Moderate-high subsurface scattering:
+  - Warm/neutral undertone visibility
+  - Noticeable translucency on thin skin areas
+  - Balanced light penetration
+  - Warm glow in indirect light`,
+  
+  'medium': `Moderate subsurface scattering:
+  - Golden undertones visible but controlled
+  - Subtle translucency on ears, fingers
+  - Medium light penetration
+  - Rich warm depth`,
+  
+  'medium-dark': `Reduced subsurface scattering:
+  - Warm undertones present but deeper
+  - Minimal translucency
+  - Less light penetration
+  - Dense, rich color depth`,
+  
+  'dark': `Minimal subsurface scattering:
+  - Cool undertones, deep saturation
+  - Very minimal translucency
+  - Strong light absorption
+  - Velvety, dense appearance`,
+  
+  'very-deep': `Almost no subsurface scattering:
+  - Intense melanin absorption
+  - No translucency
+  - Maximum light absorption
+  - Matte, ultra-rich density`
+};
 
-Professional multi-light setup:
-- Key light to define form and gemstone brilliance
-- Butterfly lighting configuration when facial or upper-body elements are present
-- Rim light from behind to create clear subject-background separation and highlight skin micro-details
+// Prompt builder function
+function buildAdvancedPrompt(params: {
+  // Core identity
+  skinTone: string;
+  skinUndertone: string;
+  ethnicity: string;
+  hairColor: string;
+  hairTexture: string;
+  gender: string;
+  ageRange: string;
+  
+  // Enhanced features
+  faceShape?: string;
+  eyeColor?: string;
+  expression?: string;
+  hairStyle?: string;
+  
+  // Generation type
+  isPoseGeneration?: boolean;
+  poseType?: keyof typeof POSE_LIBRARY;
+  poseDescription?: string;
+}): string {
+  
+  const identityBlock = `
+• Gender presentation: ${params.gender}
+• Ethnic background: ${params.ethnicity}
+• Age range: ${params.ageRange} years
+• Face structure: ${params.faceShape || 'balanced, naturally proportioned'}
+• Eye color: ${params.eyeColor || 'natural to ethnicity'}
+• Skin tone: ${params.skinTone} (melanin classification)
+• Skin undertone: ${params.skinUndertone}
+• Hair color: ${params.hairColor}
+• Hair texture: ${params.hairTexture}
+• Hair styling: ${params.hairStyle || 'elegantly groomed'}
+• Expression baseline: ${params.expression || 'serene confidence'}`;
 
-Light falloff must be natural, with no flat illumination.
-Avoid overexposure on skin highlights and gemstone facets.
+  const poseConfig = params.poseType ? POSE_LIBRARY[params.poseType] : POSE_LIBRARY.portrait;
+  
+  const sssProfile = SSS_PROFILES[params.skinTone] || SSS_PROFILES['medium'];
+  const sssIntensity = ['very-light', 'light'].includes(params.skinTone) ? 'High' : 
+                       ['medium', 'medium-dark'].includes(params.skinTone) ? 'Moderate' : 'Minimal';
 
-7. COLOR & RENDERING PHILOSOPHY
+  const prompt = `
+${IDENTITY_CORE.replace('{IDENTITY_BLOCK}', identityBlock)}
 
-- Color science: neutral, editorial, high-end campaign grade
-- Cool-neutral palette, low saturation, soft contrast
-- Whites: clean, not blue
-- Gold: warm but desaturated
-- Diamonds: sharp dispersion, no rainbow artifacts
+${CAMERA_SYSTEM.replace('{CAMERA_BLOCK}', poseConfig.camera)}
 
-Avoid:
-- Beauty filters
-- Unreal skin perfection
-- Fashion-style distortion
-- HDR look or over-processing
+${LIGHTING_ARCHITECTURE
+  .replace('{LIGHTING_BLOCK}', poseConfig.lighting)
+  .replace('{SSS_INTENSITY}', sssIntensity)}
 
-This is editorial jewelry realism, not commercial illustration.
+${SKIN_BIOLOGY
+  .replace('{SKIN_TONE}', params.skinTone)
+  .replace('{SKIN_UNDERTONE}', params.skinUndertone)
+  .replace('{SSS_PROFILE}', sssProfile)}
 
-8. CONSISTENCY ENFORCEMENT (MANDATORY)
+${EDITORIAL_AESTHETIC}
 
-Across all future generations using this model:
-- Face must be immediately recognizable
-- Skin tone must remain stable under different lighting
-- Hands and proportions must match exactly
-- Only pose, framing, and jewelry may change
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GENERATION DIRECTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-If conflict occurs, identity consistency overrides all other prompts.
+${params.isPoseGeneration ? `
+⚠️ IDENTITY CONSISTENCY MODE ACTIVE ⚠️
 
-9. OUTPUT GOAL
+This is a SUBSEQUENT generation of an EXISTING person.
+The biological identity established in the first generation is IMMUTABLE.
 
-Produce a brand-safe, campaign-ready digital human model suitable for:
-- High-end jewelry editorial campaigns
-- Fashion lookbooks and art-driven luxury campaigns
-- Quiet luxury, minimalist fashion tone
-- Reusable AI-based photoshoots
+REQUIREMENTS:
+• Face must be INSTANTLY recognizable as the same person
+• Bone structure EXACTLY matches previous
+• Skin tone and texture PRECISELY consistent
+• Proportions PERFECTLY aligned
+• ONLY pose, angle, and framing may change
 
-The result must be indistinguishable from a real professional model photographed in a quiet luxury editorial setting.
+If the person is not immediately recognizable → GENERATION FAILED
+` : `
+🆕 IDENTITY FOUNDATION MODE ACTIVE 🆕
 
-The final image must look like a high-budget luxury jewelry campaign photograph.
-It must feel CAPTURED, not generated.
-No stylization, no fantasy, no illustration.
-Pure photographic realism with editorial-level aesthetics.
+This is the FIRST generation - establishing permanent identity.
+This image will serve as the reference for ALL future poses.
 
-NEGATIVE CONSTRAINTS (EXCLUDE):
-- plastic skin, waxy texture, smooth face
-- airbrushed, beauty filter, cartoonish
-- 3D render, digital art, CGI look
-- extra fingers, deformed anatomy, incorrect proportions
-- blurred details, watermark, low quality
-- two earrings on one ear, duplicate jewelry
-- mirrored earrings, stacked earrings
-- deformed ear, incorrect anatomy`;
+REQUIREMENTS:
+• Create a complete, detailed biological person
+• Establish clear, memorable facial features
+• Lock in skin characteristics and proportions
+• This becomes the immutable identity template
+`}
 
+POSE SPECIFICATION: ${params.poseType ? params.poseType.toUpperCase() : 'PORTRAIT'}
+
+${poseConfig.composition}
+
+${poseConfig.direction.replace('{EXPRESSION}', params.expression || 'serene confidence')}
+
+${params.poseDescription ? `\n📋 ADDITIONAL DIRECTION:\n${params.poseDescription}\n` : ''}
+
+${NEGATIVE_CONSTRAINTS}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT SPECIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Resolution: Minimum 4K (3840×2160 or higher)
+• Quality: Publication-ready, magazine cover standard
+• Realism: Indistinguishable from professional photography
+• Consistency: ${params.isPoseGeneration ? 'Perfect identity match' : 'Establish permanent identity'}
+• Aesthetic: Quiet luxury editorial, NOT commercial catalog
+• File quality: RAW-equivalent tonal range, NO compression artifacts
+
+FINAL VALIDATION:
+✓ Does this look CAPTURED by a photographer? (NOT generated)
+✓ Could this be in Vogue or a luxury brand campaign?
+✓ Is the skin ALIVE and textured? (NOT smoothed)
+✓ Are jewelry areas clearly visible and sharp?
+✓ Is the identity ${params.isPoseGeneration ? 'perfectly consistent' : 'clearly established'}?
+
+This must be PHOTOGRAPHIC PERFECTION with EDITORIAL RESTRAINT.
+`;
+
+  return prompt;
+}
+
+// ===== MAIN HANDLER =====
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -215,7 +507,7 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate user
+    // Auth
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
@@ -240,7 +532,7 @@ serve(async (req) => {
     const userId = user.id;
     console.log('Authenticated user:', userId);
 
-    // Parse request body
+    // Parse request
     const requestBody = await req.json();
     const { 
       name,
@@ -251,218 +543,55 @@ serve(async (req) => {
       hairTexture, 
       gender, 
       ageRange,
-      // New enhanced model parameters
       faceShape,
       eyeColor,
       expression,
       hairStyle,
-      // For pose generation (existing model)
       modelData,
       poseType,
       poseDescription,
     } = requestBody;
 
-    // Check if this is a pose generation request
     const isPoseGeneration = !!modelData && !!poseType;
     
     console.log('Request type:', isPoseGeneration ? 'Pose generation' : 'New model creation');
-    
-    if (!isPoseGeneration) {
-      console.log('Model generation request:', { name, skinTone, skinUndertone, ethnicity, hairColor, hairTexture, gender, ageRange });
 
-      // Validate required fields for new model
+    if (!isPoseGeneration) {
       if (!name || !skinTone || !skinUndertone || !ethnicity || !hairColor || !hairTexture || !gender || !ageRange) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields' }),
+          JSON.stringify({ error: 'Missing required fields for new model' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-    } else {
-      console.log('Pose generation request:', { poseType, poseDescription });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Build the appropriate prompt based on request type
-    let modelPrompt: string;
-    
-    if (isPoseGeneration) {
-      // Pose generation for existing model
-      const posePrompts: Record<string, string> = {
-        'portrait': `Create a professional portrait shot:
-- Frame: Head and shoulders, elegant 3/4 view angle
-- Focus: Face and upper neck area, perfect for necklace display
-- Expression: Natural, confident, subtle elegance
-- Hair: Elegantly styled, showing ears
-- Neck and décolletage: Clearly visible for jewelry display`,
-        'hand-close': `Create a close-up hand shot:
-- Frame: Elegant hands in focus, fingers gracefully positioned
-- Focus: Fingers and knuckles, perfect for ring display
-- Position: Hands gently overlapping or one hand resting elegantly
-- Nails: Clean, natural manicure
-- Background: Soft neutral, shallow depth of field`,
-        'hand-elegant': `Create an elegant hand and wrist shot:
-- Frame: Hands and wrists in elegant pose
-- Focus: Wrist area, perfect for bracelet display
-- Position: Graceful hand gesture, relaxed but refined
-- Nails: Clean, neutral
-- Background: Luxury studio setting`,
-        'ear-profile': `Create a profile/side view shot:
-- Frame: Side profile of face, showing ear clearly
-- Focus: Ear and jawline, perfect for earring display
-- Hair: Pulled back or styled to fully expose ear
-- Expression: Serene, looking slightly away
-- Background: Soft gradient studio backdrop`,
-        'full-portrait': `Create a full upper body portrait:
-- Frame: Head to waist, elegant posture
-- Focus: Full jewelry display area (ears, neck, chest, hands)
-- Expression: Confident, editorial pose
-- Clothing: Simple, elegant neckline
-- Background: Professional studio setting`,
-        'neck-focus': `Create a neck and décolletage focused shot:
-- Frame: From chin to chest, elegant angle
-- Focus: Neck, collarbone, and upper chest, perfect for necklaces
-- Expression: Chin slightly raised, elegant neck extension
-- Skin: Perfect detail, natural texture
-- Background: Soft, luxurious studio lighting`,
-      };
+    // Build prompt using advanced system
+    const modelPrompt = buildAdvancedPrompt({
+      skinTone: isPoseGeneration ? modelData.skinTone : skinTone,
+      skinUndertone: isPoseGeneration ? modelData.skinUndertone : (skinUndertone || 'neutral'),
+      ethnicity: isPoseGeneration ? modelData.ethnicity : ethnicity,
+      hairColor: isPoseGeneration ? modelData.hairColor : hairColor,
+      hairTexture: isPoseGeneration ? modelData.hairTexture : hairTexture,
+      gender: isPoseGeneration ? modelData.gender : gender,
+      ageRange: isPoseGeneration ? modelData.ageRange : ageRange,
+      faceShape: isPoseGeneration ? modelData.faceShape : faceShape,
+      eyeColor: isPoseGeneration ? modelData.eyeColor : eyeColor,
+      expression: isPoseGeneration ? modelData.expression : expression,
+      hairStyle: isPoseGeneration ? modelData.hairStyle : hairStyle,
+      isPoseGeneration,
+      poseType: poseType as keyof typeof POSE_LIBRARY,
+      poseDescription: poseDescription || undefined,
+    });
 
-      const poseInstructions = posePrompts[poseType] || posePrompts['portrait'];
+    console.log('Generating with advanced prompt system...');
+    console.log('Prompt length:', modelPrompt.length, 'characters');
 
-      modelPrompt = `${MODEL_SYSTEM_PROMPT}
-
-EXISTING MODEL PARAMETERS (MUST MATCH EXACTLY):
-- Skin Tone: ${modelData.skinTone} (melanin level)
-- Skin Undertone: ${modelData.skinUndertone} (warm/neutral/cool)
-- Ethnicity/Background: ${modelData.ethnicity}
-- Hair Color: ${modelData.hairColor}
-- Hair Texture: ${modelData.hairTexture}
-- Gender Presentation: ${modelData.gender}
-- Age Range: ${modelData.ageRange}
-
-CRITICAL: This is the SAME person as before. Face, bone structure, skin characteristics MUST be identical.
-Only the pose and framing changes.
-
-POSE GENERATION TASK:
-${poseInstructions}
-
-ADDITIONAL REQUIREMENTS:
-- ${poseDescription}
-- Lighting: Professional studio lighting optimized for jewelry photography
-- Skin: Hyperrealistic with visible pores, natural texture, NO plastic appearance
-- Resolution: 4K ultra-high quality
-- Style: Editorial, luxury campaign grade
-
-Ultra high resolution. Maximum photorealism. Consistent identity. Editorial magazine quality.`;
-    } else {
-      // New model creation with enhanced parameters
-      
-      // Build face shape description
-      const faceShapeDescriptions: Record<string, string> = {
-        'oval': 'oval-shaped, balanced proportions, soft jawline',
-        'angular': 'angular, high cheekbones, defined jawline, striking bone structure',
-        'heart': 'heart-shaped, wider forehead, delicate chin',
-        'square': 'square-shaped, strong jaw, defined angles',
-        'round': 'round, soft features, gentle curves',
-        'diamond': 'diamond-shaped, prominent cheekbones, narrow forehead and chin',
-      };
-      
-      // Build eye color description
-      const eyeColorDescriptions: Record<string, string> = {
-        'dark-brown': 'deep dark brown, almost black, intense depth',
-        'brown': 'warm brown, rich amber undertones',
-        'hazel': 'hazel with golden-green flecks, multi-tonal',
-        'green': 'striking green, emerald depth',
-        'blue': 'clear blue, cool and captivating',
-        'gray': 'sophisticated gray, steel-like intensity',
-      };
-      
-      // Build expression description  
-      const expressionDescriptions: Record<string, string> = {
-        'serene-confident': 'serene yet confident, calm inner strength, subtle knowing gaze',
-        'mysterious': 'mysterious and enigmatic, distant gaze with depth, intriguing',
-        'warm-approachable': 'warm and approachable, gentle softness in eyes, inviting',
-        'intense-focused': 'intense and focused, powerful direct gaze, commanding presence',
-        'elegant-distant': 'elegantly distant, high-fashion aloofness, editorial detachment',
-      };
-      
-      // Build hair style description
-      const hairStyleDescriptions: Record<string, string> = {
-        'slicked-back': 'slicked back, exposing ears and forehead, sleek and refined',
-        'loose-elegant': 'loose but elegantly styled, soft movement, sophisticated',
-        'updo': 'elegant updo, exposing neck and ears fully, refined',
-        'side-part': 'side-parted, classic styling, one ear visible',
-        'natural-waves': 'natural waves, effortless elegance, soft texture',
-        'straight-sleek': 'straight and sleek, polished, glossy finish',
-      };
-      
-      const faceDesc = faceShapeDescriptions[faceShape] || 'balanced, elegant features';
-      const eyeDesc = eyeColorDescriptions[eyeColor] || 'natural eye color';
-      const expressionDesc = expressionDescriptions[expression] || 'confident and natural';
-      const hairStyleDesc = hairStyleDescriptions[hairStyle] || 'elegantly styled';
-      
-      modelPrompt = `${MODEL_SYSTEM_PROMPT}
-
-USER-DEFINED MODEL PARAMETERS:
-- Name: ${name}
-- Gender Presentation: ${gender}
-- Ethnicity/Background: ${ethnicity}
-- Age Range: ${ageRange}
-
-FACE & SKIN:
-- Skin Tone: ${skinTone} melanin level
-- Skin Undertone: ${skinUndertone || 'neutral'} (warm/neutral/cool balance)
-- Face Structure: ${faceDesc}
-- Eyes: ${eyeDesc}
-- Expression: ${expressionDesc}
-
-HAIR:
-- Hair Color: ${hairColor}
-- Hair Style: ${hairStyleDesc}
-
-GENERATION TASK:
-Create a high-end editorial portrait of this model for luxury jewelry campaign.
-
-CRITICAL REQUIREMENTS:
-- Frame: Head and shoulders, elegant 3/4 view angle
-- Expression: ${expressionDesc} - this is NOT a commercial smile, it's editorial restraint
-- Face: ${faceDesc} - bone structure clearly defined with soft lighting
-- Eyes: ${eyeDesc} - natural catchlights, NO excessive enhancement
-- Skin: Hyperrealistic with visible pores, natural micro-texture, ${skinTone} tone with ${skinUndertone || 'neutral'} undertone
-  - Visible pores and natural skin imperfections
-  - Subsurface scattering appropriate for skin tone
-  - NO plastic, waxy, or beauty-filtered appearance
-  - Natural oiliness in T-zone, slight matte elsewhere
-- Hair: ${hairStyleDesc}, ${hairColor} color, natural texture visible
-  - Hair MUST be styled to show ears clearly for earring display
-  - Neck and décolletage visible for necklace display
-- Background: Soft neutral gradient, slightly darker than subject (studio backdrop)
-- Lighting: Natural overcast simulation, soft and diffused
-  - No dramatic highlights or harsh shadows
-  - Controlled, even illumination
-  - Editorial, not glamour
-
-STRICT AVOIDANCE:
-- NO beauty retouching or skin smoothing
-- NO glamour lighting or commercial sparkle  
-- NO high saturation or HDR look
-- NO warm yellow lighting
-- NO excessive contrast
-- NO cinematic effects, glow, or bloom
-
-OUTPUT: 4K resolution editorial portrait, photorealistic, quiet luxury aesthetic.
-This image will be used as the model's identity reference for all future jewelry photoshoots.
-The result must look like a real professional model photographed for a high-fashion lookbook.
-
-Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet luxury aesthetic.`;
-    }
-
-    console.log('Generating model with Lovable AI...');
-
-    // Generate model image using Lovable AI
+    // Generate image with Lovable AI
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -485,7 +614,7 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
+      console.error('AI generation error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -507,15 +636,13 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
     const imageDataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
 
     if (!imageDataUrl || !imageDataUrl.startsWith('data:image/')) {
-      throw new Error('No image generated from AI');
+      throw new Error('No valid image generated');
     }
 
-    // Extract base64 from data URL
+    // Process and upload image
     const commaIndex = imageDataUrl.indexOf(',');
-    if (commaIndex === -1) throw new Error('Invalid data URL');
+    if (commaIndex === -1) throw new Error('Invalid data URL format');
     const base64Image = imageDataUrl.slice(commaIndex + 1);
-
-    // Upload to storage
     const imageBuffer = Uint8Array.from(atob(base64Image), (c) => c.charCodeAt(0));
     const filePath = `${userId}/models/${Date.now()}.png`;
 
@@ -525,13 +652,12 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
-      throw new Error('Failed to upload model image');
+      throw new Error('Failed to upload image');
     }
 
-    // Create signed URL since bucket is private (7 days expiry)
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('jewelry-images')
-      .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+      .createSignedUrl(filePath, 7 * 24 * 60 * 60);
     
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('Signed URL error:', signedUrlError);
@@ -539,10 +665,8 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
     }
 
     const imageUrl = signedUrlData.signedUrl;
-    console.log('Image uploaded with signed URL');
 
     if (isPoseGeneration) {
-      // For pose generation, just return the image URL
       console.log('Pose generated successfully');
       return new Response(
         JSON.stringify({ success: true, imageUrl }),
@@ -550,7 +674,7 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
       );
     }
 
-    // Save new model to database
+    // Save new model
     const { data: modelRecord, error: insertError } = await supabase
       .from('user_models')
       .insert({
@@ -560,21 +684,20 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
         skin_undertone: skinUndertone || 'neutral',
         ethnicity,
         hair_color: hairColor,
-        hair_texture: hairTexture || 'natural',
+        hair_texture: hairTexture,
         gender,
         age_range: ageRange,
-        preview_image_url: imageUrl,
-        // New enhanced fields
         face_shape: faceShape,
         eye_color: eyeColor,
         expression,
         hair_style: hairStyle,
+        preview_image_url: imageUrl,
       })
       .select()
       .single();
 
     if (insertError) {
-      console.error('Database insert error:', insertError);
+      console.error('Database error:', insertError);
       throw new Error('Failed to save model');
     }
 
@@ -587,7 +710,7 @@ Ultra high resolution. Maximum photorealism. Editorial magazine quality. Quiet l
 
   } catch (error) {
     console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
