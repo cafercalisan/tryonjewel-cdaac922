@@ -188,7 +188,6 @@ CRITICAL REQUIREMENTS:
           parameters: {
             aspectRatio: "9:16",
             resolution: "720p",
-            numberOfVideos: 1,
             durationSeconds: 8,
             personGeneration: "allow_adult"
           }
@@ -208,7 +207,18 @@ CRITICAL REQUIREMENTS:
         })
         .eq("id", videoId);
       
-      throw new Error(`Video API error: ${errorText}`);
+      // Return upstream status code instead of 500
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Video API error: ${veoResponse.status}`,
+          details: errorText
+        }),
+        { 
+          status: veoResponse.status, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
     }
 
     const operationData = await veoResponse.json();
