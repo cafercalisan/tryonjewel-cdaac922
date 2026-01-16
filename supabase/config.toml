@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.check-video-status]
 verify_jwt = false
+
+[functions.admin-set-credits]
+verify_jwt = false

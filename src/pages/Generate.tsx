@@ -114,6 +114,17 @@ export default function Generate() {
     enabled: !!user,
   });
 
+  const { data: isAdminUser = false } = useQuery({
+    queryKey: ['is-admin', user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      if (error) return false;
+      return data === true;
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
   // Filter scenes based on selected product type
   const filteredScenes = useMemo(() => {
     if (!scenes) return [];
@@ -192,15 +203,20 @@ export default function Generate() {
   const totalImages = packageType === 'master' ? 3 : 1;
 
   const canGenerate = useMemo(() => {
-    if (uploadedImages.length === 0 || !user || !profile || profile.credits < creditsNeeded) return false;
+    if (uploadedImages.length === 0 || !user) return false;
     if (!selectedProductType) return false;
-    
+
+    // Admin users can generate regardless of credit balance
+    if (!isAdminUser) {
+      if (!profile || profile.credits < creditsNeeded) return false;
+    }
+
     if (packageType === 'standard') {
       return !!selectedSceneId;
     }
-    
+
     return true; // Master pakette sahne ve renk seçimi zorunlu değil
-  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser]);
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -587,7 +603,7 @@ export default function Generate() {
                 </div>
               </div>
 
-              {profile && profile.credits < creditsNeeded && (
+              {!isAdminUser && profile && profile.credits < creditsNeeded && (
                 <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm mb-4">
                   Yetersiz kredi (Mevcut: {profile.credits})
                 </div>
@@ -600,10 +616,10 @@ export default function Generate() {
                 size="lg"
               >
                 <Sparkles className="h-4 w-4" />
-                Oluştur ({creditsNeeded} Kredi)
+                {isAdminUser ? 'Oluştur (Sınırsız)' : `Oluştur (${creditsNeeded} Kredi)`}
               </Button>
 
-              {profile && (
+              {profile && !isAdminUser && (
                 <p className="text-xs text-center text-muted-foreground mt-3">
                   Mevcut krediniz: <span className="font-semibold">{profile.credits}</span>
                 </p>
