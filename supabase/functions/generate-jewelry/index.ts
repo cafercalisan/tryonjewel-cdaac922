@@ -665,7 +665,12 @@ Ultra high resolution output.`;
 
       console.log('Generating E-commerce image...');
       const ecomUrl = await generateSingleImage(base64Images, ecommercePrompt, userId, imageRecord.id, 1, supabase);
-      if (ecomUrl) generatedUrls.push(ecomUrl);
+      if (ecomUrl) {
+        generatedUrls.push(ecomUrl);
+        // Update progress immediately after each image
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
+      }
 
       // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
       const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
@@ -718,7 +723,12 @@ Ultra high resolution output.`;
 
       console.log('Generating Catalog image...');
       const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecord.id, 2, supabase);
-      if (catalogUrl) generatedUrls.push(catalogUrl);
+      if (catalogUrl) {
+        generatedUrls.push(catalogUrl);
+        // Update progress immediately after each image
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
+      }
 
       // Image 3: PRODUCT-FOCUSED LUXURY CLOSE-UP
       // Tight crop focused on jewelry worn on model, product occupies majority of frame
@@ -1003,7 +1013,12 @@ Ultra high resolution output.`;
 
       console.log('Generating Model Shot image...');
       const modelUrl = await generateSingleImage(base64Images, modelShotPrompt, userId, imageRecord.id, 3, supabase);
-      if (modelUrl) generatedUrls.push(modelUrl);
+      if (modelUrl) {
+        generatedUrls.push(modelUrl);
+        // Update progress immediately after each image
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
+      }
 
     } else {
       // STANDARD: Single image with scene

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
@@ -88,7 +88,9 @@ export default function Generate() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   const [currentImageIndex, setCurrentImageIndex] = useState(1);
+  const [completedImages, setCompletedImages] = useState(0);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const currentImageRecordId = useRef<string | null>(null);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -224,6 +226,7 @@ export default function Generate() {
     setIsGenerating(true);
     setGenerationStep("analyzing");
     setCurrentImageIndex(1);
+    setCompletedImages(0);
 
     try {
       // Upload all images and collect paths
@@ -261,7 +264,43 @@ export default function Generate() {
 
       if (error) throw error;
 
+      // Store the image record ID for realtime subscription
+      const imageId = data.imageId;
+      currentImageRecordId.current = imageId;
+
+      // Subscribe to realtime updates for progress
+      const channel = supabase
+        .channel(`image-progress-${imageId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'images',
+            filter: `id=eq.${imageId}`
+          },
+          (payload) => {
+            const newData = payload.new as { generated_image_urls?: string[]; status?: string };
+            const urlCount = newData.generated_image_urls?.length || 0;
+            setCompletedImages(urlCount);
+            setCurrentImageIndex(urlCount + 1);
+            
+            if (newData.status === 'completed') {
+              setGenerationStep('finalizing');
+              // Small delay before navigation
+              setTimeout(() => {
+                channel.unsubscribe();
+                toast.success("Görselleriniz başarıyla oluşturuldu!");
+                navigate(`/sonuclar?id=${imageId}`);
+              }, 1000);
+            }
+          }
+        )
+        .subscribe();
+
+      // Wait for completion via the response since edge function returns after all done
       toast.success("Görselleriniz başarıyla oluşturuldu!");
+      channel.unsubscribe();
       navigate(`/sonuclar?id=${data.imageId}`);
     } catch (error) {
       console.error("Generation error:", error);
@@ -269,6 +308,7 @@ export default function Generate() {
     } finally {
       setIsGenerating(false);
       setGenerationStep("idle");
+      setCompletedImages(0);
     }
   };
 
@@ -282,6 +322,7 @@ export default function Generate() {
             step={generationStep} 
             currentImageIndex={currentImageIndex}
             totalImages={totalImages}
+            completedImages={completedImages}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
           />
