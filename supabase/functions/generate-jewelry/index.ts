@@ -228,8 +228,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, sceneId, packageType, colorId, productType, modelId } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, modelId, userId });
+    const { imagePath, sceneId, packageType, colorId, productType, modelId, metalColorOverride } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, modelId, metalColorOverride, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -410,20 +410,41 @@ ONLY valid JSON.`
       .eq('id', imageRecord.id);
 
     // Build fidelity block with STRONG metal color preservation
-    const metalType = analysisResult.metal?.type || 'gold';
+    // User override takes priority over AI analysis
+    const metalColorOverrideMap: Record<string, { type: string; category: string }> = {
+      'yellow_gold': { type: 'gold', category: 'YELLOW GOLD' },
+      'white_gold': { type: 'white_gold', category: 'WHITE GOLD' },
+      'rose_gold': { type: 'rose_gold', category: 'ROSE GOLD' },
+      'platinum': { type: 'platinum', category: 'PLATINUM' },
+      'silver': { type: 'silver', category: 'SILVER' },
+    };
+
+    // Use user override if provided, otherwise use AI analysis
+    const userMetalOverride = metalColorOverride ? metalColorOverrideMap[metalColorOverride] : null;
+    const metalType = userMetalOverride?.type || analysisResult.metal?.type || 'gold';
     const metalFinish = analysisResult.metal?.finish || 'polished';
     const metalKarat = analysisResult.metal?.karat || '18k';
     const metalColorHex = analysisResult.metal?.color_hex || '';
     
     // Determine metal color category for strict enforcement
-    let metalColorCategory = 'yellow gold';
-    if (metalType === 'white_gold' || metalType === 'platinum' || metalType === 'silver') {
-      metalColorCategory = 'white/silver metal';
-    } else if (metalType === 'rose_gold') {
-      metalColorCategory = 'rose gold';
-    } else if (metalType === 'gold') {
-      metalColorCategory = 'yellow gold';
+    let metalColorCategory = userMetalOverride?.category || 'YELLOW GOLD';
+    if (!userMetalOverride) {
+      if (metalType === 'white_gold' || metalType === 'platinum' || metalType === 'silver') {
+        metalColorCategory = 'WHITE/SILVER METAL';
+      } else if (metalType === 'rose_gold') {
+        metalColorCategory = 'ROSE GOLD';
+      } else if (metalType === 'gold') {
+        metalColorCategory = 'YELLOW GOLD';
+      }
     }
+    
+    // Log metal color decision
+    console.log('Metal color decision:', { 
+      userOverride: metalColorOverride, 
+      finalType: metalType, 
+      finalCategory: metalColorCategory,
+      aiAnalysis: analysisResult.metal?.type 
+    });
     
     const metalDesc = `${metalFinish} ${metalType.replace('_', ' ')} (${metalKarat})`;
     
@@ -433,21 +454,25 @@ ONLY valid JSON.`
         ).join(', ')
       : '';
 
+    const userOverrideNote = metalColorOverride 
+      ? `\n⚠️ USER SPECIFIED METAL COLOR: ${metalColorCategory} - THIS TAKES ABSOLUTE PRIORITY ⚠️\nThe user has explicitly specified that this jewelry is ${metalColorCategory}. Ignore any visual ambiguity and render as ${metalColorCategory}.\n`
+      : '';
+
     const fidelityBlock = `
 JEWELRY SPECIFICATIONS (MUST BE PRESERVED EXACTLY):
 - Type: ${analysisResult.type || 'jewelry piece'}
 - Metal: ${metalDesc}
-- Metal Color Category: ${metalColorCategory.toUpperCase()}
+- Metal Color Category: ${metalColorCategory}
 ${metalColorHex ? `- Exact Metal Color Hex: ${metalColorHex}` : ''}
 ${stoneDesc ? `- Stones: ${stoneDesc}` : ''}
 - Style: ${analysisResult.design_elements?.style || 'classic'}
 ${analysisResult.unique_identifiers ? `- Unique features: ${analysisResult.unique_identifiers}` : ''}
-
+${userOverrideNote}
 ⚠️ ABSOLUTE METAL COLOR PRESERVATION (HIGHEST PRIORITY) ⚠️
-THE METAL COLOR MUST REMAIN EXACTLY AS IN THE ORIGINAL IMAGE:
-- Original metal type: ${metalType.replace('_', ' ').toUpperCase()}
-- Original metal color: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original hex color: ${metalColorHex}` : ''}
+THE METAL COLOR MUST BE: ${metalColorCategory}
+- Metal type: ${metalType.replace('_', ' ').toUpperCase()}
+- Metal color: ${metalColorCategory}
+${metalColorHex ? `- Hex color: ${metalColorHex}` : ''}
 
 STRICT METAL RULES:
 - If the original is YELLOW GOLD → output MUST be YELLOW GOLD (warm golden hue)
