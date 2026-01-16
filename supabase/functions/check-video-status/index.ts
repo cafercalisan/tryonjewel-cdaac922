@@ -77,14 +77,17 @@ serve(async (req) => {
       );
     }
 
-    // Poll Google API for operation status
+    // Poll Google API for operation status using x-goog-api-key header
     console.log(`Checking operation: ${video.operation_id}`);
     
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${video.operation_id}?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/${video.operation_id}`,
       {
         method: "GET",
-        headers: { "Content-Type": "application/json" }
+        headers: { 
+          "Content-Type": "application/json",
+          "x-goog-api-key": GOOGLE_API_KEY
+        }
       }
     );
 
