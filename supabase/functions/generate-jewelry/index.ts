@@ -687,45 +687,37 @@ Ultra high resolution output.`;
       // Build earring-specific constraints
       const earringConstraints = isEarringType ? `
 ═══════════════════════════════════════════════════════════════
-⚠️⚠️⚠️ ABSOLUTE EARRING RULE - ZERO EXCEPTION ⚠️⚠️⚠️
+⚠️⚠️⚠️ ABSOLUTE EAR + EARRING ANATOMY CONSTRAINT (HARD) ⚠️⚠️⚠️
 ═══════════════════════════════════════════════════════════════
 
-🔴 ONE VISIBLE EAR = ONE EARRING 🔴
-• NEVER render both earrings on the same ear under ANY condition
-• Each ear can display MAXIMUM ONE earring
-• If ONLY ONE ear is visible (due to crop/pose) → render ONLY ONE earring TOTAL.
-  The second earring MUST be omitted (NOT moved onto the visible ear).
+ABSOLUTE RULE (MANDATORY):
+ONE EAR = ONE PIERCING = ONE EARRING
 
-EARRING RENDERING LOGIC (HARD CONSTRAINTS):
-1) Determine how many ears are visible in the final frame.
-2) Place AT MOST 1 earring per visible ear.
-3) If BOTH ears are visible AND reference is a PAIR:
-   - LEFT ear = 1 earring, RIGHT ear = 1 earring
-4) If ONLY ONE ear is visible (even if reference is a PAIR):
-   - Show ONLY ONE earring on that ear
-   - The other earring is NOT shown (do NOT stack, do NOT duplicate)
+SINGLE PIERCING RULE (CRITICAL):
+- Each visible ear MUST have exactly ONE (1) primary lobe piercing hole
+- ❌ NO second hole, ❌ NO upper lobe, ❌ NO cartilage piercing, ❌ NO stacked styling
+- Assume "single-stud default" and DISABLE any multi-piercing interpretation
 
-MATHEMATICAL CONSTRAINT:
-• Earrings per ear ≤ 1
-• Total earrings shown ≤ number_of_visible_ears
-• ILLEGAL ALWAYS: ear_L=2 or ear_R=2 (two earrings on one ear)
+EARRING INSTANCE COUNT (NON-NEGOTIABLE):
+- Per-ear earring count ≤ 1 (ALWAYS)
+- Total earrings visible in the entire image ≤ number_of_visible_ears
+- If ONLY ONE ear is visible (crop/pose) → render EXACTLY ONE (1) earring TOTAL
+  → the second earring (even if the product is a pair) MUST be omitted
+  → NEVER move/stack/duplicate the second earring onto the visible ear
 
-EARRING PLACEMENT RULES:
-- Natural earlobe piercing position (center of earlobe)
-- Earring back/clasp NOT visible from front view
-- Correct earlobe thickness and cartilage definition
-- Natural ear angle relative to head
+MODEL-SHOT OVERRIDE (TO PREVENT FAILURES):
+- Frame MUST show ONLY ONE ear clearly (single-ear close-up)
+- The other ear must be OUT OF FRAME (not visible)
+- This guarantees: 1 ear visible → 1 earring visible
 
-INSTANT FAILURE CONDITIONS (ANY = REGENERATE):
-❌ TWO earrings on one ear = CRITICAL FAILURE
-❌ Both earrings stacked on same ear = CRITICAL FAILURE
-❌ Earring duplicated/mirrored on same ear = CRITICAL FAILURE
-❌ More than 1 earring per ear = CRITICAL FAILURE
+PLACEMENT (PRIMARY LOBE ONLY):
+- Place the earring ONLY in the primary lobe piercing position (center of lobe)
+- Earring back/clasp not visible from front
 
-BEFORE RENDERING - VERIFY:
-□ Each visible ear has MAX 1 earring
-□ If only one ear is visible → total earrings shown = 1
-□ No stacking, no doubling, no exceptions
+INSTANT FAILURE (ANY = INVALID OUTPUT → REGENERATE):
+- ❌ Two earrings on the same ear
+- ❌ Any sign of multiple piercings on one ear
+- ❌ Stacked / duplicated / mirrored earrings on one ear
 ═══════════════════════════════════════════════════════════════
 ` : '';
 
@@ -797,13 +789,13 @@ SKIN & PRODUCT BALANCE:
 - Jewelry is the visual anchor, skin is supporting context
 
 LIGHTING SYSTEM (LOCKED):
-- Lighting temperature: 3000K warm luxury tone, preserving gemstone color accuracy
-- Natural overcast daylight simulation, diffused and even
+- White balance MUST be neutral and locked to preserve metal hue (no warm/cool shift)
+- Use soft, diffused studio / overcast daylight lighting at ~5000K–5500K (neutral)
 - Large diffused key light (approximately 45°) for skin
 - Precision fill to reveal jewelry facets
 - Light FAVORS jewelry detail and facet visibility
 - Controlled highlights, NO clipping on metal or stones
-- NO dramatic rim lights that introduce color casts
+- NO rim lights or colored bounce that introduce color casts
 - NO glamour lighting, NO commercial sparkle
 - Light falloff natural, no flat illumination
 
