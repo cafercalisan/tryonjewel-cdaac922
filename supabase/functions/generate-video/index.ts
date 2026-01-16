@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Luxury jewelry video animation prompts - CONSISTENCY FOCUSED
+// Luxury jewelry video animation prompts - CONSISTENCY FOCUSED (8 seconds)
 const JEWELRY_VIDEO_PROMPTS = {
   default: `TASK: Animate this exact jewelry image with ultra-subtle slow motion.
 
@@ -24,7 +24,7 @@ ANIMATION STYLE:
 - Barely perceptible movement
 - Soft, natural light shimmer only
 - Camera: Nearly static, locked tripod
-- Duration: 5 seconds of elegant stillness
+- Duration: 8 seconds of elegant stillness
 
 MOOD: Museum-quality presentation. Quiet luxury. Editorial calm.
 The jewelry should look exactly as photographed, only with subtle life.`,
@@ -43,6 +43,7 @@ ANIMATION STYLE:
 - No dramatic gestures or expressions
 - Camera: Completely static
 - Natural light play on jewelry surface
+- Duration: 8 seconds
 
 MOOD: High-fashion editorial. Serene. Premium.
 Subject barely moves. Jewelry stays sharp and true to source.`,
@@ -60,6 +61,7 @@ ANIMATION STYLE:
 - Extremely subtle light reflection shifts
 - No rotation unless barely perceptible
 - Camera: Locked, professional studio feel
+- Duration: 8 seconds
 
 MOOD: E-commerce elevated to art. Pure product truth.
 This is about subtle life, not transformation.`
@@ -187,7 +189,7 @@ CRITICAL REQUIREMENTS:
             aspectRatio: "9:16",
             resolution: "720p",
             numberOfVideos: 1,
-            durationSeconds: 5,
+            durationSeconds: 8,
             personGeneration: "allow_adult"
           }
         }),
