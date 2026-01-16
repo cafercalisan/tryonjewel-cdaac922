@@ -161,15 +161,17 @@ CRITICAL REQUIREMENTS:
       .update({ error_message: "Google Veo API çağrılıyor..." })
       .eq("id", videoId);
 
-    // Call Google Veo API
-    console.log("Calling Google Veo API...");
+    // Call Google Veo API (using Veo 3.1 - latest model)
+    console.log("Calling Google Veo 3.1 API...");
     
+    // Use x-goog-api-key header as per documentation
     const veoResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-goog-api-key": GOOGLE_API_KEY,
         },
         body: JSON.stringify({
           instances: [
@@ -183,7 +185,8 @@ CRITICAL REQUIREMENTS:
           ],
           parameters: {
             aspectRatio: "9:16",
-            sampleCount: 1,
+            resolution: "720p",
+            numberOfVideos: 1,
             durationSeconds: 5,
             personGeneration: "allow_adult"
           }
