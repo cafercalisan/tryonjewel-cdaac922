@@ -112,116 +112,88 @@ async function callLovableImageGeneration({
   return url.slice(commaIndex + 1);
 }
 
-// Generate single image with retry logic and return signed URL (since bucket is private)
-async function generateSingleImage(base64Image: string, prompt: string, userId: string, imageRecordId: string, index: number, supabase: any, maxRetries: number = 2): Promise<string | null> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (!GOOGLE_IMAGE_API_KEY) {
-        console.error('Missing GOOGLE_API_KEY');
-        return null;
-      }
-
-      // On retry, shorten the prompt to avoid INVALID_ARGUMENT errors
-      const effectivePrompt = attempt > 0 
-        ? prompt.substring(0, Math.min(prompt.length, 3000)) // Shorter prompt on retry
-        : prompt;
-
-      console.log(`Generation ${index} attempt ${attempt + 1}/${maxRetries + 1}...`);
-      const genResponse = await callGeminiImageGeneration({ base64Image, prompt: effectivePrompt });
-
-      if (!genResponse.ok) {
-        const errText = await genResponse.text();
-        console.error(`Generation ${index} API error (${genResponse.status}):`, errText);
-
-        // Fallback to Lovable AI for various error types
-        const shouldFallback = errText.includes('Image generation is not available') || 
-                               errText.includes('FAILED_PRECONDITION') ||
-                               errText.includes('INVALID_ARGUMENT') ||
-                               errText.includes('RESOURCE_EXHAUSTED');
-        
-        if (shouldFallback) {
-          try {
-            console.log(`Attempt ${attempt + 1}: Falling back to Lovable AI...`);
-            const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt: effectivePrompt });
-            const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
-            const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
-
-            const { error: uploadError } = await supabase.storage
-              .from('jewelry-images')
-              .upload(filePath, imageBuffer, { contentType: 'image/png' });
-
-            if (!uploadError) {
-              const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-                .from('jewelry-images')
-                .createSignedUrl(filePath, 7 * 24 * 60 * 60);
-              
-              if (!signedUrlError && signedUrlData?.signedUrl) {
-                console.log(`Image ${index} uploaded successfully via Lovable AI fallback`);
-                return signedUrlData.signedUrl;
-              }
-            }
-          } catch (fallbackErr) {
-            console.error(`Lovable AI fallback attempt ${attempt + 1} failed:`, fallbackErr);
-          }
-        }
-        
-        // Continue to next retry attempt
-        if (attempt < maxRetries) {
-          console.log(`Retrying generation ${index}...`);
-          await new Promise(r => setTimeout(r, 1000)); // Wait 1 second before retry
-          continue;
-        }
-        return null;
-      }
-
-      const genData = await genResponse.json();
-      const parts = genData.candidates?.[0]?.content?.parts || [];
-      let generatedImage: string | null = null;
-
-      for (const part of parts) {
-        if (part.inlineData?.mimeType?.startsWith('image/')) {
-          generatedImage = part.inlineData.data;
-          break;
-        }
-      }
-
-      if (!generatedImage) {
-        console.error('No image in generation response');
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-        return null;
-      }
-
-      const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
-      const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from('jewelry-images')
-        .upload(filePath, imageBuffer, { contentType: 'image/png' });
-
-      if (!uploadError) {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from('jewelry-images')
-          .createSignedUrl(filePath, 7 * 24 * 60 * 60);
-        
-        if (!signedUrlError && signedUrlData?.signedUrl) {
-          console.log(`Image ${index} uploaded successfully (signed URL)`);
-          return signedUrlData.signedUrl;
-        }
-      }
-
+// Generate single image and return signed URL (since bucket is private)
+async function generateSingleImage(base64Image: string, prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
+  try {
+    if (!GOOGLE_IMAGE_API_KEY) {
+      console.error('Missing GOOGLE_API_KEY');
       return null;
-    } catch (error) {
-      console.error(`Generation ${index} attempt ${attempt + 1} error:`, error);
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 1000));
-        continue;
+    }
+
+    const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
+
+    if (!genResponse.ok) {
+      const errText = await genResponse.text();
+      console.error(`Generation ${index} API error (${genResponse.status}):`, errText);
+
+      // Fallback to Lovable AI
+      if (errText.includes('Image generation is not available') || errText.includes('FAILED_PRECONDITION')) {
+        try {
+          console.log('Falling back to Lovable AI...');
+          const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt });
+          const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
+          const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('jewelry-images')
+            .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+          if (!uploadError) {
+            // Use signed URL since bucket is private (7 days expiry for long-term access)
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('jewelry-images')
+              .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+            
+            if (!signedUrlError && signedUrlData?.signedUrl) {
+              return signedUrlData.signedUrl;
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('Lovable AI fallback failed:', fallbackErr);
+        }
       }
       return null;
     }
+
+    const genData = await genResponse.json();
+    const parts = genData.candidates?.[0]?.content?.parts || [];
+    let generatedImage: string | null = null;
+
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith('image/')) {
+        generatedImage = part.inlineData.data;
+        break;
+      }
+    }
+
+    if (!generatedImage) {
+      console.error('No image in generation response');
+      return null;
+    }
+
+    const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+    const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from('jewelry-images')
+      .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+    if (!uploadError) {
+      // Use signed URL since bucket is private (7 days expiry for long-term access)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('jewelry-images')
+        .createSignedUrl(filePath, 7 * 24 * 60 * 60); // 7 days
+      
+      if (!signedUrlError && signedUrlData?.signedUrl) {
+        console.log(`Image ${index} uploaded successfully (signed URL)`);
+        return signedUrlData.signedUrl;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Generation ${index} error:`, error);
+    return null;
   }
-  return null;
 }
 
 serve(async (req) => {
@@ -536,69 +508,87 @@ FORBIDDEN:
 
       const selectedColor = colorMap[colorId] || colorMap['white'];
 
-      // Determine if earring for pair display
-      const productTypeForEcom = (productType || analysisResult.type || 'jewelry').toLowerCase();
-      const isEarringForPair = productTypeForEcom.includes('küpe') || productTypeForEcom.includes('earring') || productTypeForEcom.includes('piercing');
-      
-      const earringPairDisplayNote = isEarringForPair ? `
-⚠️ EARRING PAIR DISPLAY (CRITICAL FOR E-COMMERCE) ⚠️
-- Display BOTH earrings of the pair - symmetric arrangement
-- Place TWO IDENTICAL earrings side by side
-- Mirror arrangement: one facing left, one facing right (symmetric composition)
-- Both earrings MUST be visible and complete
-- Professional jewelry photography composition for earring pairs
-- Equal spacing, perfectly balanced presentation
-- FORBIDDEN: Single earring display for pairs - ALWAYS show BOTH earrings
-` : '';
-
       // Image 1: E-commerce clean background (BACKGROUND REPLACEMENT ONLY)
-      const ecommercePrompt = `Professional e-commerce product photography. 4:5 portrait. 4K quality.
+      const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-TASK: BACKGROUND REPLACEMENT ONLY - jewelry IDENTICAL to reference.
-${earringPairDisplayNote}
+TASK TYPE (CRITICAL): BACKGROUND REPLACEMENT ONLY
+- Keep the jewelry IDENTICAL to the reference image.
+- Do NOT reinterpret the jewelry.
+- Do NOT recolor, neutralize, stylize, or "improve" the metal.
+- Do NOT change metal hue/temperature/undertone. Reflections intensity may vary slightly, but the BASE METAL COLOR MUST NOT CHANGE.
 
-⚠️ METAL COLOR LOCKED ⚠️
+⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Hex: ${metalColorHex}` : ''}
+- Original Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-SCENE: Clean e-commerce product shot
+STRICT RULES:
+- NO metal recoloring (yellow↔white↔rose) under any circumstances
+- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
+- Background must be NON-METALLIC and MATTE to avoid color casts
+
+SCENE: Clean, minimal e-commerce product shot
 - Background: ${selectedColor.prompt}
-- Lighting: soft, diffused, neutral
-- Jewelry is absolute focal point
+- Surface: matte, non-reflective
+- Lighting: soft, diffused, neutral (no warm/cool bias)
+- The jewelry should be the absolute focal point
+- Clean, uncluttered, listing-quality product photo
 
-OUTPUT: 4K ultra-high resolution. Ultra high resolution output.`;
+OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
+Ultra high resolution output.`;
 
       console.log('Generating E-commerce image...');
       const ecomUrl = await generateSingleImage(base64Image, ecommercePrompt, userId, imageRecord.id, 1, supabase);
       if (ecomUrl) generatedUrls.push(ecomUrl);
 
-      // Image 2: Editorial Luxury Scene (product integrated into environment)
-      const catalogPrompt = `Luxury fashion editorial photography. 4:5 portrait. 4K quality.
+      // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
+      const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${fidelityBlock}
 
-TASK: EDITORIAL SCENE - jewelry IDENTICAL to reference, integrated into scene.
-${earringPairDisplayNote}
+TASK TYPE (CRITICAL): EDITORIAL SCENE INTEGRATION WITHOUT ALTERING THE JEWELRY
+- The jewelry (especially metal color) must remain exactly as reference.
+- Product must be INTEGRATED into the scene, NOT staged or floating in air.
+- Lighting can add character and depth, but must NOT change metal hue, temperature, or undertone.
 
-⚠️ METAL COLOR LOCKED ⚠️
+⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Hex: ${metalColorHex}` : ''}
+- Original Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-SCENE: Luxury editorial setting
-- Surface: silk fabrics, marble, natural stone textures
-- Product naturally integrated (resting on, draped against)
-- NOT floating in air
+STRICT RULES:
+- NO metal recoloring or grading on the metal
+- Lighting shapes facets and metal naturally without exaggeration
+- Scene props/background must be non-metallic to avoid color contamination
 
-LIGHTING: Directional, shapes facets naturally
-- NO HDR glow, NO color-shifting rim lights
+SCENE CONCEPT (NON-TRADITIONAL EDITORIAL ENVIRONMENT):
+- Environment: Non-traditional but realistic editorial setting
+- Surface examples: flowing silk/satin fabrics, refined mineral surfaces (marble, natural stone), sculptural minimal objects, soft organic textures
+- The product must feel NATURALLY INTEGRATED into the scene — resting on, draped against, or nestled within the environment
+- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact
 
-MOOD: Calm, sophisticated, premium catalog quality.
+CAMERA & COMPOSITION:
+- Lens feel: Cinematic 85–100mm
+- Perspective: Slightly low or side-angled, creating depth and drama
+- Composition: Asymmetrical but balanced, editorial negative space allowed
+- Focus: Razor-sharp on jewelry with natural depth of field falloff
 
-OUTPUT: 4K ultra-high resolution. Ultra high resolution output.`;
+LIGHTING (CHARACTER-DRIVEN):
+- Directional, character-driven light source
+- Shadows add depth and dimension without heaviness
+- Facets and metal surfaces shaped naturally, not exaggerated
+- Avoid: HDR glow, rim lights that shift color, artificial sparkle
+
+MOOD & STYLE:
+- Luxury fashion editorial aesthetic
+- Calm, sophisticated, timeless atmosphere
+- Artistic vision yet commercially viable
+- Premium catalog/magazine quality
+
+OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
+Ultra high resolution output.`;
 
       console.log('Generating Catalog image...');
       const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
