@@ -7,6 +7,7 @@ interface GeneratingPanelProps {
   step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
   currentImageIndex?: number;
   totalImages?: number;
+  completedImages?: number;
   packageType?: 'standard' | 'master';
   previewImage?: string | null;
 }
@@ -15,6 +16,7 @@ export function GeneratingPanel({
   step, 
   currentImageIndex = 1, 
   totalImages = 1,
+  completedImages = 0,
   packageType = 'standard',
   previewImage = null
 }: GeneratingPanelProps) {
@@ -177,14 +179,44 @@ export function GeneratingPanel({
           )}
         </div>
 
-        {/* Progress bar */}
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ duration: 45, ease: "linear" }}
-          />
+        {/* Progress bar - based on completed images */}
+        <div className="space-y-2">
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
+              initial={{ width: '0%' }}
+              animate={{ 
+                width: step === 'analyzing' 
+                  ? '10%' 
+                  : step === 'finalizing'
+                    ? '100%'
+                    : `${10 + (completedImages / totalImages) * 90}%`
+              }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+            />
+          </div>
+          
+          {/* Progress text for master package */}
+          {packageType === 'master' && totalImages > 1 && (
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">
+                {step === 'analyzing' 
+                  ? 'Analiz ediliyor...'
+                  : step === 'finalizing'
+                    ? 'Tamamlandı'
+                    : `${completedImages}/${totalImages} görsel oluşturuldu`
+                }
+              </span>
+              <span className="text-primary font-medium">
+                {step === 'analyzing' 
+                  ? '10%'
+                  : step === 'finalizing'
+                    ? '100%'
+                    : `${Math.round(10 + (completedImages / totalImages) * 90)}%`
+                }
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Jewelry Facts Section */}
