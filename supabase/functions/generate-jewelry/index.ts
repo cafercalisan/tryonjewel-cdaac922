@@ -492,6 +492,57 @@ ONLY valid JSON.`
       ? `\n⚠️ USER SPECIFIED METAL COLOR: ${metalColorCategory} - THIS TAKES ABSOLUTE PRIORITY ⚠️\nThe user has explicitly specified that this jewelry is ${metalColorCategory}. Ignore any visual ambiguity and render as ${metalColorCategory}.\n`
       : '';
 
+    // PRODUCT EXTRACTION MODE - Critical instruction that must precede all scene prompts
+    // This ensures the uploaded image is treated purely as product reference, not as scene/environment
+    const productExtractionBlock = `
+═══════════════════════════════════════════════════════════════
+SYSTEM INSTRUCTION — PRODUCT EXTRACTION MODE
+═══════════════════════════════════════════════════════════════
+
+The uploaded image is used STRICTLY to extract the jewelry product.
+
+EXTRACTION RULES (MANDATORY):
+- Extract ONLY the jewelry object from the reference image(s)
+- IGNORE and DISCARD all non-jewelry elements including:
+  • hands, skin, fingers, nails
+  • background, reflections, shadows, environment
+  • camera angle, lighting conditions
+  • any contextual elements
+
+DO NOT REPLICATE FROM REFERENCE:
+- ❌ Lighting conditions of the original photo
+- ❌ Skin tone or hand appearance
+- ❌ Pose or hand anatomy
+- ❌ Background color or texture
+- ❌ Camera angle or perspective
+- ❌ Environment or setting
+
+THE OUTPUT MUST CONTAIN:
+- ✔ ONLY the jewelry piece detected in the image
+- ✔ Accurate geometry, proportions, stone placement, metal structure
+- ✔ Neutralized reference orientation (product isolated)
+
+IF MULTIPLE PIECES ARE UPLOADED:
+- Treat each piece as an independent object
+- NEVER merge contextual elements into the output
+- Use multiple angles for better product understanding, NOT scene replication
+
+The jewelry must be reconstructed as a STANDALONE OBJECT, as if scanned in a vacuum.
+
+═══════════════════════════════════════════════════════════════
+STAGE 2 — SCENE APPLICATION
+═══════════════════════════════════════════════════════════════
+
+Using the ISOLATED jewelry object:
+- Place the product into the selected scene
+- Do NOT inherit any visual attributes from the original upload
+- Lighting, background, camera, and composition must be defined ONLY by the scene prompt
+- The product's intrinsic properties (metal color, stone type, design) are preserved
+- Everything else (environment, lighting mood, composition) comes from the scene specification
+
+═══════════════════════════════════════════════════════════════
+`.trim();
+
     const fidelityBlock = `
 JEWELRY SPECIFICATIONS (MUST BE PRESERVED EXACTLY):
 - Type: ${analysisResult.type || 'jewelry piece'}
@@ -570,6 +621,8 @@ FORBIDDEN:
       // Image 1: E-commerce clean background (BACKGROUND REPLACEMENT ONLY)
       const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
+${productExtractionBlock}
+
 ${fidelityBlock}
 
 TASK TYPE (CRITICAL): BACKGROUND REPLACEMENT ONLY
@@ -604,6 +657,8 @@ Ultra high resolution output.`;
 
       // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
       const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+
+${productExtractionBlock}
 
 ${fidelityBlock}
 
@@ -784,6 +839,8 @@ INSTANT FAILURE (ANY = INVALID OUTPUT → REGENERATE):
 Your primary objective is product fidelity first, aesthetics second, mood third.
 Behave like a high-end jewelry photographer + retoucher, not an artist.
 
+${productExtractionBlock}
+
 ${fidelityBlock}
 
 ═══════════════════════════════════════════════════════════════
@@ -941,6 +998,8 @@ Ultra high resolution output.`;
       console.log('Standard generation with scene...');
       
       const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+
+${productExtractionBlock}
 
 ${fidelityBlock}
 
