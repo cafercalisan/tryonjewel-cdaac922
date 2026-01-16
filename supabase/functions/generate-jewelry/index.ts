@@ -299,33 +299,45 @@ serve(async (req) => {
       scene = sceneData;
     }
 
+    // Check if user is admin (has unlimited generation rights)
+    const { data: isAdmin } = await supabase
+      .rpc('has_role', { _user_id: userId, _role: 'admin' });
+    
+    const isAdminUser = isAdmin === true;
+    console.log(`User ${userId} admin status: ${isAdminUser}`);
+
     // Calculate credits needed
     const creditsNeeded = isMasterPackage ? 2 : 1;
 
-    // ATOMIC CREDIT DEDUCTION - Prevents race conditions
-    // Deduct credits BEFORE starting generation using database-level locking
-    const { data: deductResult, error: deductError } = await supabase
-      .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
+    // Skip credit deduction for admin users - they have unlimited generation rights
+    if (!isAdminUser) {
+      // ATOMIC CREDIT DEDUCTION - Prevents race conditions
+      // Deduct credits BEFORE starting generation using database-level locking
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
 
-    if (deductError) {
-      console.error('Credit deduction error:', deductError);
-      return new Response(
-        JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (deductError) {
+        console.error('Credit deduction error:', deductError);
+        return new Response(
+          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!deductResult?.success) {
+        const currentCredits = deductResult?.current_credits ?? 0;
+        return new Response(
+          JSON.stringify({ 
+            error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${currentCredits}.` 
+          }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+    } else {
+      console.log('Admin user - skipping credit deduction (unlimited generation rights)');
     }
-
-    if (!deductResult?.success) {
-      const currentCredits = deductResult?.current_credits ?? 0;
-      return new Response(
-        JSON.stringify({ 
-          error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${currentCredits}.` 
-        }),
-        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
 
     // Create image record
     const { data: imageRecord, error: insertError } = await supabase
