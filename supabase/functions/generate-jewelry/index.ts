@@ -692,24 +692,23 @@ Ultra high resolution output.`;
 
 🔴 ONE VISIBLE EAR = ONE EARRING 🔴
 • NEVER render both earrings on the same ear under ANY condition
-• This is a HARD CONSTRAINT - no exceptions, no creative interpretation
 • Each ear can display MAXIMUM ONE earring
+• If ONLY ONE ear is visible (due to crop/pose) → render ONLY ONE earring TOTAL.
+  The second earring MUST be omitted (NOT moved onto the visible ear).
 
-EARRING RENDERING LOGIC:
-1. Count earrings in reference image
-2. If PAIR (2 earrings): 
-   - Show BOTH ears in frame (3/4 view or front view)
+EARRING RENDERING LOGIC (HARD CONSTRAINTS):
+1) Determine how many ears are visible in the final frame.
+2) Place AT MOST 1 earring per visible ear.
+3) If BOTH ears are visible AND reference is a PAIR:
    - LEFT ear = 1 earring, RIGHT ear = 1 earring
-   - NEVER stack, NEVER duplicate on same ear
-3. If SINGLE (1 earring):
-   - Show only ONE ear with that single earring
-   - Other ear NOT visible or empty if visible
+4) If ONLY ONE ear is visible (even if reference is a PAIR):
+   - Show ONLY ONE earring on that ear
+   - The other earring is NOT shown (do NOT stack, do NOT duplicate)
 
 MATHEMATICAL CONSTRAINT:
-• Per-ear earring count = 1 (MAXIMUM)
-• Total earrings on model = earrings in reference (1 or 2)
-• If reference shows 2 → distribute: ear_L=1, ear_R=1
-• ILLEGAL: ear_L=2, ear_R=0 or ear_L=0, ear_R=2
+• Earrings per ear ≤ 1
+• Total earrings shown ≤ number_of_visible_ears
+• ILLEGAL ALWAYS: ear_L=2 or ear_R=2 (two earrings on one ear)
 
 EARRING PLACEMENT RULES:
 - Natural earlobe piercing position (center of earlobe)
@@ -719,14 +718,13 @@ EARRING PLACEMENT RULES:
 
 INSTANT FAILURE CONDITIONS (ANY = REGENERATE):
 ❌ TWO earrings on one ear = CRITICAL FAILURE
-❌ Both earrings stacked on same ear = CRITICAL FAILURE  
+❌ Both earrings stacked on same ear = CRITICAL FAILURE
 ❌ Earring duplicated/mirrored on same ear = CRITICAL FAILURE
 ❌ More than 1 earring per ear = CRITICAL FAILURE
 
 BEFORE RENDERING - VERIFY:
-□ Left ear has MAX 1 earring
-□ Right ear has MAX 1 earring
-□ Total earrings match reference count
+□ Each visible ear has MAX 1 earring
+□ If only one ear is visible → total earrings shown = 1
 □ No stacking, no doubling, no exceptions
 ═══════════════════════════════════════════════════════════════
 ` : '';
