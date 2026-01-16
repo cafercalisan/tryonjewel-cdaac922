@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { productTypes } from "@/components/generate/ProductTypeSelector";
+import { MetalColorSelector, metalColors } from "@/components/generate/MetalColorSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
 import {
   Dialog,
@@ -73,6 +74,7 @@ export default function Generate() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('master');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -196,6 +198,7 @@ export default function Generate() {
         imagePath: filePath,
         packageType,
         productType: selectedProductType,
+        metalColorOverride: selectedMetalColor,
       };
 
       if (packageType === 'master') {
@@ -366,6 +369,12 @@ export default function Generate() {
               </div>
             </div>
 
+            {/* Metal Color Selection */}
+            <MetalColorSelector 
+              selectedMetalColor={selectedMetalColor}
+              onSelect={setSelectedMetalColor}
+            />
+
             {/* Model Selection (Master Package Only) */}
             {packageType === 'master' && (
               <div className="space-y-3">
@@ -488,6 +497,18 @@ export default function Generate() {
                 <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span>{selectedModel.name}</span>
+                </div>
+              )}
+
+              {selectedMetalColor && (
+                <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
+                  <div 
+                    className="w-4 h-4 rounded-full ring-1 ring-black/10"
+                    style={{ 
+                      background: metalColors.find(m => m.id === selectedMetalColor)?.gradient || metalColors.find(m => m.id === selectedMetalColor)?.color 
+                    }}
+                  />
+                  <span>{metalColors.find(m => m.id === selectedMetalColor)?.name}</span>
                 </div>
               )}
 
