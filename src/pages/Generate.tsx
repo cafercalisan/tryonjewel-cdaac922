@@ -11,7 +11,9 @@ import {
   Image as ImageIcon,
   User,
   ChevronDown,
-  X
+  X,
+  Plus,
+  Images
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -57,6 +59,13 @@ interface UserModel {
 type PackageType = 'standard' | 'master';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
+interface UploadedImage {
+  file: File;
+  preview: string;
+  originalSize: number;
+  compressedSize: number;
+}
+
 export default function Generate() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
@@ -64,17 +73,16 @@ export default function Generate() {
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
-  // Form state
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
-  const [originalFileSize, setOriginalFileSize] = useState<number>(0);
-  const [compressedFileSize, setCompressedFileSize] = useState<number>(0);
+  // Form state - multiple images support
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('master');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
+  
+  const MAX_IMAGES = 4; // Maximum number of reference images
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -123,52 +131,68 @@ export default function Generate() {
   }, [scenes, selectedProductType]);
 
   const processFile = useCallback(async (file: File) => {
-    setOriginalFileSize(file.size);
-    setUploadedPreview(URL.createObjectURL(file));
-    
+    if (uploadedImages.length >= MAX_IMAGES) {
+      toast.error(`Maksimum ${MAX_IMAGES} görsel yükleyebilirsiniz.`);
+      return;
+    }
+
     const maxSize = 1.4 * 1024 * 1024;
+    const originalSize = file.size;
+    let processedFile = file;
+    let compressedSize = file.size;
     
     if (file.size > maxSize) {
       setIsCompressing(true);
       try {
-        const compressedFile = await compressImage(file, 1.4, 2048);
-        setUploadedFile(compressedFile);
-        setCompressedFileSize(compressedFile.size);
-        toast.success(`Görsel sıkıştırıldı: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)}`);
+        processedFile = await compressImage(file, 1.4, 2048);
+        compressedSize = processedFile.size;
+        toast.success(`Görsel sıkıştırıldı: ${formatFileSize(file.size)} → ${formatFileSize(processedFile.size)}`);
       } catch (error) {
         console.error('Compression error:', error);
         toast.error('Görsel sıkıştırılamadı. Lütfen daha küçük bir görsel deneyin.');
-        setUploadedFile(null);
-        setUploadedPreview(null);
+        setIsCompressing(false);
+        return;
       } finally {
         setIsCompressing(false);
       }
-    } else {
-      setUploadedFile(file);
-      setCompressedFileSize(file.size);
     }
+
+    const newImage: UploadedImage = {
+      file: processedFile,
+      preview: URL.createObjectURL(processedFile),
+      originalSize,
+      compressedSize,
+    };
+
+    setUploadedImages(prev => [...prev, newImage]);
+  }, [uploadedImages.length]);
+
+  const removeImage = useCallback((index: number) => {
+    setUploadedImages(prev => {
+      const newImages = [...prev];
+      URL.revokeObjectURL(newImages[index].preview);
+      newImages.splice(index, 1);
+      return newImages;
+    });
   }, []);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-      processFile(file);
-    }
-  }, [processFile]);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    files.slice(0, MAX_IMAGES - uploadedImages.length).forEach(file => processFile(file));
+  }, [processFile, uploadedImages.length]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  }, [processFile]);
+    const files = Array.from(e.target.files || []);
+    files.slice(0, MAX_IMAGES - uploadedImages.length).forEach(file => processFile(file));
+    e.target.value = ''; // Reset input
+  }, [processFile, uploadedImages.length]);
 
   const creditsNeeded = packageType === 'master' ? 2 : 1;
   const totalImages = packageType === 'master' ? 3 : 1;
 
   const canGenerate = useMemo(() => {
-    if (!uploadedFile || !user || !profile || profile.credits < creditsNeeded) return false;
+    if (uploadedImages.length === 0 || !user || !profile || profile.credits < creditsNeeded) return false;
     if (!selectedProductType) return false;
     
     if (packageType === 'standard') {
@@ -176,7 +200,7 @@ export default function Generate() {
     }
     
     return true; // Master pakette sahne ve renk seçimi zorunlu değil
-  }, [uploadedFile, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId]);
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -186,16 +210,26 @@ export default function Generate() {
     setCurrentImageIndex(1);
 
     try {
-      const fileExt = uploadedFile!.name.split(".").pop();
-      const filePath = `${user!.id}/originals/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, uploadedFile!);
-      if (uploadError) throw uploadError;
+      // Upload all images and collect paths
+      const imagePaths: string[] = [];
+      const timestamp = Date.now();
+      
+      for (let i = 0; i < uploadedImages.length; i++) {
+        const img = uploadedImages[i];
+        const fileExt = img.file.name.split(".").pop();
+        const filePath = `${user!.id}/originals/${timestamp}-${i}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, img.file);
+        if (uploadError) throw uploadError;
+        
+        imagePaths.push(filePath);
+      }
 
       setGenerationStep("generating");
 
       const body: any = {
-        imagePath: filePath,
+        imagePath: imagePaths[0], // Primary image (for backwards compatibility)
+        additionalImagePaths: imagePaths.slice(1), // Additional reference images
         packageType,
         productType: selectedProductType,
         metalColorOverride: selectedMetalColor,
@@ -233,7 +267,7 @@ export default function Generate() {
             currentImageIndex={currentImageIndex}
             totalImages={totalImages}
             packageType={packageType}
-            previewImage={uploadedPreview}
+            previewImage={uploadedImages[0]?.preview || null}
           />
         </div>
       </AppLayout>
@@ -259,49 +293,69 @@ export default function Generate() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleFileDrop}
               className={`relative border-2 border-dashed rounded-2xl transition-all ${
-                uploadedPreview 
+                uploadedImages.length > 0 
                   ? "border-primary bg-primary/5" 
                   : "border-border hover:border-primary/50 bg-muted/30"
               }`}
             >
-              {uploadedPreview ? (
+              {uploadedImages.length > 0 ? (
                 <div className="p-4">
-                  <div className="relative aspect-square max-w-[200px] mx-auto rounded-xl overflow-hidden bg-muted shadow-lg">
-                    <img src={uploadedPreview} alt="Uploaded" className="w-full h-full object-cover" />
-                    {isCompressing && (
-                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                    <button
-                      onClick={() => {
-                        setUploadedFile(null);
-                        setUploadedPreview(null);
-                      }}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/90 flex items-center justify-center hover:bg-background transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="text-center mt-3">
-                    <div className="flex items-center justify-center gap-2 text-primary text-sm">
-                      <Check className="h-4 w-4" />
-                      <span className="font-medium">Yüklendi</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-primary text-sm">
+                      <Images className="h-4 w-4" />
+                      <span className="font-medium">{uploadedImages.length} görsel yüklendi</span>
                     </div>
-                    {originalFileSize > compressedFileSize && compressedFileSize > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatFileSize(originalFileSize)} → {formatFileSize(compressedFileSize)}
-                      </p>
+                    {uploadedImages.length < MAX_IMAGES && (
+                      <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                        <Plus className="h-3 w-3" />
+                        Ekle
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple
+                          className="hidden" 
+                          onChange={handleFileSelect} 
+                        />
+                      </label>
                     )}
                   </div>
+                  
+                  <div className={`grid gap-2 ${uploadedImages.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto' : 'grid-cols-2'}`}>
+                    {uploadedImages.map((img, index) => (
+                      <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-muted shadow-lg">
+                        <img src={img.preview} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" />
+                        {index === 0 && (
+                          <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            ANA
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/90 flex items-center justify-center hover:bg-background transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground text-center mt-3">
+                    Farklı açılardan görseller tutarlılığı artırır
+                  </p>
                 </div>
               ) : (
                 <label className="cursor-pointer block text-center p-8">
                   <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium mb-1 text-sm">Mücevher fotoğrafınızı yükleyin</p>
-                  <p className="text-xs text-muted-foreground">veya sürükleyip bırakın</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                  <p className="font-medium mb-1 text-sm">Mücevher fotoğraflarınızı yükleyin</p>
+                  <p className="text-xs text-muted-foreground">Birden fazla açı için çoklu seçim yapabilirsiniz</p>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
                 </label>
+              )}
+              
+              {isCompressing && (
+                <div className="absolute inset-0 bg-background/80 rounded-2xl flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
               )}
             </div>
 

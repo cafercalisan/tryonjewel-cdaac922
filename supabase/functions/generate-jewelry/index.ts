@@ -33,25 +33,25 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 async function callGeminiImageGeneration({
-  base64Image,
+  base64Images,
   prompt,
 }: {
-  base64Image: string;
+  base64Images: string[];
   prompt: string;
 }) {
   const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  
+  // Build parts array with prompt first, then all images
+  const parts: any[] = [{ text: prompt }];
+  for (const base64Image of base64Images) {
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Image } });
+  }
+  
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
-          ],
-        },
-      ],
+      contents: [{ parts }],
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.4,
@@ -61,16 +61,23 @@ async function callGeminiImageGeneration({
 }
 
 async function callLovableImageGeneration({
-  base64Image,
+  base64Images,
   prompt,
 }: {
-  base64Image: string;
+  base64Images: string[];
   prompt: string;
 }) {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
-  const imageDataUrl = `data:image/jpeg;base64,${base64Image}`;
+  // Build content array with text first, then all images
+  const content: any[] = [{ type: 'text', text: prompt }];
+  for (const base64Image of base64Images) {
+    content.push({
+      type: 'image_url',
+      image_url: { url: `data:image/jpeg;base64,${base64Image}` }
+    });
+  }
 
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -80,15 +87,7 @@ async function callLovableImageGeneration({
     },
     body: JSON.stringify({
       model: 'google/gemini-3-pro-image-preview',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imageDataUrl } },
-          ],
-        },
-      ],
+      messages: [{ role: 'user', content }],
       modalities: ['image', 'text'],
     }),
   });
@@ -113,14 +112,15 @@ async function callLovableImageGeneration({
 }
 
 // Generate single image and return signed URL (since bucket is private)
-async function generateSingleImage(base64Image: string, prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
+// Now accepts multiple base64 images for better consistency
+async function generateSingleImage(base64Images: string[], prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
   try {
     if (!GOOGLE_IMAGE_API_KEY) {
       console.error('Missing GOOGLE_API_KEY');
       return null;
     }
 
-    const genResponse = await callGeminiImageGeneration({ base64Image, prompt });
+    const genResponse = await callGeminiImageGeneration({ base64Images, prompt });
 
     if (!genResponse.ok) {
       const errText = await genResponse.text();
@@ -130,7 +130,7 @@ async function generateSingleImage(base64Image: string, prompt: string, userId: 
       if (errText.includes('Image generation is not available') || errText.includes('FAILED_PRECONDITION')) {
         try {
           console.log('Falling back to Lovable AI...');
-          const lovableBase64 = await callLovableImageGeneration({ base64Image, prompt });
+          const lovableBase64 = await callLovableImageGeneration({ base64Images, prompt });
           const imageBuffer = Uint8Array.from(atob(lovableBase64), (c) => c.charCodeAt(0));
           const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
 
@@ -228,8 +228,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, sceneId, packageType, colorId, productType, modelId, metalColorOverride } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, colorId, productType, modelId, metalColorOverride, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride } = await req.json();
+    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -238,6 +238,17 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Validate additional image paths if provided
+    const validAdditionalPaths: string[] = [];
+    if (Array.isArray(additionalImagePaths)) {
+      for (const path of additionalImagePaths) {
+        if (typeof path === 'string' && path.startsWith(`${userId}/originals/`)) {
+          validAdditionalPaths.push(path);
+        }
+      }
+    }
+    console.log(`Processing ${1 + validAdditionalPaths.length} reference image(s)`);
 
     // Validate sceneId (required for standard, optional for master)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -252,19 +263,30 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get signed URL for image
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('jewelry-images')
-      .createSignedUrl(imagePath, 3600);
+    // Get signed URLs for all images
+    const allImagePaths = [imagePath, ...validAdditionalPaths];
+    const imageUrls: string[] = [];
+    
+    for (const path of allImagePaths) {
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('jewelry-images')
+        .createSignedUrl(path, 3600);
+      
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error(`Failed to get signed URL for ${path}`);
+        continue;
+      }
+      imageUrls.push(signedUrlData.signedUrl);
+    }
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
+    if (imageUrls.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Failed to access image' }),
+        JSON.stringify({ error: 'Failed to access images' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const imageUrl = signedUrlData.signedUrl;
+    const imageUrl = imageUrls[0]; // Primary image URL for analysis
 
     // Get scene if provided
     let scene = null;
@@ -319,24 +341,36 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    // Fetch and convert image to base64
+    // Fetch and convert all images to base64
     console.log('Step 1: Analyzing jewelry...');
-    const imageResponse = await fetch(imageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64Images: string[] = [];
     
-    if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
+    for (const url of imageUrls) {
+      const imageResponse = await fetch(url);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      
+      if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
+        console.warn(`Skipping image - too large (${imageBuffer.byteLength} bytes)`);
+        continue;
+      }
+      
+      base64Images.push(arrayBufferToBase64(imageBuffer));
+    }
+
+    if (base64Images.length === 0) {
       await supabase
         .from('images')
         .update({ status: 'failed', error_message: 'Görsel boyutu çok büyük (max 1.5MB)' })
         .eq('id', imageRecord.id);
       
       return new Response(
-        JSON.stringify({ error: 'Image too large. Max 1.5MB.' }),
+        JSON.stringify({ error: 'All images too large. Max 1.5MB each.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    const base64Image = arrayBufferToBase64(imageBuffer);
+    console.log(`Loaded ${base64Images.length} reference image(s) for generation`);
+    const base64Image = base64Images[0]; // Primary image for analysis
 
     // Analyze jewelry
     const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
@@ -565,7 +599,7 @@ OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifact
 Ultra high resolution output.`;
 
       console.log('Generating E-commerce image...');
-      const ecomUrl = await generateSingleImage(base64Image, ecommercePrompt, userId, imageRecord.id, 1, supabase);
+      const ecomUrl = await generateSingleImage(base64Images, ecommercePrompt, userId, imageRecord.id, 1, supabase);
       if (ecomUrl) generatedUrls.push(ecomUrl);
 
       // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
@@ -616,7 +650,7 @@ OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifact
 Ultra high resolution output.`;
 
       console.log('Generating Catalog image...');
-      const catalogUrl = await generateSingleImage(base64Image, catalogPrompt, userId, imageRecord.id, 2, supabase);
+      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecord.id, 2, supabase);
       if (catalogUrl) generatedUrls.push(catalogUrl);
 
       // Image 3: PRODUCT-FOCUSED LUXURY CLOSE-UP
@@ -899,7 +933,7 @@ Pure photographic realism with editorial-level aesthetics.
 Ultra high resolution output.`;
 
       console.log('Generating Model Shot image...');
-      const modelUrl = await generateSingleImage(base64Image, modelShotPrompt, userId, imageRecord.id, 3, supabase);
+      const modelUrl = await generateSingleImage(base64Images, modelShotPrompt, userId, imageRecord.id, 3, supabase);
       if (modelUrl) generatedUrls.push(modelUrl);
 
     } else {
@@ -922,7 +956,7 @@ TECHNICAL REQUIREMENTS:
 
 Ultra high resolution output.`;
 
-      const url = await generateSingleImage(base64Image, standardPrompt, userId, imageRecord.id, 1, supabase);
+      const url = await generateSingleImage(base64Images, standardPrompt, userId, imageRecord.id, 1, supabase);
       if (url) generatedUrls.push(url);
     }
 
