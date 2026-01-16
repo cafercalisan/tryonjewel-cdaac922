@@ -686,28 +686,49 @@ Ultra high resolution output.`;
       
       // Build earring-specific constraints
       const earringConstraints = isEarringType ? `
-⚠️ EARRING PLACEMENT RULES (CRITICAL - ZERO TOLERANCE) ⚠️
-- If the reference shows a PAIR of earrings: show BOTH ears, ONE earring per ear
-- If the reference shows a SINGLE earring: show only one ear with the earring
-- NEVER place two earrings on the same ear
-- NEVER duplicate/mirror earrings on one ear
-- NEVER stack multiple earrings on one ear unless explicitly shown in reference
-- Each ear can have ONLY ONE earring from the pair
-- Both earrings of a pair must be IDENTICAL (not mirrored incorrectly)
-- Earring position: natural earlobe piercing position, not cartilage unless specified
-- If pair: frame composition should show BOTH ears (3/4 view or front view, NOT profile)
+═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ ABSOLUTE EARRING RULE - ZERO EXCEPTION ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
 
-EARRING ANATOMY RULES:
+🔴 ONE VISIBLE EAR = ONE EARRING 🔴
+• NEVER render both earrings on the same ear under ANY condition
+• This is a HARD CONSTRAINT - no exceptions, no creative interpretation
+• Each ear can display MAXIMUM ONE earring
+
+EARRING RENDERING LOGIC:
+1. Count earrings in reference image
+2. If PAIR (2 earrings): 
+   - Show BOTH ears in frame (3/4 view or front view)
+   - LEFT ear = 1 earring, RIGHT ear = 1 earring
+   - NEVER stack, NEVER duplicate on same ear
+3. If SINGLE (1 earring):
+   - Show only ONE ear with that single earring
+   - Other ear NOT visible or empty if visible
+
+MATHEMATICAL CONSTRAINT:
+• Per-ear earring count = 1 (MAXIMUM)
+• Total earrings on model = earrings in reference (1 or 2)
+• If reference shows 2 → distribute: ear_L=1, ear_R=1
+• ILLEGAL: ear_L=2, ear_R=0 or ear_L=0, ear_R=2
+
+EARRING PLACEMENT RULES:
+- Natural earlobe piercing position (center of earlobe)
+- Earring back/clasp NOT visible from front view
 - Correct earlobe thickness and cartilage definition
-- Natural piercing hole position (center of earlobe for standard piercing)
-- Earring back/clasp not visible from front view
 - Natural ear angle relative to head
 
-FAILURE CONDITIONS FOR EARRINGS:
-- ❌ Two earrings on one ear = INVALID OUTPUT
-- ❌ Stacked earrings = INVALID OUTPUT
-- ❌ Duplicate jewelry on same ear = INVALID OUTPUT
-- ❌ Mirrored earring on same ear = INVALID OUTPUT
+INSTANT FAILURE CONDITIONS (ANY = REGENERATE):
+❌ TWO earrings on one ear = CRITICAL FAILURE
+❌ Both earrings stacked on same ear = CRITICAL FAILURE  
+❌ Earring duplicated/mirrored on same ear = CRITICAL FAILURE
+❌ More than 1 earring per ear = CRITICAL FAILURE
+
+BEFORE RENDERING - VERIFY:
+□ Left ear has MAX 1 earring
+□ Right ear has MAX 1 earring
+□ Total earrings match reference count
+□ No stacking, no doubling, no exceptions
+═══════════════════════════════════════════════════════════════
 ` : '';
 
       const modelShotPrompt = `PRODUCT-FOCUSED LUXURY JEWELRY CLOSE-UP. Commercial-grade luxury jewelry rendering engine.
