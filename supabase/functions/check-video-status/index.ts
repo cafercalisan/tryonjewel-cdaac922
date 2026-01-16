@@ -146,18 +146,22 @@ serve(async (req) => {
         );
       }
 
-      // Get video URL from response - check multiple possible paths
-      const videoUri = operationData.response?.generatedVideos?.[0]?.video?.uri ||
+      // Get video URL from response - check all possible paths including Veo 3.1 format
+      const videoUri = operationData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+                      operationData.response?.generatedVideos?.[0]?.video?.uri ||
                       operationData.response?.predictions?.[0]?.video?.uri ||
                       operationData.result?.generatedVideos?.[0]?.video?.uri ||
+                      operationData.result?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
                       operationData.response?.video?.uri;
+      
+      console.log("Parsed video URI:", videoUri);
 
       if (videoUri) {
         console.log("Video generated successfully:", videoUri);
         
-        // Download and upload to Supabase storage
+        // Download video with API key auth (required for Google's file download endpoint)
         try {
-          const videoResponse = await fetch(videoUri);
+          const videoResponse = await fetch(`${videoUri}&key=${GOOGLE_API_KEY}`);
           if (videoResponse.ok) {
             const videoBlob = await videoResponse.arrayBuffer();
             const fileName = `${videoId}.mp4`;
