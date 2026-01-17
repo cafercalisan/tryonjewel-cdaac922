@@ -54,7 +54,7 @@ async function callGeminiImageGeneration({
       contents: [{ parts }],
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
-        temperature: 0.4,
+        temperature: 0.15,
       },
     }),
   });
@@ -630,49 +630,14 @@ FORBIDDEN:
 
       const selectedColor = colorMap[colorId] || colorMap['white'];
 
-      // Image 1: E-commerce clean background (BACKGROUND REPLACEMENT ONLY)
-      const ecommercePrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // ═══════════════════════════════════════════════════════════════
+      // CONSISTENCY OPTIMIZATION: Generate Editorial first (best consistency)
+      // Then use Editorial as additional reference for E-commerce and Model Shot
+      // ═══════════════════════════════════════════════════════════════
 
-${productExtractionBlock}
-
-${fidelityBlock}
-
-TASK TYPE (CRITICAL): BACKGROUND REPLACEMENT ONLY
-- Keep the jewelry IDENTICAL to the reference image.
-- Do NOT reinterpret the jewelry.
-- Do NOT recolor, neutralize, stylize, or "improve" the metal.
-- Do NOT change metal hue/temperature/undertone. Reflections intensity may vary slightly, but the BASE METAL COLOR MUST NOT CHANGE.
-
-⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
-- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Original Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
-
-STRICT RULES:
-- NO metal recoloring (yellow↔white↔rose) under any circumstances
-- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
-- Background must be NON-METALLIC and MATTE to avoid color casts
-
-SCENE: Clean, minimal e-commerce product shot
-- Background: ${selectedColor.prompt}
-- Surface: matte, non-reflective
-- Lighting: soft, diffused, neutral (no warm/cool bias)
-- The jewelry should be the absolute focal point
-- Clean, uncluttered, listing-quality product photo
-
-OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
-Ultra high resolution output.`;
-
-      console.log('Generating E-commerce image...');
-      const ecomUrl = await generateSingleImage(base64Images, ecommercePrompt, userId, imageRecord.id, 1, supabase);
-      if (ecomUrl) {
-        generatedUrls.push(ecomUrl);
-        // Update progress immediately after each image
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
-        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
-      }
-
-      // Image 2: Editorial Luxury Scene (product integrated into environment, not floating)
+      // Image 1 (PRIORITY): Editorial Luxury Scene - REFERENCE ANCHOR
+      // This is generated first because it produces the most consistent results
+      // and will be used as additional reference for subsequent generations
       const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${productExtractionBlock}
@@ -721,11 +686,94 @@ MOOD & STYLE:
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      console.log('Generating Catalog image...');
-      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecord.id, 2, supabase);
+      console.log('Step 1/3: Generating Editorial image (reference anchor)...');
+      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecord.id, 1, supabase);
+      
+      // Track editorial base64 for use as reference in subsequent generations
+      let editorialReferenceBase64: string | null = null;
+      
       if (catalogUrl) {
         generatedUrls.push(catalogUrl);
-        // Update progress immediately after each image
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
+        
+        // Fetch the editorial image to use as additional reference
+        try {
+          const editorialResponse = await fetch(catalogUrl);
+          if (editorialResponse.ok) {
+            const editorialBuffer = await editorialResponse.arrayBuffer();
+            if (editorialBuffer.byteLength <= MAX_IMAGE_SIZE) {
+              editorialReferenceBase64 = arrayBufferToBase64(editorialBuffer);
+              console.log('Editorial image captured as reference for consistency');
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch editorial as reference, continuing without:', err);
+        }
+      }
+
+      // Build enhanced reference array: original + editorial (if available)
+      const enhancedBase64Images = editorialReferenceBase64 
+        ? [editorialReferenceBase64, ...base64Images] 
+        : base64Images;
+      
+      console.log(`Using ${enhancedBase64Images.length} reference images for remaining generations`);
+
+      // Image 2: E-commerce clean background (STRICT INPAINTING MODE)
+      const ecommercePrompt = `[STRICT INPAINTING MODE - BACKGROUND REPLACEMENT ONLY]
+
+This is NOT a regeneration task. This is a BACKGROUND REPLACEMENT task.
+The jewelry object is FROZEN. Do NOT regenerate, reinterpret, or modify it in any way.
+
+Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ ABSOLUTE LOCK - PRODUCT FROZEN ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
+
+WHAT IS FROZEN (DO NOT TOUCH):
+- ✔ Exact jewelry geometry and proportions
+- ✔ Every stone position and count
+- ✔ Every metal link/chain segment
+- ✔ Pendant shape and drop angle
+- ✔ Setting structure and prong positions
+- ✔ Metal color, finish, and reflective properties
+- ✔ All design elements exactly as reference
+
+WHAT TO CHANGE (BACKGROUND ONLY):
+- Background: ${selectedColor.prompt}
+- Surface: matte, non-reflective
+- Lighting: soft, diffused, neutral (no warm/cool bias affecting product)
+
+⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
+- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Original Color Category: ${metalColorCategory.toUpperCase()}
+${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
+
+STRICT INPAINTING RULES:
+- Treat this as BACKGROUND INPAINTING, not image generation
+- The jewelry pixels are SACRED - copy them exactly
+- Only the background/environment pixels change
+- NO metal recoloring (yellow↔white↔rose) under any circumstances
+- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
+- Background must be NON-METALLIC and MATTE to avoid color casts
+
+SCENE: Clean, minimal e-commerce product shot
+- The jewelry should be the absolute focal point
+- Clean, uncluttered, listing-quality product photo
+- Product centered, well-lit, commercially ready
+
+OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
+Ultra high resolution output.`;
+
+      console.log('Step 2/3: Generating E-commerce image...');
+      const ecomUrl = await generateSingleImage(enhancedBase64Images, ecommercePrompt, userId, imageRecord.id, 2, supabase);
+      if (ecomUrl) {
+        generatedUrls.push(ecomUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
         console.log(`Progress: ${generatedUrls.length}/3 images completed`);
       }
@@ -1011,11 +1059,10 @@ It must feel CAPTURED, not generated. No stylization, no fantasy, no illustratio
 Pure photographic realism with editorial-level aesthetics.
 Ultra high resolution output.`;
 
-      console.log('Generating Model Shot image...');
-      const modelUrl = await generateSingleImage(base64Images, modelShotPrompt, userId, imageRecord.id, 3, supabase);
+      console.log('Step 3/3: Generating Model Shot image...');
+      const modelUrl = await generateSingleImage(enhancedBase64Images, modelShotPrompt, userId, imageRecord.id, 3, supabase);
       if (modelUrl) {
         generatedUrls.push(modelUrl);
-        // Update progress immediately after each image
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
         console.log(`Progress: ${generatedUrls.length}/3 images completed`);
       }
