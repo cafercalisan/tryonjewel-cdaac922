@@ -599,11 +599,11 @@ export default function Landing() {
                     <span>Manken görselleri</span>
                   </li>
                 </ul>
-                <Link to="/kayit" className="block">
+                <a href="https://wa.me/905393165217?text=Merhaba%2C%20Pro%20paket%20hakkında%20bilgi%20almak%20istiyorum" target="_blank" rel="noopener noreferrer" className="block">
                   <Button className="w-full rounded-full">
                     Pro'ya Geç
                   </Button>
-                </Link>
+                </a>
               </motion.div>
               
               {/* Enterprise Package */}
@@ -644,7 +644,7 @@ export default function Landing() {
                     <span>API erişimi</span>
                   </li>
                 </ul>
-                <a href="mailto:info@tryonjewel.com" className="block">
+                <a href="https://wa.me/905393165217?text=Merhaba%2C%20Enterprise%20paket%20hakkında%20bilgi%20almak%20istiyorum" target="_blank" rel="noopener noreferrer" className="block">
                   <Button variant="outline" className="w-full rounded-full">
                     İletişime Geç
                   </Button>
