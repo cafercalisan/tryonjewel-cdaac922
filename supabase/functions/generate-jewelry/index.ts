@@ -905,7 +905,18 @@ INSTANT FAILURE (ANY = INVALID OUTPUT → REGENERATE):
 ═══════════════════════════════════════════════════════════════
 ` : '';
 
-      const modelShotPrompt = `PRODUCT-FOCUSED LUXURY JEWELRY CLOSE-UP. Commercial-grade luxury jewelry rendering engine.
+      const modelShotPrompt = `JEWELRY WORN BY A HUMAN MODEL - EDITORIAL CAMPAIGN PHOTOGRAPHY.
+═══════════════════════════════════════════════════════════════
+⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️
+═══════════════════════════════════════════════════════════════
+
+This is NOT a product-only shot. This is a MODEL SHOT where:
+- A HUMAN MODEL must be VISIBLE and WEARING the jewelry
+- The jewelry must be PHYSICALLY ON THE MODEL'S BODY (${modelBodyPart})
+- The model's ${modelBodyPart} must be clearly visible in frame
+- This simulates a luxury fashion campaign / lookbook photography
+
+Commercial-grade luxury jewelry rendering engine.
 Your primary objective is product fidelity first, aesthetics second, mood third.
 Behave like a high-end jewelry photographer + retoucher, not an artist.
 
@@ -916,10 +927,11 @@ ${fidelityBlock}
 ═══════════════════════════════════════════════════════════════
 PRIORITY ORDER (IMMUTABLE - HIGHER OVERRIDES LOWER):
 1. PRODUCT ACCURACY (metal color, stone type, proportions)
-2. REFERENCE IMAGE FIDELITY
-3. PHYSICAL REALISM
-4. LIGHTING REALISM
-5. EDITORIAL LUXURY MOOD
+2. REFERENCE IMAGE FIDELITY  
+3. HUMAN MODEL PRESENCE (jewelry MUST be worn)
+4. PHYSICAL REALISM
+5. LIGHTING REALISM
+6. EDITORIAL LUXURY MOOD
 ═══════════════════════════════════════════════════════════════
 
 ${earringConstraints}
@@ -934,7 +946,8 @@ ${dimensionNote}
 
 FRAMING SPECIFICATION:
 - ${framingDescription}
-- Product occupies majority of frame (60-80%)
+- HUMAN MODEL'S ${modelBodyPart.toUpperCase()} MUST BE VISIBLE wearing the jewelry
+- Product occupies majority of frame (60-80%) while model provides context
 - Jewelry details (stones, setting, metal texture) CLEARLY READABLE
 - Shallow but natural depth of field: jewelry razor-sharp, skin slightly softer
 - Camera: Full-frame commercial sensor, ${cameraLens}
