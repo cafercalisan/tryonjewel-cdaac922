@@ -1,19 +1,11 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
-import { Button } from "@/components/ui/button";
 import { 
-  Upload, 
   Check, 
-  Sparkles, 
-  Crown,
-  Image as ImageIcon,
-  User,
   ChevronDown,
-  X,
-  Plus,
-  Images
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -22,8 +14,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { productTypes } from "@/components/generate/ProductTypeSelector";
-import { MetalColorSelector, metalColors } from "@/components/generate/MetalColorSelector";
+import { metalColors } from "@/components/generate/MetalColorSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
+import { UploadArea } from "@/components/generate/UploadArea";
+import { PackageSelector } from "@/components/generate/PackageSelector";
+import { SceneSelector } from "@/components/generate/SceneSelector";
+import { SummaryPanel } from "@/components/generate/SummaryPanel";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +69,7 @@ export default function Generate() {
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
-  // Form state - multiple images support
+  // Form state
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
@@ -82,7 +78,7 @@ export default function Generate() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
   
-  const MAX_IMAGES = 4; // Maximum number of reference images
+  const MAX_IMAGES = 4;
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -127,6 +123,7 @@ export default function Generate() {
     enabled: !!user,
     staleTime: 60_000,
   });
+
   // Filter scenes based on selected product type
   const filteredScenes = useMemo(() => {
     if (!scenes) return [];
@@ -198,7 +195,7 @@ export default function Generate() {
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.slice(0, MAX_IMAGES - uploadedImages.length).forEach(file => processFile(file));
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   }, [processFile, uploadedImages.length]);
 
   const creditsNeeded = packageType === 'master' ? 2 : 1;
@@ -208,7 +205,6 @@ export default function Generate() {
     if (uploadedImages.length === 0 || !user) return false;
     if (!selectedProductType) return false;
 
-    // Admin users can generate regardless of credit balance
     if (!isAdminUser) {
       if (!profile || profile.credits < creditsNeeded) return false;
     }
@@ -217,7 +213,7 @@ export default function Generate() {
       return !!selectedSceneId;
     }
 
-    return true; // Master pakette sahne ve renk seçimi zorunlu değil
+    return true;
   }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser]);
 
   const handleGenerate = async () => {
@@ -229,7 +225,6 @@ export default function Generate() {
     setCompletedImages(0);
 
     try {
-      // Upload all images and collect paths
       const imagePaths: string[] = [];
       const timestamp = Date.now();
       
@@ -247,8 +242,8 @@ export default function Generate() {
       setGenerationStep("generating");
 
       const body: any = {
-        imagePath: imagePaths[0], // Primary image (for backwards compatibility)
-        additionalImagePaths: imagePaths.slice(1), // Additional reference images
+        imagePath: imagePaths[0],
+        additionalImagePaths: imagePaths.slice(1),
         packageType,
         productType: selectedProductType,
         metalColorOverride: selectedMetalColor,
@@ -264,11 +259,9 @@ export default function Generate() {
 
       if (error) throw error;
 
-      // Store the image record ID for realtime subscription
       const imageId = data.imageId;
       currentImageRecordId.current = imageId;
 
-      // Subscribe to realtime updates for progress
       const channel = supabase
         .channel(`image-progress-${imageId}`)
         .on(
@@ -287,7 +280,6 @@ export default function Generate() {
             
             if (newData.status === 'completed') {
               setGenerationStep('finalizing');
-              // Small delay before navigation
               setTimeout(() => {
                 channel.unsubscribe();
                 toast.success("Görselleriniz başarıyla oluşturuldu!");
@@ -298,7 +290,6 @@ export default function Generate() {
         )
         .subscribe();
 
-      // Wait for completion via the response since edge function returns after all done
       toast.success("Görselleriniz başarıyla oluşturuldu!");
       channel.unsubscribe();
       navigate(`/sonuclar?id=${data.imageId}`);
@@ -313,6 +304,7 @@ export default function Generate() {
   };
 
   const selectedModel = userModels?.find(m => m.id === selectedModelId);
+  const selectedScene = scenes?.find(s => s.id === selectedSceneId) || null;
 
   if (isGenerating) {
     return (
@@ -333,339 +325,240 @@ export default function Generate() {
 
   return (
     <AppLayout showFooter={false}>
-      <div className="container py-6 md:py-10 max-w-4xl mx-auto">
+      <div className="container py-6 md:py-10 max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-semibold mb-2">Görsel Oluştur</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight mb-2">
+            Görsel Oluştur
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Profesyonel mücevher görselleri tek adımda
+            Profesyonel mücevher görselleri saniyeler içinde
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left Column - Upload & Settings */}
-          <div className="space-y-5">
-            {/* Upload Area */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleFileDrop}
-              className={`relative border-2 border-dashed rounded-2xl transition-all ${
-                uploadedImages.length > 0 
-                  ? "border-primary bg-primary/5" 
-                  : "border-border hover:border-primary/50 bg-muted/30"
-              }`}
-            >
-              {uploadedImages.length > 0 ? (
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 text-primary text-sm">
-                      <Images className="h-4 w-4" />
-                      <span className="font-medium">{uploadedImages.length} görsel yüklendi</span>
-                    </div>
-                    {uploadedImages.length < MAX_IMAGES && (
-                      <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                        <Plus className="h-3 w-3" />
-                        Ekle
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          multiple
-                          className="hidden" 
-                          onChange={handleFileSelect} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                  
-                  <div className={`grid gap-2 ${uploadedImages.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto' : 'grid-cols-2'}`}>
-                    {uploadedImages.map((img, index) => (
-                      <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-muted shadow-lg">
-                        <img src={img.preview} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" />
-                        {index === 0 && (
-                          <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded">
-                            ANA
-                          </div>
-                        )}
-                        <button
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/90 flex items-center justify-center hover:bg-background transition-colors"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground text-center mt-3">
-                    Farklı açılardan görseller tutarlılığı artırır
-                  </p>
+        <div className="grid lg:grid-cols-[1fr,340px] gap-6">
+          {/* Left Column - Main Content */}
+          <div className="space-y-6">
+            {/* Step 1: Upload */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                  1
                 </div>
-              ) : (
-                <label className="cursor-pointer block text-center p-8">
-                  <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium mb-1 text-sm">Mücevher fotoğraflarınızı yükleyin</p>
-                  <p className="text-xs text-muted-foreground">Birden fazla açı için çoklu seçim yapabilirsiniz</p>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
-                </label>
-              )}
-              
-              {isCompressing && (
-                <div className="absolute inset-0 bg-background/80 rounded-2xl flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <h2 className="text-sm font-semibold">Görsel Yükle</h2>
+              </div>
+              <UploadArea
+                uploadedImages={uploadedImages}
+                onFileDrop={handleFileDrop}
+                onFileSelect={handleFileSelect}
+                onRemoveImage={removeImage}
+                isCompressing={isCompressing}
+                maxImages={MAX_IMAGES}
+              />
+            </section>
+
+            {/* Step 2: Package Selection */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                  2
                 </div>
-              )}
-            </div>
-
-            {/* Package Type Selection */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Paket Seçin</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPackageType('standard')}
-                  className={`p-4 rounded-xl border-2 transition-all text-left ${
-                    packageType === 'standard' 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border hover:border-primary/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Standart</p>
-                      <p className="text-xs text-muted-foreground">1 görsel • 1 kredi</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setPackageType('master')}
-                  className={`p-4 rounded-xl border-2 transition-all text-left relative ${
-                    packageType === 'master' 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border hover:border-primary/30'
-                  }`}
-                >
-                  <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    ÖNERİLEN
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Crown className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium text-sm">Master</p>
-                      <p className="text-xs text-muted-foreground">3 görsel • 2 kredi</p>
-                    </div>
-                  </div>
-                </button>
+                <h2 className="text-sm font-semibold">Paket Seçin</h2>
               </div>
-            </div>
+              <PackageSelector
+                selectedPackage={packageType}
+                onSelect={setPackageType}
+              />
+            </section>
 
-            {/* Product Type Selection */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Ürün Tipi</p>
-              <div className="grid grid-cols-3 gap-2">
-                {productTypes.map((type) => (
-                  <button
-                    key={type.id}
-                    onClick={() => setSelectedProductType(type.id)}
-                    className={`p-3 rounded-xl border-2 transition-all text-center ${
-                      selectedProductType === type.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="text-xl mb-1">{type.icon}</div>
-                    <p className="text-xs font-medium">{type.name}</p>
-                  </button>
-                ))}
+            {/* Step 3: Product Type */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                  3
+                </div>
+                <h2 className="text-sm font-semibold">Ürün Tipi</h2>
               </div>
-            </div>
-
-            {/* Metal Color Selection */}
-            <MetalColorSelector 
-              selectedMetalColor={selectedMetalColor}
-              onSelect={setSelectedMetalColor}
-            />
-
-            {/* Model Selection (Master Package Only) */}
-            {packageType === 'master' && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Model Seçimi (Opsiyonel)</p>
-                <button
-                  onClick={() => setModelDialogOpen(true)}
-                  className="w-full p-4 rounded-xl border-2 border-border hover:border-primary/30 transition-all flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {selectedModel?.preview_image_url ? (
-                      <img 
-                        src={selectedModel.preview_image_url} 
-                        alt={selectedModel.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="text-left">
-                      <p className="text-sm font-medium">
-                        {selectedModel?.name || 'Model seçilmedi'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedModel ? `${selectedModel.gender}, ${selectedModel.age_range}` : 'Manken görseli için model seçin'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-            )}
-
-            {/* Scene Selection (Standard Package Only) */}
-            {packageType === 'standard' && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Sahne Seçin</p>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                  {filteredScenes.map((scene) => (
-                    <button
-                      key={scene.id}
-                      onClick={() => setSelectedSceneId(scene.id)}
-                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all ${
-                        selectedSceneId === scene.id 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-primary/30'
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {productTypes.map((type) => {
+                  const isSelected = selectedProductType === type.id;
+                  return (
+                    <motion.button
+                      key={type.id}
+                      onClick={() => setSelectedProductType(type.id)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`relative p-3 rounded-xl border-2 transition-all text-center ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-border hover:border-primary/30 bg-card'
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                        {scene.preview_image_url ? (
-                          <img 
-                            src={scene.preview_image_url} 
-                            alt={scene.name_tr}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Sparkles className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-medium truncate">{scene.name_tr}</p>
-                      </div>
-                      {selectedSceneId === scene.id && (
-                        <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                      <div className="text-xl mb-1">{type.icon}</div>
+                      <p className="text-xs font-medium">{type.name}</p>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                        >
+                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                        </motion.div>
                       )}
-                    </button>
-                  ))}
-                </div>
+                    </motion.button>
+                  );
+                })}
               </div>
-            )}
+            </section>
+
+            {/* Step 4: Metal Color (Optional) */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                    4
+                  </div>
+                  <h2 className="text-sm font-semibold">Maden Rengi</h2>
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                </div>
+                {selectedMetalColor && (
+                  <button
+                    onClick={() => setSelectedMetalColor(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Temizle
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {metalColors.map((metal) => {
+                  const isSelected = selectedMetalColor === metal.id;
+                  return (
+                    <motion.button
+                      key={metal.id}
+                      onClick={() => setSelectedMetalColor(metal.id === selectedMetalColor ? null : metal.id)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`relative p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/30 bg-card'
+                      }`}
+                    >
+                      <div
+                        className="w-7 h-7 rounded-full shadow-inner ring-1 ring-black/10"
+                        style={{ background: metal.gradient || metal.color }}
+                      />
+                      <p className="text-[10px] font-medium leading-tight">{metal.name}</p>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                        >
+                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Ürün tek renk veya ayırt edilemiyorsa seçin
+              </p>
+            </section>
+
+            {/* Step 5: Model Selection (Master Only) */}
+            <AnimatePresence>
+              {packageType === 'master' && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                      5
+                    </div>
+                    <h2 className="text-sm font-semibold">Model Seçimi</h2>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                  </div>
+                  <button
+                    onClick={() => setModelDialogOpen(true)}
+                    className="w-full p-4 rounded-xl border-2 border-border hover:border-primary/30 transition-all flex items-center justify-between bg-card"
+                  >
+                    <div className="flex items-center gap-3">
+                      {selectedModel?.preview_image_url ? (
+                        <img
+                          src={selectedModel.preview_image_url}
+                          alt={selectedModel.name}
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <User className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <p className="text-sm font-medium">
+                          {selectedModel?.name || 'Model seçilmedi'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedModel
+                            ? `${selectedModel.gender}, ${selectedModel.age_range}`
+                            : 'Manken görseli için model seçin'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Step 5/6: Scene Selection (Standard Only) */}
+            <AnimatePresence>
+              {packageType === 'standard' && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                      5
+                    </div>
+                    <h2 className="text-sm font-semibold">Sahne Seçin</h2>
+                  </div>
+                  <div className="bg-card rounded-xl border border-border p-4 max-h-[360px] overflow-y-auto">
+                    <SceneSelector
+                      scenes={filteredScenes}
+                      selectedSceneId={selectedSceneId}
+                      onSelect={setSelectedSceneId}
+                    />
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Right Column - Summary & Generate */}
-          <div className="lg:sticky lg:top-24 h-fit space-y-5">
-            {/* Summary Card */}
-            <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-              <h3 className="font-semibold">Özet</h3>
-              
-              {packageType === 'master' ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Crown className="h-4 w-4 text-primary" />
-                    <span className="font-medium">Master Paket</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-muted/50 rounded-lg p-3 text-center">
-                      <div className="text-lg mb-1">🛒</div>
-                      <p className="text-xs text-muted-foreground">E-Ticaret</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-3 text-center">
-                      <div className="text-lg mb-1">📸</div>
-                      <p className="text-xs text-muted-foreground">Katalog</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-3 text-center">
-                      <div className="text-lg mb-1">👤</div>
-                      <p className="text-xs text-muted-foreground">Manken</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm">
-                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>Standart Paket - 1 Görsel</span>
-                </div>
-              )}
-
-              {selectedProductType && (
-                <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
-                  <span className="text-lg">
-                    {productTypes.find(t => t.id === selectedProductType)?.icon}
-                  </span>
-                  <span>{productTypes.find(t => t.id === selectedProductType)?.name}</span>
-                </div>
-              )}
-
-              {selectedModel && (
-                <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{selectedModel.name}</span>
-                </div>
-              )}
-
-              {selectedMetalColor && (
-                <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
-                  <div 
-                    className="w-4 h-4 rounded-full ring-1 ring-black/10"
-                    style={{ 
-                      background: metalColors.find(m => m.id === selectedMetalColor)?.gradient || metalColors.find(m => m.id === selectedMetalColor)?.color 
-                    }}
-                  />
-                  <span>{metalColors.find(m => m.id === selectedMetalColor)?.name}</span>
-                </div>
-              )}
-
-              {packageType === 'standard' && selectedSceneId && (
-                <div className="flex items-center gap-2 text-sm border-t border-border pt-3">
-                  <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  <span>{scenes?.find(s => s.id === selectedSceneId)?.name_tr}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Credits & Generate */}
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm font-medium">Toplam Maliyet</p>
-                  <p className="text-xs text-muted-foreground">{totalImages} görsel oluşturulacak</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{creditsNeeded}</p>
-                  <p className="text-xs text-muted-foreground">kredi</p>
-                </div>
-              </div>
-
-              {!isAdminUser && profile && profile.credits < creditsNeeded && (
-                <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm mb-4">
-                  Yetersiz kredi (Mevcut: {profile.credits})
-                </div>
-              )}
-
-              <Button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className="w-full gap-2"
-                size="lg"
-              >
-                <Sparkles className="h-4 w-4" />
-                {isAdminUser ? 'Oluştur (Sınırsız)' : `Oluştur (${creditsNeeded} Kredi)`}
-              </Button>
-
-              {profile && !isAdminUser && (
-                <p className="text-xs text-center text-muted-foreground mt-3">
-                  Mevcut krediniz: <span className="font-semibold">{profile.credits}</span>
-                </p>
-              )}
-            </div>
+          {/* Right Column - Summary */}
+          <div className="lg:sticky lg:top-24 h-fit">
+            <SummaryPanel
+              packageType={packageType}
+              selectedProductType={selectedProductType}
+              selectedMetalColor={selectedMetalColor}
+              selectedModel={selectedModel || null}
+              selectedScene={selectedScene}
+              creditsNeeded={creditsNeeded}
+              totalImages={totalImages}
+              currentCredits={profile?.credits}
+              isAdminUser={isAdminUser}
+              canGenerate={canGenerate}
+              onGenerate={handleGenerate}
+            />
           </div>
         </div>
       </div>
@@ -676,7 +569,7 @@ export default function Generate() {
           <DialogHeader>
             <DialogTitle>Model Seçin</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {/* No model option */}
             <button
               onClick={() => {
@@ -713,8 +606,8 @@ export default function Generate() {
                 }`}
               >
                 {model.preview_image_url ? (
-                  <img 
-                    src={model.preview_image_url} 
+                  <img
+                    src={model.preview_image_url}
                     alt={model.name}
                     className="w-12 h-12 rounded-full object-cover"
                   />
