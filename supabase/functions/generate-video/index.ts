@@ -7,91 +7,98 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Cinematic Editorial Video Prompts - Minimal Movement, Smooth 24fps Feel
+// Cinematic Editorial Video Prompts - Subtle Dolly Zoom, No Sparkle
 const JEWELRY_VIDEO_PROMPTS = {
   default: `CINEMATIC EDITORIAL JEWELRY VIDEO
 
 MOTION DIRECTIVE:
-- 24fps cinematic smoothness, no stuttering
-- Ultra-minimal movement - almost frozen tableau
-- Breathing pace: one subtle motion across 8 seconds
-- No jerky transitions, no abrupt changes
-- Smooth silk-like motion flow
+- 24fps cinematic smoothness
+- Extremely slow, almost imperceptible dolly-in zoom
+- Camera gradually closes in on jewelry over 8 seconds
+- Movement so subtle viewer barely notices
+- No jerky transitions, silky smooth
 
 CAMERA:
-- Completely locked tripod, zero shake
-- No pan, no zoom, no drift
-- Static frame like a living photograph
+- Very slow push-in / dolly zoom toward product
+- Start slightly wide, end slightly tighter
+- Zero shake, tripod-mounted cinema feel
+- Focal point locked on jewelry center
 
-LIGHTING ANIMATION:
-- Only natural light shifts allowed
-- Soft caustic reflections on metal
-- No sparkle bursts, no lens flares
-- Gentle ambient light breathing
+FORBIDDEN:
+- NO sparkle effects
+- NO shimmer bursts
+- NO lens flares
+- NO CGI light effects
+- NO exaggerated reflections
+- NO rainbow dispersion on stones
 
 PRODUCT PRESERVATION (CRITICAL):
-- Metal color: EXACT match to source, no grading
+- Metal color: EXACT match to source
 - Jewelry proportions: Unchanged
 - Stone colors: Identical to input
-- No enhancement, no modification
+- Natural light behavior only
 
-MOOD: Quiet luxury advertising. Museum stillness with breath.
-Think: Cartier campaign, Tiffany editorial, Van Cleef elegance.`,
+MOOD: Quiet luxury advertising. Slow reveal. Editorial intimacy.
+Think: Cartier campaign, subtle dolly closing in on the piece.`,
   
   model: `CINEMATIC MODEL EDITORIAL - JEWELRY FOCUS
 
 MOTION DIRECTIVE:
 - 24fps buttery smooth motion
-- Model movement: barely perceptible
-- One micro-gesture across entire duration
-- Breathing visible but minimal
-- No expressions changes, no blinks
+- Very slow camera push-in toward model/jewelry
+- Model: barely perceptible breathing
+- One micro-gesture maximum
+- Camera does the movement, not the subject
 
 CAMERA:
-- Locked static frame
-- No movement whatsoever
-- Living photograph aesthetic
+- Gentle dolly-in zoom over 8 seconds
+- Starts at medium shot, ends slightly closer
+- Focus stays locked on jewelry
+- Cinema-grade stability
 
 MODEL BEHAVIOR:
-- Statuesque presence
-- Eyes may shift once, slowly
-- Hair may drift microscopically (wind)
+- Near-statuesque presence
+- Minimal breathing movement only
+- Eyes may shift once, very slowly
 - Hands absolutely still
-- Skin texture natural, no smoothing
+- Natural skin, no smoothing
 
-LIGHTING:
-- Natural light only
-- Soft play on skin and jewelry
-- No dramatic shifts
-- Ambient breathing of light
+FORBIDDEN:
+- NO sparkle or shimmer effects
+- NO artificial light bursts
+- NO lens flares or glows
+- NO exaggerated jewelry reflections
 
 PRODUCT PRESERVATION (CRITICAL):
 - Jewelry: EXACT replication from source
 - Metal color: Zero deviation
 - No artistic reinterpretation
 
-MOOD: High-fashion film still. Vogue Italia frozen moment.
-The model is a sculpture, jewelry is the soul.`,
+MOOD: High-fashion film. Camera slowly draws viewer into the jewelry.
+The model is still, camera movement creates intimacy.`,
 
   product: `PURE PRODUCT CINEMATIC - ADVERTISING GRADE
 
 MOTION DIRECTIVE:
 - Smooth 24fps commercial quality
-- Near-zero movement
-- Micro light reflections only
-- No rotation unless imperceptible
-- Time slowed to luxurious crawl
+- Slow deliberate dolly-in toward product
+- Camera gradually tightens frame
+- No rotation, just gentle forward movement
+- 8 second slow approach
 
 CAMERA:
-- Professional locked shot
-- Studio-grade stability
-- No lens artifacts
+- Professional cinema dolly feel
+- Starts slightly wide, ends on product detail
+- Zero shake, studio-grade stability
+- Smooth continuous motion
 
-SURFACE BEHAVIOR:
-- Metal catches light naturally
-- Soft reflection movement
-- Gemstones: subtle depth shimmer
-- No CGI sparkle effects
+FORBIDDEN:
+- NO sparkle effects whatsoever
+- NO shimmer or glitter
+- NO CGI light effects
+- NO lens flares
+- NO exaggerated stone brilliance
+- Light behaves naturally only
 
 PRODUCT PRESERVATION (CRITICAL):
 - 100% faithful to input image
@@ -99,9 +106,8 @@ PRODUCT PRESERVATION (CRITICAL):
 - Proportions: UNCHANGED
 - No enhancement, no beautification
 
-MOOD: E-commerce elevated to cinematic art.
-Think: Bulgari product film, Chopard commercial.
-Pure truth, premium presentation.`
+MOOD: E-commerce elevated to cinema. Slow reveal approach.
+Think: Bulgari commercial, camera drawing you closer to desire.`
 };
 
 serve(async (req) => {
