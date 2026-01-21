@@ -20,6 +20,7 @@ import { UploadArea } from "@/components/generate/UploadArea";
 import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
+import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,10 @@ export default function Generate() {
   const [packageType, setPackageType] = useState<PackageType>('master');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
+  
+  // Style reference state
+  const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
+  const [isStyleCompressing, setIsStyleCompressing] = useState(false);
   
   const MAX_IMAGES = 4;
   
@@ -201,6 +206,9 @@ export default function Generate() {
   const creditsNeeded = packageType === 'master' ? 2 : 1;
   const totalImages = packageType === 'master' ? 3 : 1;
 
+  // When style reference is uploaded, scene selection is disabled
+  const hasStyleReference = styleReference !== null;
+
   const canGenerate = useMemo(() => {
     if (uploadedImages.length === 0 || !user) return false;
     if (!selectedProductType) return false;
@@ -209,12 +217,15 @@ export default function Generate() {
       if (!profile || profile.credits < creditsNeeded) return false;
     }
 
+    // If style reference is used, no scene needed
+    if (hasStyleReference) return true;
+
     if (packageType === 'standard') {
       return !!selectedSceneId;
     }
 
     return true;
-  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference]);
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -249,7 +260,19 @@ export default function Generate() {
         metalColorOverride: selectedMetalColor,
       };
 
-      if (packageType === 'master') {
+      // If style reference is used, upload it and pass path instead of scene
+      if (styleReference) {
+        const styleFileExt = styleReference.file.name.split(".").pop();
+        const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
+        
+        const { error: styleUploadError } = await supabase.storage
+          .from("jewelry-images")
+          .upload(styleFilePath, styleReference.file);
+        
+        if (styleUploadError) throw styleUploadError;
+        
+        body.styleReferencePath = styleFilePath;
+      } else if (packageType === 'master') {
         body.modelId = selectedModelId;
       } else {
         body.sceneId = selectedSceneId;
@@ -517,7 +540,7 @@ export default function Generate() {
               )}
             </AnimatePresence>
 
-            {/* Step 5/6: Scene Selection (Standard Only) */}
+            {/* Step 5/6: Style Reference OR Scene Selection (Standard Only) */}
             <AnimatePresence>
               {packageType === 'standard' && (
                 <motion.section
@@ -526,18 +549,49 @@ export default function Generate() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
+                  {/* Style Reference Upload */}
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
                       5
                     </div>
-                    <h2 className="text-sm font-semibold">Sahne Seçin</h2>
+                    <h2 className="text-sm font-semibold">Stil Referansı veya Sahne</h2>
                   </div>
-                  <div className="bg-card rounded-xl border border-border p-4 max-h-[360px] overflow-y-auto">
-                    <SceneSelector
-                      scenes={filteredScenes}
-                      selectedSceneId={selectedSceneId}
-                      onSelect={setSelectedSceneId}
-                    />
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Style Reference */}
+                    <div>
+                      <StyleReferenceUpload
+                        styleReference={styleReference}
+                        onUpload={(ref) => {
+                          setStyleReference(ref);
+                          setSelectedSceneId(null); // Clear scene when style reference is added
+                        }}
+                        onRemove={() => setStyleReference(null)}
+                        isCompressing={isStyleCompressing}
+                        setIsCompressing={setIsStyleCompressing}
+                      />
+                    </div>
+
+                    {/* Scene Selection - Disabled when style reference exists */}
+                    <div className={hasStyleReference ? 'opacity-40 pointer-events-none' : ''}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          veya sahne seçin
+                        </p>
+                        {hasStyleReference && (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-accent text-accent-foreground">
+                            Devre dışı
+                          </span>
+                        )}
+                      </div>
+                      <div className="bg-card rounded-xl border border-border p-3 max-h-[300px] overflow-y-auto">
+                        <SceneSelector
+                          scenes={filteredScenes}
+                          selectedSceneId={selectedSceneId}
+                          onSelect={setSelectedSceneId}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </motion.section>
               )}
@@ -558,6 +612,7 @@ export default function Generate() {
               isAdminUser={isAdminUser}
               canGenerate={canGenerate}
               onGenerate={handleGenerate}
+              hasStyleReference={hasStyleReference}
             />
           </div>
         </div>
