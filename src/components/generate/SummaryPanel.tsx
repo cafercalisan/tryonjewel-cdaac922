@@ -28,6 +28,7 @@ interface SummaryPanelProps {
   isAdminUser: boolean;
   canGenerate: boolean;
   onGenerate: () => void;
+  hasStyleReference?: boolean;
 }
 
 export function SummaryPanel({
@@ -42,6 +43,7 @@ export function SummaryPanel({
   isAdminUser,
   canGenerate,
   onGenerate,
+  hasStyleReference = false,
 }: SummaryPanelProps) {
   const hasInsufficientCredits = !isAdminUser && currentCredits !== undefined && currentCredits < creditsNeeded;
 
@@ -68,7 +70,11 @@ export function SummaryPanel({
       icon: <User className="h-4 w-4 text-muted-foreground" />,
       label: selectedModel.name,
     },
-    packageType === 'standard' && selectedScene && {
+    hasStyleReference && {
+      icon: <Sparkles className="h-4 w-4 text-primary" />,
+      label: 'Stil Referansı',
+    },
+    packageType === 'standard' && selectedScene && !hasStyleReference && {
       icon: <Sparkles className="h-4 w-4 text-muted-foreground" />,
       label: selectedScene.name_tr,
     },
