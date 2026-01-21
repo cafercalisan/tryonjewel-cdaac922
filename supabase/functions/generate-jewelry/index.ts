@@ -936,6 +936,30 @@ PRIORITY ORDER (IMMUTABLE - HIGHER OVERRIDES LOWER):
 
 ${earringConstraints}
 
+═══════════════════════════════════════════════════════════════
+⚠️ ABSOLUTE PRODUCT FIDELITY CONSTRAINTS (ZERO TOLERANCE) ⚠️
+═══════════════════════════════════════════════════════════════
+
+THE JEWELRY MUST REMAIN 100% IDENTICAL TO REFERENCE:
+
+GEOMETRY LOCKED:
+- ❌ NO stone enlargement or size changes
+- ❌ NO stone cut modifications (round→princess, etc.)
+- ❌ NO stone count changes (adding/removing stones)
+- ❌ NO prong/setting structure alterations
+- ❌ NO metal link/chain segment changes
+- ❌ NO design element additions or removals
+- ❌ NO proportion distortions
+
+ANATOMY LOCKED:
+- ❌ NO nail structure changes (shape, length, color)
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+- Nails must be clean, neutral, non-distracting
+
+ANY DEVIATION FROM REFERENCE PRODUCT = GENERATION FAILURE
+═══════════════════════════════════════════════════════════════
+
 ⚠️ SCALE PRESERVATION (CRITICAL - DO NOT ENLARGE JEWELRY) ⚠️
 ${scaleNote}
 ${dimensionNote}
@@ -1081,17 +1105,95 @@ Ultra high resolution output.`;
       }
 
     } else {
-      // STANDARD: Single image with scene
+    // STANDARD: Single image with scene
       console.log('Standard generation with scene...');
       
+      // Check if this is a model (manken) category scene - requires human model in output
+      const isModelScene = scene?.category === 'manken';
+      
+      // For model scenes, inject mandatory model presence instructions
+      const modelSceneEnforcement = isModelScene ? `
+═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
+
+This is NOT a product-only shot. This is a MODEL SHOT where:
+- A HUMAN MODEL must be VISIBLE and WEARING the jewelry
+- The jewelry must be PHYSICALLY ON THE MODEL'S BODY
+- The model must be clearly visible in frame
+- This simulates a luxury fashion campaign / lookbook photography
+
+MODEL REQUIREMENTS:
+- Real human model with natural skin texture (visible pores, micro-texture)
+- Age range 23-35, editorial fashion model appearance
+- Expression calm, confident, editorial - NOT commercial/posed
+- Skin rendering: NO plastic, waxy, or beauty-filtered appearance
+- FEMALE BODY HAIR: Ultra-fine, nearly invisible vellus hair only
+- Natural imperfections allowed: subtle freckles, micro color variations
+
+FORBIDDEN (MODEL SCENE):
+- ❌ Product-only output without visible model
+- ❌ Standalone jewelry on surface/background
+- ❌ Floating product without human context
+- ❌ Plastic/CGI skin appearance
+- ❌ Beauty filter or over-retouching
+
+THE OUTPUT MUST CONTAIN A HUMAN MODEL WEARING THE JEWELRY.
+IF NO MODEL IS VISIBLE = GENERATION FAILURE.
+═══════════════════════════════════════════════════════════════
+` : '';
+
+      // Product fidelity enforcement block - prevents alterations
+      const productFidelityEnforcement = `
+═══════════════════════════════════════════════════════════════
+⚠️ ABSOLUTE PRODUCT FIDELITY CONSTRAINTS (ZERO TOLERANCE) ⚠️
+═══════════════════════════════════════════════════════════════
+
+THE JEWELRY MUST REMAIN 100% IDENTICAL TO REFERENCE:
+
+GEOMETRY LOCKED:
+- ❌ NO stone enlargement or size changes
+- ❌ NO stone cut modifications (round→princess, etc.)
+- ❌ NO stone count changes (adding/removing stones)
+- ❌ NO prong/setting structure alterations
+- ❌ NO metal link/chain segment changes
+- ❌ NO design element additions or removals
+- ❌ NO proportion distortions
+
+ANATOMY LOCKED (if model present):
+- ❌ NO nail structure changes (shape, length, color)
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+- ❌ Nails must be clean, neutral, non-distracting
+
+SCALE PRESERVATION:
+- Jewelry must appear at NATURAL PROPORTIONS relative to body/environment
+- If reference shows delicate/thin piece → output MUST be delicate/thin
+- If reference shows substantial/bold piece → output MUST be substantial/bold
+- NEVER scale up jewelry beyond reference dimensions
+
+ANY DEVIATION FROM REFERENCE PRODUCT = GENERATION FAILURE
+═══════════════════════════════════════════════════════════════
+`;
+
       const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
 
 ${productExtractionBlock}
 
 ${fidelityBlock}
 
+${productFidelityEnforcement}
+
+${modelSceneEnforcement}
+
 SCENE PLACEMENT:
 ${scene?.prompt || 'Elegant luxury setting with soft studio lighting, premium background.'}
+
+CINEMATIC RENDERING GLOBAL LOCKS:
+- cinematic_soft_diffusion = subtle
+- skin_texture = real (visible pores, micro-texture)
+- forbid = plastic skin, CGI glow, fashion pose, jewelry modifications
+- jewelry_focus_priority = maximum
 
 TECHNICAL REQUIREMENTS:
 - Ultra high resolution 4K output (3840x4800 pixels minimum)
@@ -1099,6 +1201,7 @@ TECHNICAL REQUIREMENTS:
 - Natural soft studio lighting with subtle highlights
 - Accurate metal reflections and gemstone refractions
 - The jewelry must look IDENTICAL to the reference
+- NO stone enlargement, NO nail changes, NO stone cut modifications
 
 Ultra high resolution output.`;
 
