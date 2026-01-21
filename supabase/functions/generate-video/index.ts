@@ -7,64 +7,101 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Luxury jewelry video animation prompts - CONSISTENCY FOCUSED (8 seconds)
+// Cinematic Editorial Video Prompts - Minimal Movement, Smooth 24fps Feel
 const JEWELRY_VIDEO_PROMPTS = {
-  default: `TASK: Animate this exact jewelry image with ultra-subtle slow motion.
+  default: `CINEMATIC EDITORIAL JEWELRY VIDEO
 
-CRITICAL - DO NOT CHANGE:
-- Metal color must remain EXACTLY as source
-- Jewelry design, shape, proportions - UNCHANGED  
-- Stone colors and placement - UNCHANGED
-- No additions, no modifications, no enhancements
-- No sparkle effects, no rainbow dispersion
-- No color grading that affects the jewelry
+MOTION DIRECTIVE:
+- 24fps cinematic smoothness, no stuttering
+- Ultra-minimal movement - almost frozen tableau
+- Breathing pace: one subtle motion across 8 seconds
+- No jerky transitions, no abrupt changes
+- Smooth silk-like motion flow
 
-ANIMATION STYLE:
-- Ultra slow motion (0.25x speed feel)
-- Barely perceptible movement
-- Soft, natural light shimmer only
-- Camera: Nearly static, locked tripod
-- Duration: 8 seconds of elegant stillness
+CAMERA:
+- Completely locked tripod, zero shake
+- No pan, no zoom, no drift
+- Static frame like a living photograph
 
-MOOD: Museum-quality presentation. Quiet luxury. Editorial calm.
-The jewelry should look exactly as photographed, only with subtle life.`,
+LIGHTING ANIMATION:
+- Only natural light shifts allowed
+- Soft caustic reflections on metal
+- No sparkle bursts, no lens flares
+- Gentle ambient light breathing
+
+PRODUCT PRESERVATION (CRITICAL):
+- Metal color: EXACT match to source, no grading
+- Jewelry proportions: Unchanged
+- Stone colors: Identical to input
+- No enhancement, no modification
+
+MOOD: Quiet luxury advertising. Museum stillness with breath.
+Think: Cartier campaign, Tiffany editorial, Van Cleef elegance.`,
   
-  model: `TASK: Animate this jewelry-on-model image with minimal, elegant motion.
+  model: `CINEMATIC MODEL EDITORIAL - JEWELRY FOCUS
 
-CRITICAL - DO NOT CHANGE:
-- Metal color: EXACT preservation required
-- Jewelry appearance: No modifications
-- Skin texture: Keep natural, no beauty filter
-- Model features: Unchanged
+MOTION DIRECTIVE:
+- 24fps buttery smooth motion
+- Model movement: barely perceptible
+- One micro-gesture across entire duration
+- Breathing visible but minimal
+- No expressions changes, no blinks
 
-ANIMATION STYLE:
-- Ultra slow, almost imperceptible movement
-- Slight breath motion only
-- No dramatic gestures or expressions
-- Camera: Completely static
-- Natural light play on jewelry surface
-- Duration: 8 seconds
+CAMERA:
+- Locked static frame
+- No movement whatsoever
+- Living photograph aesthetic
 
-MOOD: High-fashion editorial. Serene. Premium.
-Subject barely moves. Jewelry stays sharp and true to source.`,
+MODEL BEHAVIOR:
+- Statuesque presence
+- Eyes may shift once, slowly
+- Hair may drift microscopically (wind)
+- Hands absolutely still
+- Skin texture natural, no smoothing
 
-  product: `TASK: Animate this product jewelry shot with micro-motion only.
+LIGHTING:
+- Natural light only
+- Soft play on skin and jewelry
+- No dramatic shifts
+- Ambient breathing of light
 
-CRITICAL - DO NOT CHANGE:
-- Metal color: 100% faithful to source
+PRODUCT PRESERVATION (CRITICAL):
+- Jewelry: EXACT replication from source
+- Metal color: Zero deviation
 - No artistic reinterpretation
-- No added effects or enhancements
-- Jewelry must look identical to input
 
-ANIMATION STYLE:
-- Near-static presentation
-- Extremely subtle light reflection shifts
-- No rotation unless barely perceptible
-- Camera: Locked, professional studio feel
-- Duration: 8 seconds
+MOOD: High-fashion film still. Vogue Italia frozen moment.
+The model is a sculpture, jewelry is the soul.`,
 
-MOOD: E-commerce elevated to art. Pure product truth.
-This is about subtle life, not transformation.`
+  product: `PURE PRODUCT CINEMATIC - ADVERTISING GRADE
+
+MOTION DIRECTIVE:
+- Smooth 24fps commercial quality
+- Near-zero movement
+- Micro light reflections only
+- No rotation unless imperceptible
+- Time slowed to luxurious crawl
+
+CAMERA:
+- Professional locked shot
+- Studio-grade stability
+- No lens artifacts
+
+SURFACE BEHAVIOR:
+- Metal catches light naturally
+- Soft reflection movement
+- Gemstones: subtle depth shimmer
+- No CGI sparkle effects
+
+PRODUCT PRESERVATION (CRITICAL):
+- 100% faithful to input image
+- Metal color: EXACT
+- Proportions: UNCHANGED
+- No enhancement, no beautification
+
+MOOD: E-commerce elevated to cinematic art.
+Think: Bulgari product film, Chopard commercial.
+Pure truth, premium presentation.`
 };
 
 serve(async (req) => {
@@ -114,17 +151,19 @@ serve(async (req) => {
     const basePrompt = JEWELRY_VIDEO_PROMPTS[promptType as keyof typeof JEWELRY_VIDEO_PROMPTS] 
       || JEWELRY_VIDEO_PROMPTS.default;
 
-    // Full luxury jewelry prompt with strict color preservation
+    // Full luxury jewelry prompt with cinematic editorial locks
     const fullPrompt = `${basePrompt}
 
-CRITICAL REQUIREMENTS:
-- Metal color MUST remain EXACTLY as in the source image
-- No color grading that affects metal hue
-- No artistic reinterpretation of materials
-- Preserve exact gold/silver/rose gold tone
-- Ultra slow motion - premium, deliberate pace
-- Minimal movement - editorial elegance
-- Professional locked camera feel`;
+GLOBAL CINEMATIC LOCKS:
+- Frame rate feel: 24fps smooth cinematic
+- Motion speed: 0.1x perceived speed
+- Camera shake: ZERO
+- Movement type: Micro-gestures only
+- Transition style: Silk-smooth, no cuts
+- Color grading: Neutral, preserves metal truth
+- Metal color: EXACT source match (gold/silver/rose gold)
+- Duration: 8 seconds of elegant stillness
+- Quality: Advertising-grade production value`;
 
     console.log("Using prompt:", fullPrompt);
 
