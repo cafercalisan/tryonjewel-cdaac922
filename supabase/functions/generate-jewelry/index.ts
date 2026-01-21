@@ -228,8 +228,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride } = await req.json();
-    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath } = await req.json();
+    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -250,11 +250,16 @@ serve(async (req) => {
     }
     console.log(`Processing ${1 + validAdditionalPaths.length} reference image(s)`);
 
-    // Validate sceneId (required for standard, optional for master)
+    // Check if style reference is provided
+    const hasStyleReference = styleReferencePath && typeof styleReferencePath === 'string' && styleReferencePath.startsWith(`${userId}/style-references/`);
+    console.log(`Style reference mode: ${hasStyleReference ? 'ENABLED' : 'disabled'}`);
+
+    // Validate sceneId (required for standard without style reference, optional for master)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isMasterPackage = packageType === 'master';
     
-    if (!isMasterPackage && (!sceneId || !uuidRegex.test(sceneId))) {
+    // Scene is NOT required if style reference is provided
+    if (!isMasterPackage && !hasStyleReference && (!sceneId || !uuidRegex.test(sceneId))) {
       return new Response(
         JSON.stringify({ error: 'Invalid scene ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -288,9 +293,38 @@ serve(async (req) => {
 
     const imageUrl = imageUrls[0]; // Primary image URL for analysis
 
-    // Get scene if provided
+    // Get style reference image if provided
+    let styleReferenceUrl: string | null = null;
+    let styleReferenceBase64: string | null = null;
+    
+    if (hasStyleReference) {
+      const { data: styleSignedData, error: styleSignedError } = await supabase.storage
+        .from('jewelry-images')
+        .createSignedUrl(styleReferencePath, 3600);
+      
+      if (!styleSignedError && styleSignedData?.signedUrl) {
+        styleReferenceUrl = styleSignedData.signedUrl;
+        console.log('Style reference URL obtained');
+        
+        // Fetch and convert style reference to base64
+        try {
+          const styleResponse = await fetch(styleReferenceUrl);
+          const styleBuffer = await styleResponse.arrayBuffer();
+          if (styleBuffer.byteLength <= MAX_IMAGE_SIZE) {
+            styleReferenceBase64 = arrayBufferToBase64(styleBuffer);
+            console.log('Style reference converted to base64');
+          } else {
+            console.warn('Style reference too large, skipping');
+          }
+        } catch (err) {
+          console.error('Failed to fetch style reference:', err);
+        }
+      }
+    }
+
+    // Get scene if provided (and not using style reference)
     let scene = null;
-    if (sceneId && uuidRegex.test(sceneId)) {
+    if (!hasStyleReference && sceneId && uuidRegex.test(sceneId)) {
       const { data: sceneData } = await supabase
         .from('scenes')
         .select('*')
@@ -1104,6 +1138,100 @@ Ultra high resolution output.`;
         console.log(`Progress: ${generatedUrls.length}/3 images completed`);
       }
 
+    } else if (hasStyleReference && styleReferenceBase64) {
+      // STYLE REFERENCE MODE: Transfer product to user's style reference
+      console.log('Style reference generation mode...');
+      
+      const styleTransferPrompt = `[STYLE REFERENCE TRANSFER - PRODUCT INJECTION MODE]
+
+You are a commercial-grade luxury jewelry rendering engine.
+Your task: TRANSFER the jewelry product from the PRODUCT REFERENCE image(s) INTO the STYLE REFERENCE scene.
+
+═══════════════════════════════════════════════════════════════
+⚠️ DUAL-IMAGE INPUT INTERPRETATION ⚠️
+═══════════════════════════════════════════════════════════════
+
+IMAGE 1 (STYLE REFERENCE - THE TARGET):
+- This is the POSE, SCENE, LIGHTING, and ATMOSPHERE reference
+- Copy the composition, camera angle, body position, environment
+- If a model is present → output MUST have a model in similar pose
+- If product-only → output should be product-only with similar scene
+- The STYLE/MOOD of this image is the target
+
+IMAGE 2+ (PRODUCT REFERENCE - THE SOURCE):
+- This contains the JEWELRY PRODUCT to transfer
+- Extract the jewelry with 100% fidelity
+- Every stone, metal link, setting, and detail must be preserved
+- This jewelry must appear in the final output EXACTLY as shown
+
+═══════════════════════════════════════════════════════════════
+⚠️ STYLE TRANSFER RULES ⚠️
+═══════════════════════════════════════════════════════════════
+
+FROM STYLE REFERENCE (COPY):
+✔ Pose and body position
+✔ Camera angle and framing
+✔ Lighting direction and quality
+✔ Scene/environment atmosphere
+✔ Color grading and mood
+✔ Model characteristics (if present)
+
+FROM PRODUCT REFERENCE (PRESERVE 100%):
+✔ Exact jewelry geometry and proportions
+✔ Every stone position, count, and cut
+✔ Metal color, finish, and texture
+✔ All design elements and details
+✔ Chain/link structure (if applicable)
+✔ Setting and prong positions
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+═══════════════════════════════════════════════════════════════
+⚠️ ABSOLUTE PRODUCT FIDELITY (ZERO TOLERANCE) ⚠️
+═══════════════════════════════════════════════════════════════
+
+THE JEWELRY MUST REMAIN 100% IDENTICAL TO PRODUCT REFERENCE:
+
+GEOMETRY LOCKED:
+- ❌ NO stone enlargement or size changes
+- ❌ NO stone cut modifications
+- ❌ NO stone count changes
+- ❌ NO prong/setting structure alterations
+- ❌ NO metal link/chain segment changes
+- ❌ NO design element additions or removals
+- ❌ NO proportion distortions
+
+ANATOMY LOCKED (if model present):
+- ❌ NO nail structure changes
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+
+═══════════════════════════════════════════════════════════════
+
+TECHNICAL REQUIREMENTS:
+- 4:5 portrait aspect ratio (4K resolution: 3840x4800 pixels)
+- Ultra photorealistic rendering
+- Jewelry must be the sharpest element in frame
+- Natural lighting matching the style reference
+- Accurate metal reflections and gemstone refractions
+
+CINEMATIC RENDERING GLOBAL LOCKS:
+- cinematic_soft_diffusion = subtle
+- skin_texture = real (if model present)
+- forbid = plastic skin, CGI glow, jewelry modifications
+- jewelry_focus_priority = maximum
+
+Ultra high resolution output.`;
+
+      // Combine style reference with product images: style first, then products
+      const styleTransferImages = [styleReferenceBase64, ...base64Images];
+      
+      console.log(`Generating with style transfer: ${styleTransferImages.length} images (1 style + ${base64Images.length} product)`);
+      const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecord.id, 1, supabase);
+      if (url) generatedUrls.push(url);
+      
     } else {
     // STANDARD: Single image with scene
       console.log('Standard generation with scene...');
