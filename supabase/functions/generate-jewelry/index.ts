@@ -1142,10 +1142,68 @@ Ultra high resolution output.`;
       // STYLE REFERENCE MODE: Transfer product to user's style reference
       console.log('Style reference generation mode...');
       
+      // Build product type specific placement instructions
+      const productTypePlacement: Record<string, { bodyPart: string; placement: string; removal: string }> = {
+        'yuzuk': { 
+          bodyPart: 'hand/finger', 
+          placement: 'Place the ring on the finger in the exact position shown in the style reference. The ring must be worn naturally on the finger.',
+          removal: 'Remove any existing rings, bands, or finger jewelry from the style reference model before placing the new ring.'
+        },
+        'bileklik': { 
+          bodyPart: 'wrist', 
+          placement: 'Place the bracelet on the wrist exactly as shown in the style reference. The bracelet must wrap naturally around the wrist.',
+          removal: 'Remove any existing bracelets, bangles, watches, or wrist accessories from the style reference model before placing the new bracelet.'
+        },
+        'kupe': { 
+          bodyPart: 'ear', 
+          placement: 'Place the earring on the ear in the position shown in the style reference. If only one ear is visible, render only ONE earring (not a pair).',
+          removal: 'Remove any existing earrings, ear cuffs, or ear piercings from the style reference model before placing the new earring.'
+        },
+        'kolye': { 
+          bodyPart: 'neck/décolletage', 
+          placement: 'Place the necklace around the neck/décolletage area as shown in the style reference. The necklace must drape naturally.',
+          removal: 'Remove any existing necklaces, pendants, chains, or neck jewelry from the style reference model before placing the new necklace.'
+        },
+        'gerdanlik': { 
+          bodyPart: 'neck/collar', 
+          placement: 'Place the choker/statement necklace at the collar/neck area as shown in the style reference. It must sit naturally against the skin.',
+          removal: 'Remove any existing chokers, collar necklaces, or neck accessories from the style reference model before placing the new piece.'
+        },
+        'piercing': { 
+          bodyPart: 'ear/body', 
+          placement: 'Place the piercing jewelry in the appropriate piercing location as shown in the style reference.',
+          removal: 'Remove any existing piercings or piercing jewelry from the target location in the style reference before placing the new piercing.'
+        },
+      };
+
+      const selectedPlacement = productTypePlacement[productType] || {
+        bodyPart: 'appropriate body part',
+        placement: 'Place the jewelry on the model in the natural position for this type of jewelry.',
+        removal: 'Remove any existing jewelry or accessories from the target body part before placing the new jewelry.'
+      };
+
       const styleTransferPrompt = `[STYLE REFERENCE TRANSFER - PRODUCT INJECTION MODE]
 
 You are a commercial-grade luxury jewelry rendering engine.
 Your task: TRANSFER the jewelry product from the PRODUCT REFERENCE image(s) INTO the STYLE REFERENCE scene.
+
+═══════════════════════════════════════════════════════════════
+⚠️ CRITICAL PRE-PROCESSING STEP: ACCESSORY REMOVAL ⚠️
+═══════════════════════════════════════════════════════════════
+
+BEFORE placing the new jewelry, you MUST:
+1. IDENTIFY any existing jewelry, accessories, or adornments on the style reference model
+2. REMOVE all existing jewelry from the target body part: ${selectedPlacement.bodyPart}
+3. ${selectedPlacement.removal}
+4. The model should appear "jewelry-free" on the target area BEFORE the new product is placed
+
+REMOVAL CHECKLIST (execute before placement):
+- ❌ Remove ALL existing rings, bracelets, necklaces, earrings, piercings
+- ❌ Remove watches, bangles, chains, pendants
+- ❌ Remove any decorative accessories on the target body part
+- ❌ The model's ${selectedPlacement.bodyPart} must be CLEAN before new jewelry placement
+- ✔ Preserve the model's natural skin, pose, and appearance
+- ✔ Keep the lighting, scene, and atmosphere intact
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ DUAL-IMAGE INPUT INTERPRETATION ⚠️
@@ -1155,7 +1213,8 @@ IMAGE 1 (STYLE REFERENCE - THE TARGET):
 - This is the POSE, SCENE, LIGHTING, and ATMOSPHERE reference
 - Copy the composition, camera angle, body position, environment
 - If a model is present → output MUST have a model in similar pose
-- If product-only → output should be product-only with similar scene
+- FIRST: Remove any existing jewelry from the model (see removal step above)
+- THEN: Place the new product from Image 2+
 - The STYLE/MOOD of this image is the target
 
 IMAGE 2+ (PRODUCT REFERENCE - THE SOURCE):
@@ -1163,6 +1222,23 @@ IMAGE 2+ (PRODUCT REFERENCE - THE SOURCE):
 - Extract the jewelry with 100% fidelity
 - Every stone, metal link, setting, and detail must be preserved
 - This jewelry must appear in the final output EXACTLY as shown
+
+═══════════════════════════════════════════════════════════════
+⚠️ PRODUCT TYPE SPECIFIC PLACEMENT ⚠️
+═══════════════════════════════════════════════════════════════
+
+PRODUCT TYPE: ${productType?.toUpperCase() || 'JEWELRY'}
+TARGET BODY PART: ${selectedPlacement.bodyPart.toUpperCase()}
+
+PLACEMENT INSTRUCTION:
+${selectedPlacement.placement}
+
+CRITICAL PLACEMENT RULES:
+- The product MUST be placed on the correct body part for its type
+- Product placement must look NATURAL and physically accurate
+- The jewelry must interact realistically with the model's body
+- Proper shadows, occlusion, and contact points required
+- Scale must be proportional to the body part
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ STYLE TRANSFER RULES ⚠️
@@ -1175,6 +1251,7 @@ FROM STYLE REFERENCE (COPY):
 ✔ Scene/environment atmosphere
 ✔ Color grading and mood
 ✔ Model characteristics (if present)
+✔ Model's natural appearance (after removing existing jewelry)
 
 FROM PRODUCT REFERENCE (PRESERVE 100%):
 ✔ Exact jewelry geometry and proportions
@@ -1208,6 +1285,11 @@ ANATOMY LOCKED (if model present):
 - ❌ NO finger proportion distortions
 - ❌ NO extra fingers or deformed anatomy
 
+EARRING SPECIAL RULE:
+- If product type is EARRING and only ONE ear is visible → render only ONE earring
+- NEVER render two earrings on the same ear
+- One ear = One piercing = One earring (Absolute Constraint)
+
 ═══════════════════════════════════════════════════════════════
 
 TECHNICAL REQUIREMENTS:
@@ -1217,10 +1299,17 @@ TECHNICAL REQUIREMENTS:
 - Natural lighting matching the style reference
 - Accurate metal reflections and gemstone refractions
 
+PROCESS SUMMARY:
+1. Analyze style reference for pose, lighting, scene
+2. REMOVE existing jewelry from model's ${selectedPlacement.bodyPart}
+3. Place the new product on the ${selectedPlacement.bodyPart}
+4. Ensure natural integration with proper shadows and reflections
+5. Output final image with new jewelry worn naturally
+
 CINEMATIC RENDERING GLOBAL LOCKS:
 - cinematic_soft_diffusion = subtle
 - skin_texture = real (if model present)
-- forbid = plastic skin, CGI glow, jewelry modifications
+- forbid = plastic skin, CGI glow, jewelry modifications, existing accessories
 - jewelry_focus_priority = maximum
 
 Ultra high resolution output.`;
@@ -1229,6 +1318,7 @@ Ultra high resolution output.`;
       const styleTransferImages = [styleReferenceBase64, ...base64Images];
       
       console.log(`Generating with style transfer: ${styleTransferImages.length} images (1 style + ${base64Images.length} product)`);
+      console.log(`Product type: ${productType}, Target body part: ${selectedPlacement.bodyPart}`);
       const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecord.id, 1, supabase);
       if (url) generatedUrls.push(url);
       
