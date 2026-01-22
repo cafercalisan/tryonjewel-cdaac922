@@ -1046,27 +1046,28 @@ serve(async (req) => {
     console.log('Character DNA Prompt generated');
     console.log('Prompt length:', modelPrompt.length, 'characters');
 
-    // Generate image with Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Generate image with Google Gemini API (user's API key)
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-pro-image-preview',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: modelPrompt,
-          },
+            parts: [
+              { text: modelPrompt }
+            ]
+          }
         ],
-        modalities: ['image', 'text'],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE']
+        }
       }),
     });
 
@@ -1080,9 +1081,9 @@ serve(async (req) => {
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 403) {
         return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits.' }),
+          JSON.stringify({ error: 'API key issue. Please check your Google API key.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -1091,22 +1092,27 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const imageDataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url as string | undefined;
-
-    if (!imageDataUrl || !imageDataUrl.startsWith('data:image/')) {
+    
+    // Extract image from Google Gemini response format
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+    
+    if (!imagePart?.inlineData?.data) {
+      console.error('Response structure:', JSON.stringify(data, null, 2));
       throw new Error('No valid image generated');
     }
+    
+    const base64Image = imagePart.inlineData.data;
+    const mimeType = imagePart.inlineData.mimeType || 'image/png';
 
-    // Process and upload image
-    const commaIndex = imageDataUrl.indexOf(',');
-    if (commaIndex === -1) throw new Error('Invalid data URL format');
-    const base64Image = imageDataUrl.slice(commaIndex + 1);
+    // Process and upload image (base64 from Google Gemini response)
     const imageBuffer = Uint8Array.from(atob(base64Image), (c) => c.charCodeAt(0));
-    const filePath = `${userId}/models/${Date.now()}.png`;
+    const fileExtension = mimeType.includes('png') ? 'png' : 'jpg';
+    const filePath = `${userId}/models/${Date.now()}.${fileExtension}`;
 
     const { error: uploadError } = await supabase.storage
       .from('jewelry-images')
-      .upload(filePath, imageBuffer, { contentType: 'image/png' });
+      .upload(filePath, imageBuffer, { contentType: mimeType });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
