@@ -1052,10 +1052,11 @@ serve(async (req) => {
       throw new Error('GOOGLE_API_KEY not configured');
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': GOOGLE_API_KEY,
       },
       body: JSON.stringify({
         contents: [
