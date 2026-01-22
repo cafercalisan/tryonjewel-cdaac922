@@ -815,6 +815,114 @@ Ultra high resolution output.`;
       // Image 3: PRODUCT-FOCUSED LUXURY CLOSE-UP
       // Tight crop focused on jewelry worn on model, product occupies majority of frame
       
+      // ═══════════════════════════════════════════════════════════════
+      // DYNAMIC BACKGROUND VARIETY SYSTEM
+      // Each generation selects a RANDOM editorial background to ensure uniqueness
+      // ═══════════════════════════════════════════════════════════════
+      const editorialBackgrounds = [
+        // Mediterranean & Coastal
+        {
+          name: 'Mediterranean Cliff',
+          prompt: 'Mediterranean coastal cliff setting at golden hour, warm limestone rocks, azure sea in soft bokeh background, natural sunlight with salt air atmosphere, editorial outdoor luxury photography'
+        },
+        {
+          name: 'Greek Island Terrace',
+          prompt: 'Whitewashed Greek island terrace overlooking calm turquoise waters, soft diffused morning light, architectural minimalism with organic textures, serene Mediterranean atmosphere'
+        },
+        {
+          name: 'Santorini Blue Hour',
+          prompt: 'Santorini blue hour setting with subtle twilight glow, white architecture against deep blue sky, romantic coastal luxury atmosphere, soft ambient lighting'
+        },
+        // Desert & Sand
+        {
+          name: 'Desert Dunes Golden',
+          prompt: 'Saharan desert sand dunes at golden hour, warm amber tones, soft sculpted sand textures, endless horizon with natural warm light, editorial wilderness luxury'
+        },
+        {
+          name: 'Moroccan Stone',
+          prompt: 'Ancient Moroccan stone architecture with terracotta and ochre tones, dappled sunlight through carved screens, warm North African atmosphere, artisanal luxury setting'
+        },
+        // Natural & Organic
+        {
+          name: 'Botanical Garden',
+          prompt: 'Lush botanical garden with soft filtered light through foliage, deep green leaves with morning dew, natural organic luxury, editorial nature photography'
+        },
+        {
+          name: 'Forest Clearing',
+          prompt: 'Misty forest clearing with soft diffused light, ancient trees in background, moss and fern textures, ethereal natural atmosphere, woodland editorial'
+        },
+        {
+          name: 'Lavender Fields',
+          prompt: 'Provence lavender field at soft golden hour, purple flowers in gentle bokeh, warm pastoral French countryside, romantic outdoor editorial'
+        },
+        // Urban & Architectural
+        {
+          name: 'Marble Gallery',
+          prompt: 'Contemporary art gallery with white marble walls and floors, minimalist architectural space, soft museum lighting, clean sophisticated luxury backdrop'
+        },
+        {
+          name: 'Industrial Loft',
+          prompt: 'High-end industrial loft with exposed brick and steel elements, large windows with soft natural light, urban sophistication, editorial architectural setting'
+        },
+        {
+          name: 'Brutalist Concrete',
+          prompt: 'Modern brutalist concrete architecture, geometric shapes and textures, soft diffused overcast light, minimal urban luxury aesthetic'
+        },
+        // Water & Reflection
+        {
+          name: 'Still Water Pool',
+          prompt: 'Infinity pool with perfectly still water reflecting sky, minimal contemporary setting, serene reflective surface, meditative luxury atmosphere'
+        },
+        {
+          name: 'Coastal Tide Pool',
+          prompt: 'Natural rocky tide pool with crystal clear water, smooth volcanic stones, gentle ocean mist, organic coastal luxury setting'
+        },
+        // Fabric & Textile
+        {
+          name: 'Silk Drapery Ivory',
+          prompt: 'Flowing ivory silk drapery with soft sculptural folds, warm studio lighting creating gentle shadows, timeless elegance, editorial fabric photography'
+        },
+        {
+          name: 'Velvet Deep Navy',
+          prompt: 'Rich deep navy velvet fabric with subtle light play, luxurious textile texture, moody sophisticated backdrop, premium editorial setting'
+        },
+        {
+          name: 'Linen Natural Beige',
+          prompt: 'Organic natural linen textile in warm beige tones, soft wrinkled texture, warm diffused light, understated luxury aesthetic'
+        },
+        // Stone & Mineral
+        {
+          name: 'Travertine Stone',
+          prompt: 'Warm travertine stone surface with natural veining, soft neutral tones, Mediterranean architectural material, refined understated backdrop'
+        },
+        {
+          name: 'Black Volcanic',
+          prompt: 'Dramatic black volcanic stone texture, matte dark surface with subtle detail, contrast-rich backdrop for precious metals, bold editorial setting'
+        },
+        {
+          name: 'Rose Quartz',
+          prompt: 'Soft rose quartz crystal surface with gentle pink translucence, dreamy mineral texture, romantic feminine backdrop, precious stone aesthetic'
+        },
+        // Atmospheric & Abstract
+        {
+          name: 'Morning Mist',
+          prompt: 'Ethereal morning mist atmosphere, soft gradient from white to pale gray, minimal abstract backdrop, dreamy editorial quality'
+        },
+        {
+          name: 'Sunset Gradient',
+          prompt: 'Soft sunset gradient from warm peach to dusty rose, natural sky-inspired backdrop, romantic golden hour atmosphere, editorial warmth'
+        },
+        {
+          name: 'Storm Cloud',
+          prompt: 'Dramatic storm cloud backdrop with moody gray-blue tones, atmospheric tension, bold editorial contrast, avant-garde luxury setting'
+        }
+      ];
+      
+      // Randomly select a background for each generation
+      const randomBackgroundIndex = Math.floor(Math.random() * editorialBackgrounds.length);
+      const selectedBackground = editorialBackgrounds[randomBackgroundIndex];
+      console.log(`Selected random editorial background: ${selectedBackground.name}`);
+      
       // Determine body part and framing based on product type
       const productTypeUpper = (productType || analysisResult.type || 'ring').toLowerCase();
       
@@ -1076,12 +1184,28 @@ DIAMOND & STONE BEHAVIOR (PHYSICAL REALISM):
 - CLARITY over sparkle, DEPTH over flash
 - No artificial HDR glow, no CGI-like perfection
 
-BACKGROUND:
-- Muted and calm, stays secondary
-- Low-contrast, NEVER contaminates metal color
-- Allowed: stone, water, matte fabric, architectural minimalism
-- Forbidden: busy textures, high-saturation colors, reflective surfaces
-- Background tones slightly darker than jewelry for separation
+═══════════════════════════════════════════════════════════════
+⚠️ UNIQUE EDITORIAL BACKGROUND (RANDOMLY SELECTED) ⚠️
+═══════════════════════════════════════════════════════════════
+
+BACKGROUND ENVIRONMENT: ${selectedBackground.name}
+${selectedBackground.prompt}
+
+BACKGROUND RULES:
+- This background is UNIQUE to this generation
+- Background must stay SECONDARY to the jewelry
+- Background must be LOW-CONTRAST, not competing with product
+- Background MUST NOT contaminate metal color through reflections
+- Allowed elements: natural textures, architectural elements, organic materials, fabric
+- Forbidden: busy patterns, high-saturation distracting colors, reflective metallic surfaces
+
+DEPTH & SEPARATION:
+- Background in natural soft bokeh (f/4-f/5.6 depth)
+- Clear visual separation between product and background
+- Background tones can complement but never overpower jewelry
+- Product is ALWAYS the sharpest, most detailed element
+
+═══════════════════════════════════════════════════════════════
 
 MOOD:
 - Luxury fashion advertising
