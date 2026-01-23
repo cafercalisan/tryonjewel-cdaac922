@@ -819,102 +819,78 @@ Ultra high resolution output.`;
       // DYNAMIC BACKGROUND VARIETY SYSTEM
       // Each generation selects a RANDOM editorial background to ensure uniqueness
       // ═══════════════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════════════
+      // REALISTIC EDITORIAL BACKGROUNDS - NO FANTASY/CGI/ARTIFICIAL SCENES
+      // Only natural stone, luxury interiors, and simple elegant environments
+      // ═══════════════════════════════════════════════════════════════
       const editorialBackgrounds = [
-        // Mediterranean & Coastal
+        // NATURAL STONE SURFACES (Primary - Most Realistic)
         {
-          name: 'Mediterranean Cliff',
-          prompt: 'Mediterranean coastal cliff setting at golden hour, warm limestone rocks, azure sea in soft bokeh background, natural sunlight with salt air atmosphere, editorial outdoor luxury photography'
+          name: 'Carrara Marble',
+          prompt: 'Polished Carrara marble surface with natural gray veining, soft neutral daylight, clean luxury backdrop, premium product photography'
         },
-        {
-          name: 'Greek Island Terrace',
-          prompt: 'Whitewashed Greek island terrace overlooking calm turquoise waters, soft diffused morning light, architectural minimalism with organic textures, serene Mediterranean atmosphere'
-        },
-        {
-          name: 'Santorini Blue Hour',
-          prompt: 'Santorini blue hour setting with subtle twilight glow, white architecture against deep blue sky, romantic coastal luxury atmosphere, soft ambient lighting'
-        },
-        // Desert & Sand
-        {
-          name: 'Desert Dunes Golden',
-          prompt: 'Saharan desert sand dunes at golden hour, warm amber tones, soft sculpted sand textures, endless horizon with natural warm light, editorial wilderness luxury'
-        },
-        {
-          name: 'Moroccan Stone',
-          prompt: 'Ancient Moroccan stone architecture with terracotta and ochre tones, dappled sunlight through carved screens, warm North African atmosphere, artisanal luxury setting'
-        },
-        // Natural & Organic
-        {
-          name: 'Botanical Garden',
-          prompt: 'Lush botanical garden with soft filtered light through foliage, deep green leaves with morning dew, natural organic luxury, editorial nature photography'
-        },
-        {
-          name: 'Forest Clearing',
-          prompt: 'Misty forest clearing with soft diffused light, ancient trees in background, moss and fern textures, ethereal natural atmosphere, woodland editorial'
-        },
-        {
-          name: 'Lavender Fields',
-          prompt: 'Provence lavender field at soft golden hour, purple flowers in gentle bokeh, warm pastoral French countryside, romantic outdoor editorial'
-        },
-        // Urban & Architectural
-        {
-          name: 'Marble Gallery',
-          prompt: 'Contemporary art gallery with white marble walls and floors, minimalist architectural space, soft museum lighting, clean sophisticated luxury backdrop'
-        },
-        {
-          name: 'Industrial Loft',
-          prompt: 'High-end industrial loft with exposed brick and steel elements, large windows with soft natural light, urban sophistication, editorial architectural setting'
-        },
-        {
-          name: 'Brutalist Concrete',
-          prompt: 'Modern brutalist concrete architecture, geometric shapes and textures, soft diffused overcast light, minimal urban luxury aesthetic'
-        },
-        // Water & Reflection
-        {
-          name: 'Still Water Pool',
-          prompt: 'Infinity pool with perfectly still water reflecting sky, minimal contemporary setting, serene reflective surface, meditative luxury atmosphere'
-        },
-        {
-          name: 'Coastal Tide Pool',
-          prompt: 'Natural rocky tide pool with crystal clear water, smooth volcanic stones, gentle ocean mist, organic coastal luxury setting'
-        },
-        // Fabric & Textile
-        {
-          name: 'Silk Drapery Ivory',
-          prompt: 'Flowing ivory silk drapery with soft sculptural folds, warm studio lighting creating gentle shadows, timeless elegance, editorial fabric photography'
-        },
-        {
-          name: 'Velvet Deep Navy',
-          prompt: 'Rich deep navy velvet fabric with subtle light play, luxurious textile texture, moody sophisticated backdrop, premium editorial setting'
-        },
-        {
-          name: 'Linen Natural Beige',
-          prompt: 'Organic natural linen textile in warm beige tones, soft wrinkled texture, warm diffused light, understated luxury aesthetic'
-        },
-        // Stone & Mineral
         {
           name: 'Travertine Stone',
-          prompt: 'Warm travertine stone surface with natural veining, soft neutral tones, Mediterranean architectural material, refined understated backdrop'
+          prompt: 'Warm travertine stone surface with natural cream and beige tones, soft shadows, Mediterranean elegance, refined understated backdrop'
         },
         {
-          name: 'Black Volcanic',
-          prompt: 'Dramatic black volcanic stone texture, matte dark surface with subtle detail, contrast-rich backdrop for precious metals, bold editorial setting'
+          name: 'Black Volcanic Stone',
+          prompt: 'Matte black volcanic stone surface, subtle natural texture, dramatic contrast backdrop for precious metals, bold editorial setting'
         },
         {
-          name: 'Rose Quartz',
-          prompt: 'Soft rose quartz crystal surface with gentle pink translucence, dreamy mineral texture, romantic feminine backdrop, precious stone aesthetic'
-        },
-        // Atmospheric & Abstract
-        {
-          name: 'Morning Mist',
-          prompt: 'Ethereal morning mist atmosphere, soft gradient from white to pale gray, minimal abstract backdrop, dreamy editorial quality'
+          name: 'White Onyx',
+          prompt: 'Polished white onyx stone with subtle translucent veining, soft diffused light, minimal luxury aesthetic, premium product photography'
         },
         {
-          name: 'Sunset Gradient',
-          prompt: 'Soft sunset gradient from warm peach to dusty rose, natural sky-inspired backdrop, romantic golden hour atmosphere, editorial warmth'
+          name: 'Gray Slate',
+          prompt: 'Natural gray slate surface with subtle layered texture, cool neutral tones, sophisticated minimal backdrop, editorial product photography'
         },
         {
-          name: 'Storm Cloud',
-          prompt: 'Dramatic storm cloud backdrop with moody gray-blue tones, atmospheric tension, bold editorial contrast, avant-garde luxury setting'
+          name: 'Concrete Smooth',
+          prompt: 'Smooth polished concrete surface in soft gray, minimal industrial elegance, diffused natural light, modern luxury backdrop'
+        },
+        // LUXURY FABRIC SURFACES (Simple & Elegant)
+        {
+          name: 'Ivory Silk',
+          prompt: 'Flowing ivory silk fabric with soft sculptural folds, warm studio lighting, timeless elegance, premium editorial photography'
+        },
+        {
+          name: 'Deep Navy Velvet',
+          prompt: 'Rich deep navy velvet fabric surface, subtle light play on texture, luxurious sophisticated backdrop, premium editorial setting'
+        },
+        {
+          name: 'Natural Linen',
+          prompt: 'Organic natural linen textile in warm beige tones, soft texture, diffused warm light, understated luxury aesthetic'
+        },
+        {
+          name: 'Champagne Satin',
+          prompt: 'Soft champagne satin fabric with gentle reflections, warm neutral tones, elegant sophisticated backdrop, luxury product photography'
+        },
+        // MINIMAL INTERIOR SETTINGS
+        {
+          name: 'White Gallery Wall',
+          prompt: 'Clean white gallery wall with soft museum lighting, minimal architectural space, sophisticated art gallery aesthetic, premium backdrop'
+        },
+        {
+          name: 'Warm Wood Surface',
+          prompt: 'Polished warm walnut wood surface, natural grain visible, soft diffused light, understated organic luxury, product photography'
+        },
+        {
+          name: 'Terrazzo Surface',
+          prompt: 'Polished terrazzo surface with subtle stone chips in neutral tones, contemporary Italian design, minimal luxury backdrop'
+        },
+        // COASTAL STONE (Natural & Real)
+        {
+          name: 'Mediterranean Limestone',
+          prompt: 'Natural Mediterranean limestone rock surface, warm cream and beige tones, soft coastal daylight, organic luxury setting, real stone texture'
+        },
+        {
+          name: 'Coastal Pebbles',
+          prompt: 'Smooth coastal pebbles in neutral gray and beige tones, natural beach setting, soft diffused daylight, organic minimal backdrop'
+        },
+        {
+          name: 'Sea-worn Rock',
+          prompt: 'Smooth sea-worn rock surface in warm neutral tones, natural coastal erosion texture, soft daylight, authentic Mediterranean setting'
         }
       ];
       
