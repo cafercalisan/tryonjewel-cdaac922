@@ -6,27 +6,55 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Gem, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { loginSchema, type LoginFormData } from '@/lib/validation';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: '',
+    password: '',
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    // Clear error when user starts typing
+    if (errors[name as keyof LoginFormData]) {
+      setErrors({ ...errors, [name]: undefined });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    const { error } = await signIn(email, password);
     
+    // Validate form data
+    const result = loginSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Partial<Record<keyof LoginFormData, string>> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as keyof LoginFormData] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+
+    const { error } = await signIn(formData.email, formData.password);
+
     if (error) {
-      toast.error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+      toast.error('Giriş başarısız. E-posta veya şifrenizi kontrol edin.');
       setLoading(false);
       return;
     }
 
-    toast.success('Giriş başarılı!');
+    toast.success('Hoş geldiniz!');
     navigate('/panel');
   };
 
@@ -51,24 +79,34 @@ export default function Login() {
               <Label htmlFor="email">E-posta</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="ornek@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                value={formData.email}
+                onChange={handleChange}
+                className={errors.email ? 'border-destructive' : ''}
+                maxLength={255}
               />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Şifre</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                placeholder="Şifreniz"
+                value={formData.password}
+                onChange={handleChange}
+                className={errors.password ? 'border-destructive' : ''}
+                maxLength={72}
               />
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
@@ -84,9 +122,9 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Hesabınız yok mu? </span>
+            <span className="text-muted-foreground">Henüz hesabınız yok mu? </span>
             <Link to="/kayit" className="text-primary font-medium hover:underline">
-              Ücretsiz kaydolun
+              Ücretsiz oluşturun
             </Link>
           </div>
         </div>
