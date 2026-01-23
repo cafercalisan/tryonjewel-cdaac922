@@ -47,9 +47,7 @@ export default function Landing() {
               }} transition={{
                 duration: 0.6,
                 delay: 0.3
-              }} className="text-base md:text-lg text-muted-foreground mb-6 max-w-md mx-auto lg:mx-0 leading-relaxed font-serif">
-                  Ham fotoğrafları saniyeler içinde lüks kampanya karelerine dönüştürün. Stüdyo maliyetlerini geride bırakın.
-                </motion.p>
+              }} className="text-base md:text-lg text-muted-foreground mb-6 max-w-md mx-auto lg:mx-0 leading-relaxed font-serif">Ham mücevher fotoğraflarınızı saniyeler içinde lüks kampanya görsellerine dönüştürün.Stüdyo maliyetlerini geride bırakın.</motion.p>
                 
                 <motion.div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start" initial={{
                 opacity: 0,
@@ -394,7 +392,7 @@ export default function Landing() {
                           </div>
                           <div className="text-center">
                             <p className="text-2xl font-semibold text-primary">%300</p>
-                            <p className="text-xs text-muted-foreground">Daha uygun</p>
+                            <p className="text-xs text-muted-foreground">Etkileşim Artışı</p>
                           </div>
                         </div>
                       </div>
