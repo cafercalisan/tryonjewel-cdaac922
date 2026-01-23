@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { GoogleGenAI } from "https://esm.sh/@google/genai@1.14.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -246,40 +247,40 @@ GLOBAL CINEMATIC LOCKS:
       .update({ error_message: "Google Veo 3.1 API çağrılıyor..." })
       .eq("id", videoId);
 
-    // Use Veo 3.1 with image parameter for Image-to-Video
-    // Per docs: image parameter is for starting frame (Image-to-Video)
-    // NOT referenceImages which is for style transfer
-    console.log("Calling Google Veo 3.1 API with image-to-video...");
-    
-    const veoResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning?key=${GOOGLE_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          instances: [
-            {
-              prompt: fullPrompt,
-              // Use "image" for Image-to-Video (starting frame)
-              image: {
-                bytesBase64Encoded: base64Image,
-                mimeType: mimeType
-              }
-            }
-          ],
-          parameters: {
-            aspectRatio: "9:16",
-            sampleCount: 1
-          }
-        }),
-      }
-    );
+    // Use official Google GenAI client to avoid param-shape mismatches
+    // (This is the most reliable way to ensure we never send referenceImage/referenceImages.)
+    console.log("Calling Google Veo 3.1 via @google/genai (image-to-video)...");
 
-    if (!veoResponse.ok) {
-      const errorText = await veoResponse.text();
-      console.error("Veo 3.1 API error:", veoResponse.status, errorText);
+    const ai = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
+
+    let veo31OperationName: string | undefined;
+    let veo31ErrorText: string | undefined;
+
+    try {
+      // Per docs: `image` is the starting frame for Image-to-Video
+      const operation: any = await ai.models.generateVideos({
+        model: "veo-3.1-generate-preview",
+        prompt: fullPrompt,
+        image: {
+          imageBytes: base64Image,
+          mimeType,
+        },
+        // Keep config minimal to reduce schema mismatch risk
+        config: {
+          aspectRatio: "9:16",
+        },
+      });
+
+      veo31OperationName = operation?.name;
+      console.log("Veo 3.1 operation:", JSON.stringify(operation));
+    } catch (err) {
+      veo31ErrorText = err instanceof Error ? err.message : String(err);
+      console.error("Veo 3.1 generateVideos error:", err);
+    }
+
+    if (!veo31OperationName) {
+      const errorText = veo31ErrorText || "Unknown Veo 3.1 error";
+      console.error("Veo 3.1 API error:", errorText);
       
       // Try with Veo 2.0 as fallback (without image parameter for text-to-video)
       console.log("Trying Veo 2.0 text-to-video fallback...");
@@ -320,16 +321,16 @@ GLOBAL CINEMATIC LOCKS:
           .eq("id", videoId);
         
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             error: "Video API error",
             veo31Error: errorText,
             veo2Error: veo2ErrorText,
             hint: "Video generation API may not be available. Check API key permissions."
           }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           }
         );
       }
@@ -361,19 +362,16 @@ GLOBAL CINEMATIC LOCKS:
       }
     }
 
-    const operationData = await veoResponse.json();
-    console.log("Veo 3.1 API response:", JSON.stringify(operationData));
-
-    // Handle long-running operation
-    if (operationData.name) {
-      console.log("Got operation ID:", operationData.name);
+    // Handle long-running operation from Veo 3.1 client
+    if (veo31OperationName) {
+      console.log("Got operation ID:", veo31OperationName);
       
       // Save operation_id to database for client-side polling
       await supabase
         .from("videos")
         .update({ 
           status: "processing",
-          operation_id: operationData.name,
+          operation_id: veo31OperationName,
           error_message: "Video oluşturuluyor... Bu birkaç dakika sürebilir."
         })
         .eq("id", videoId);
@@ -382,7 +380,7 @@ GLOBAL CINEMATIC LOCKS:
         JSON.stringify({ 
           success: true, 
           status: "processing",
-          operationId: operationData.name,
+          operationId: veo31OperationName,
           videoId: videoId,
           message: "Video oluşturma başlatıldı. Durum otomatik olarak güncellenecek."
         }),
@@ -390,55 +388,23 @@ GLOBAL CINEMATIC LOCKS:
       );
     }
 
-    // Check for video URL in various response structures
-    const videoUrl = operationData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri
-      || operationData.response?.generatedVideos?.[0]?.video?.uri
-      || operationData.predictions?.[0]?.video?.uri 
-      || operationData.predictions?.[0]?.videoUri
-      || operationData.response?.predictions?.[0]?.video?.uri;
-    
-    if (videoUrl) {
-      await supabase
-        .from("videos")
-        .update({ 
-          status: "completed",
-          video_url: videoUrl,
-          error_message: null
-        })
-        .eq("id", videoId);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          status: "completed",
-          videoUrl: videoUrl,
-          videoId: videoId
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // No operation ID and no immediate result - log full response for debugging
-    console.error("Unexpected response structure:", JSON.stringify(operationData, null, 2));
-    
+    // If we didn't get an operation id, treat as error (client library should return one)
     await supabase
       .from("videos")
-      .update({ 
+      .update({
         status: "error",
-        error_message: "API yanıt formatı beklenenden farklı. Lütfen tekrar deneyin."
+        error_message: "Video başlatılamadı (operation id alınamadı). Lütfen tekrar deneyin."
       })
       .eq("id", videoId);
 
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: "No video URL received from API",
-        response: operationData,
-        hint: "The API response format may have changed. Check logs for details."
+      JSON.stringify({
+        success: false,
+        error: "No operation ID received from API",
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
 
