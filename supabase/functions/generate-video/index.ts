@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -231,46 +230,48 @@ GLOBAL CINEMATIC LOCKS:
     }
     
     const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = base64Encode(imageBuffer);
+    const uint8Array = new Uint8Array(imageBuffer);
+    // Convert to base64 manually
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Image = btoa(binary);
     const mimeType = imageResponse.headers.get("content-type") || "image/png";
     console.log("Image fetched, size:", imageBuffer.byteLength, "bytes, type:", mimeType);
 
     // Update status
     await supabase
       .from("videos")
-      .update({ error_message: "Google Veo API çağrılıyor..." })
+      .update({ error_message: "Google Veo 3.1 API çağrılıyor..." })
       .eq("id", videoId);
 
-    // Use Google Veo 3.1 API with correct format per documentation
-    // Endpoint: veo-3.1-generate-preview:predictLongRunning
-    console.log("Calling Google Veo 3.1 API...");
+    // Use Veo 3.1 with image parameter for Image-to-Video
+    // Per docs: image parameter is for starting frame (Image-to-Video)
+    // NOT referenceImages which is for style transfer
+    console.log("Calling Google Veo 3.1 API with image-to-video...");
     
     const veoResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning`,
+      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning?key=${GOOGLE_API_KEY}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": GOOGLE_API_KEY,
         },
         body: JSON.stringify({
           instances: [
             {
               prompt: fullPrompt,
-              referenceImages: [
-                {
-                  referenceImage: {
-                    bytesBase64Encoded: base64Image,
-                    mimeType: mimeType
-                  },
-                  referenceType: "STYLE"
-                }
-              ]
+              // Use "image" for Image-to-Video (starting frame)
+              image: {
+                bytesBase64Encoded: base64Image,
+                mimeType: mimeType
+              }
             }
           ],
           parameters: {
             aspectRatio: "9:16",
-            resolution: "720p"
+            sampleCount: 1
           }
         }),
       }
@@ -278,36 +279,90 @@ GLOBAL CINEMATIC LOCKS:
 
     if (!veoResponse.ok) {
       const errorText = await veoResponse.text();
-      console.error("Veo API error:", veoResponse.status, errorText);
+      console.error("Veo 3.1 API error:", veoResponse.status, errorText);
       
-      // Try alternative model if first one fails
-      console.log("Trying alternative video generation approach...");
+      // Try with Veo 2.0 as fallback (without image parameter for text-to-video)
+      console.log("Trying Veo 2.0 text-to-video fallback...");
       
-      // Update with specific error
-      await supabase
-        .from("videos")
-        .update({ 
-          status: "error",
-          error_message: `Video API hatası (${veoResponse.status}): ${errorText.substring(0, 200)}`
-        })
-        .eq("id", videoId);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Video API error: ${veoResponse.status}`,
-          details: errorText,
-          hint: "Video generation API may not be available in your region or API key may not have access."
-        }),
-        { 
-          status: veoResponse.status, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      const veo2Response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            instances: [
+              {
+                prompt: fullPrompt
+              }
+            ],
+            parameters: {
+              aspectRatio: "9:16",
+              sampleCount: 1,
+              durationSeconds: 5,
+              personGeneration: "allow_adult"
+            }
+          }),
         }
       );
+      
+      if (!veo2Response.ok) {
+        const veo2ErrorText = await veo2Response.text();
+        console.error("Veo 2.0 API error:", veo2Response.status, veo2ErrorText);
+        
+        await supabase
+          .from("videos")
+          .update({ 
+            status: "error",
+            error_message: `Video API hatası: Veo 3.1 (${errorText.substring(0, 100)}), Veo 2.0 (${veo2ErrorText.substring(0, 100)})`
+          })
+          .eq("id", videoId);
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Video API error",
+            veo31Error: errorText,
+            veo2Error: veo2ErrorText,
+            hint: "Video generation API may not be available. Check API key permissions."
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+      
+      // Process Veo 2.0 response
+      const veo2Data = await veo2Response.json();
+      console.log("Veo 2.0 response:", JSON.stringify(veo2Data));
+      
+      if (veo2Data.name) {
+        await supabase
+          .from("videos")
+          .update({ 
+            status: "processing",
+            operation_id: veo2Data.name,
+            error_message: "Video oluşturuluyor (Veo 2.0)... Bu birkaç dakika sürebilir."
+          })
+          .eq("id", videoId);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            status: "processing",
+            operationId: veo2Data.name,
+            videoId: videoId,
+            message: "Video oluşturma başlatıldı (Veo 2.0)."
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const operationData = await veoResponse.json();
-    console.log("Veo API response:", JSON.stringify(operationData));
+    console.log("Veo 3.1 API response:", JSON.stringify(operationData));
 
     // Handle long-running operation
     if (operationData.name) {
@@ -335,8 +390,9 @@ GLOBAL CINEMATIC LOCKS:
       );
     }
 
-    // Check for video URL in various response structures per Veo API docs
+    // Check for video URL in various response structures
     const videoUrl = operationData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri
+      || operationData.response?.generatedVideos?.[0]?.video?.uri
       || operationData.predictions?.[0]?.video?.uri 
       || operationData.predictions?.[0]?.videoUri
       || operationData.response?.predictions?.[0]?.video?.uri;
