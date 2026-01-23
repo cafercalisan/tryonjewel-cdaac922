@@ -241,12 +241,12 @@ GLOBAL CINEMATIC LOCKS:
       .update({ error_message: "Google Veo API çağrılıyor..." })
       .eq("id", videoId);
 
-    // Try Veo 2.0 (imagen-3.0-generate-001 for video is not available, use veo-2.0)
-    // Using the correct endpoint format for video generation
-    console.log("Calling Google Veo 2.0 API...");
+    // Use Google Veo 3.1 API with correct format per documentation
+    // Endpoint: veo-3.1-generate-preview:predictLongRunning
+    console.log("Calling Google Veo 3.1 API...");
     
     const veoResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning`,
+      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning`,
       {
         method: "POST",
         headers: {
@@ -257,17 +257,20 @@ GLOBAL CINEMATIC LOCKS:
           instances: [
             {
               prompt: fullPrompt,
-              image: {
-                bytesBase64Encoded: base64Image,
-                mimeType: mimeType
-              }
+              referenceImages: [
+                {
+                  referenceImage: {
+                    bytesBase64Encoded: base64Image,
+                    mimeType: mimeType
+                  },
+                  referenceType: "STYLE"
+                }
+              ]
             }
           ],
           parameters: {
             aspectRatio: "9:16",
-            sampleCount: 1,
-            durationSeconds: 5,
-            personGeneration: "allow_adult"
+            resolution: "720p"
           }
         }),
       }
@@ -332,8 +335,9 @@ GLOBAL CINEMATIC LOCKS:
       );
     }
 
-    // If we get immediate result (unlikely for video)
-    const videoUrl = operationData.predictions?.[0]?.video?.uri 
+    // Check for video URL in various response structures per Veo API docs
+    const videoUrl = operationData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri
+      || operationData.predictions?.[0]?.video?.uri 
       || operationData.predictions?.[0]?.videoUri
       || operationData.response?.predictions?.[0]?.video?.uri;
     
