@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Gem, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { signupSchema, type SignupFormData } from '@/lib/validation';
 
 export default function Signup() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -16,23 +17,44 @@ export default function Signup() {
     company: '',
     password: '',
   });
+  const [errors, setErrors] = useState<Partial<Record<keyof SignupFormData, string>>>({});
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    // Clear error when user starts typing
+    if (errors[name as keyof SignupFormData]) {
+      setErrors({ ...errors, [name]: undefined });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form data
+    const result = signupSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Partial<Record<keyof SignupFormData, string>> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as keyof SignupFormData] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
     setLoading(true);
+    setErrors({});
 
     const { error } = await signUp(formData.email, formData.password, {
       first_name: formData.firstName,
       last_name: formData.lastName,
-      phone: formData.phone,
-      company: formData.company,
+      phone: formData.phone || undefined,
+      company: formData.company || undefined,
     });
 
     if (error) {
@@ -71,8 +93,12 @@ export default function Signup() {
                   placeholder="Adınız"
                   value={formData.firstName}
                   onChange={handleChange}
-                  required
+                  className={errors.firstName ? 'border-destructive' : ''}
+                  maxLength={50}
                 />
+                {errors.firstName && (
+                  <p className="text-xs text-destructive">{errors.firstName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Soyad</Label>
@@ -82,8 +108,12 @@ export default function Signup() {
                   placeholder="Soyadınız"
                   value={formData.lastName}
                   onChange={handleChange}
-                  required
+                  className={errors.lastName ? 'border-destructive' : ''}
+                  maxLength={50}
                 />
+                {errors.lastName && (
+                  <p className="text-xs text-destructive">{errors.lastName}</p>
+                )}
               </div>
             </div>
 
@@ -96,8 +126,12 @@ export default function Signup() {
                 placeholder="ornek@email.com"
                 value={formData.email}
                 onChange={handleChange}
-                required
+                className={errors.email ? 'border-destructive' : ''}
+                maxLength={255}
               />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -109,7 +143,12 @@ export default function Signup() {
                 placeholder="+90 5XX XXX XX XX"
                 value={formData.phone}
                 onChange={handleChange}
+                className={errors.phone ? 'border-destructive' : ''}
+                maxLength={20}
               />
+              {errors.phone && (
+                <p className="text-xs text-destructive">{errors.phone}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -122,7 +161,12 @@ export default function Signup() {
                 placeholder="Şirket adı"
                 value={formData.company}
                 onChange={handleChange}
+                className={errors.company ? 'border-destructive' : ''}
+                maxLength={100}
               />
+              {errors.company && (
+                <p className="text-xs text-destructive">{errors.company}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -131,12 +175,15 @@ export default function Signup() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="En az 6 karakter"
+                placeholder="En az 8 karakter, büyük/küçük harf ve rakam"
                 value={formData.password}
                 onChange={handleChange}
-                required
-                minLength={6}
+                className={errors.password ? 'border-destructive' : ''}
+                maxLength={72}
               />
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>

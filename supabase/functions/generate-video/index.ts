@@ -189,6 +189,57 @@ serve(async (req) => {
     console.log("Source image:", imageUrl);
     console.log("Prompt type:", promptType);
 
+    // ========== CREDIT CHECK & DEDUCTION ==========
+    const VIDEO_CREDIT_COST = 2; // Video costs 2 credits
+
+    // Check if user is admin (unlimited generation)
+    const { data: isAdmin } = await supabase
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    
+    const isAdminUser = isAdmin === true;
+    console.log(`User ${user.id} admin status: ${isAdminUser}`);
+
+    // Deduct credits for non-admin users
+    if (!isAdminUser) {
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_credits', { _user_id: user.id, _amount: VIDEO_CREDIT_COST });
+
+      if (deductError) {
+        console.error('Credit deduction error:', deductError);
+        await supabase
+          .from("videos")
+          .update({ status: "error", error_message: "Kredi kontrolü sırasında hata oluştu" })
+          .eq("id", videoId);
+        
+        return new Response(
+          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu' }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!deductResult?.success) {
+        const currentCredits = deductResult?.current_credits ?? 0;
+        await supabase
+          .from("videos")
+          .update({ status: "error", error_message: `Yetersiz kredi. ${VIDEO_CREDIT_COST} kredi gerekli.` })
+          .eq("id", videoId);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: `Yetersiz kredi. ${VIDEO_CREDIT_COST} kredi gerekli, mevcut: ${currentCredits}.`,
+            required: VIDEO_CREDIT_COST,
+            available: currentCredits
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`Credits deducted: ${VIDEO_CREDIT_COST}, remaining: ${deductResult.remaining_credits}`);
+    } else {
+      console.log('Admin user - skipping credit deduction');
+    }
+    // ========== END CREDIT CHECK ==========
+
     // Select appropriate prompt
     const selectedPrompt = JEWELRY_VIDEO_PROMPTS[promptType as keyof typeof JEWELRY_VIDEO_PROMPTS] 
       || JEWELRY_VIDEO_PROMPTS.default;
