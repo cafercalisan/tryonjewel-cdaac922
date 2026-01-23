@@ -7,107 +7,143 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Cinematic Editorial Video Prompts - Subtle Dolly Zoom, No Sparkle
+// ========== LUXURY JEWELRY VIDEO PROMPTS ==========
+// Core Framework: High-end editorial jewelry video with minimal, controlled motion
+
+const CORE_FRAMEWORK = `High-end editorial jewelry video.
+Minimal, controlled motion.
+Slow cinematic pacing, no exaggerated movement.
+Natural light behavior, soft highlights, realistic reflections.
+Camera movement is subtle and intentional.
+Luxury fashion campaign aesthetic.
+No fast cuts, no dramatic effects, no artificial glow.`;
+
 const JEWELRY_VIDEO_PROMPTS = {
-  default: `CINEMATIC EDITORIAL JEWELRY VIDEO
+  // Default: Slow Push-In (Most Premium & Safe)
+  default: `${CORE_FRAMEWORK}
 
-MOTION DIRECTIVE:
-- 24fps cinematic smoothness
-- Extremely slow, almost imperceptible dolly-in zoom
-- Camera gradually closes in on jewelry over 8 seconds
-- Movement so subtle viewer barely notices
-- No jerky transitions, silky smooth
+CAMERA MOVEMENT: Slow Push-In
+Slow cinematic push-in camera movement.
+Camera advances very slightly toward the jewelry.
+Motion is almost imperceptible.
+Macro depth of field, realistic metal and gemstone reflections.
+Editorial fashion film style.
 
-CAMERA:
-- Very slow push-in / dolly zoom toward product
-- Start slightly wide, end slightly tighter
-- Zero shake, tripod-mounted cinema feel
-- Focal point locked on jewelry center
-
-FORBIDDEN:
-- NO sparkle effects
-- NO shimmer bursts
-- NO lens flares
-- NO CGI light effects
-- NO exaggerated reflections
-- NO rainbow dispersion on stones
+LIGHTING & LENS:
+Natural diffused light.
+No artificial light flares.
+Soft shadows, realistic contrast.
+Cinematic lens simulation (50mm or 85mm).
+Shallow depth of field, realistic focus breathing.
 
 PRODUCT PRESERVATION (CRITICAL):
-- Metal color: EXACT match to source
-- Jewelry proportions: Unchanged
+- Metal color: EXACT match to source image
+- Jewelry proportions: UNCHANGED
 - Stone colors: Identical to input
 - Natural light behavior only
 
-MOOD: Quiet luxury advertising. Slow reveal. Editorial intimacy.
-Think: Cartier campaign, subtle dolly closing in on the piece.`,
+FORBIDDEN KEYWORDS:
+NO dramatic, NO dynamic motion, NO fast camera
+NO cinematic explosion, NO glowing effects
+NO intense lighting, NO flashy transitions`,
   
-  model: `CINEMATIC MODEL EDITORIAL - JEWELRY FOCUS
-
-MOTION DIRECTIVE:
-- 24fps buttery smooth motion
-- Very slow camera push-in toward model/jewelry
-- Model: barely perceptible breathing
-- One micro-gesture maximum
-- Camera does the movement, not the subject
-
-CAMERA:
-- Gentle dolly-in zoom over 8 seconds
-- Starts at medium shot, ends slightly closer
-- Focus stays locked on jewelry
-- Cinema-grade stability
+  // Model Shot: Slow Side Drift (Editorial Fashion Feel)
+  model: `${CORE_FRAMEWORK}
 
 MODEL BEHAVIOR:
-- Near-statuesque presence
-- Minimal breathing movement only
-- Eyes may shift once, very slowly
-- Hands absolutely still
-- Natural skin, no smoothing
+Model is standing still.
+Only natural breathing motion.
+Very subtle weight shift.
+Hands relaxed, no posing.
+Jewelry moves naturally with the body.
 
-FORBIDDEN:
-- NO sparkle or shimmer effects
-- NO artificial light bursts
-- NO lens flares or glows
-- NO exaggerated jewelry reflections
+CAMERA MOVEMENT: Slow Horizontal Drift
+Slow horizontal camera drift.
+Movement is smooth and continuous.
+Model remains relaxed and natural.
+Jewelry stays in sharp focus.
+Editorial fashion film lighting.
+No posing, no dramatic gestures.
+
+LIGHTING & LENS:
+Natural diffused light.
+No artificial light flares.
+Soft shadows, realistic contrast.
+Cinematic lens simulation (50mm or 85mm).
+Shallow depth of field, realistic focus breathing.
 
 PRODUCT PRESERVATION (CRITICAL):
-- Jewelry: EXACT replication from source
-- Metal color: Zero deviation
-- No artistic reinterpretation
+- Metal color: EXACT match to source image
+- Jewelry: EXACT replication, no artistic reinterpretation
+- Natural skin texture, pores visible
+- No beauty blur, no plastic skin
 
-MOOD: High-fashion film. Camera slowly draws viewer into the jewelry.
-The model is still, camera movement creates intimacy.`,
+FORBIDDEN KEYWORDS:
+NO dramatic, NO dynamic motion, NO fast camera
+NO cinematic explosion, NO glowing effects
+NO intense lighting, NO flashy transitions`,
 
-  product: `PURE PRODUCT CINEMATIC - ADVERTISING GRADE
+  // Product: Micro Parallax (Static but Alive)
+  product: `${CORE_FRAMEWORK}
 
-MOTION DIRECTIVE:
-- Smooth 24fps commercial quality
-- Slow deliberate dolly-in toward product
-- Camera gradually tightens frame
-- No rotation, just gentle forward movement
-- 8 second slow approach
+CAMERA MOVEMENT: Micro Parallax
+Very subtle parallax motion.
+Foreground and background shift minimally.
+Jewelry remains perfectly stable.
+Camera movement is calm and controlled.
+Feels like a luxury magazine video loop.
 
-CAMERA:
-- Professional cinema dolly feel
-- Starts slightly wide, ends on product detail
-- Zero shake, studio-grade stability
-- Smooth continuous motion
-
-FORBIDDEN:
-- NO sparkle effects whatsoever
-- NO shimmer or glitter
-- NO CGI light effects
-- NO lens flares
-- NO exaggerated stone brilliance
-- Light behaves naturally only
+LIGHTING & LENS:
+Natural diffused light.
+No artificial light flares.
+Soft shadows, realistic contrast.
+Cinematic lens simulation (50mm or 85mm).
+Shallow depth of field, realistic focus breathing.
 
 PRODUCT PRESERVATION (CRITICAL):
 - 100% faithful to input image
-- Metal color: EXACT
+- Metal color: EXACT, zero deviation
 - Proportions: UNCHANGED
 - No enhancement, no beautification
 
-MOOD: E-commerce elevated to cinema. Slow reveal approach.
-Think: Bulgari commercial, camera drawing you closer to desire.`
+FORBIDDEN KEYWORDS:
+NO dramatic, NO dynamic motion, NO fast camera
+NO cinematic explosion, NO glowing effects
+NO intense lighting, NO flashy transitions`,
+
+  // Hand/Ring Close-up: Minimal Hand Movement
+  closeup: `${CORE_FRAMEWORK}
+
+HAND BEHAVIOR:
+Hand remains mostly still.
+Very slow finger relaxation movement.
+Skin texture and veins are natural.
+Jewelry scale remains accurate.
+No hand acting or posing.
+
+CAMERA MOVEMENT: Slow Push-In
+Slow cinematic push-in camera movement.
+Camera advances very slightly toward the jewelry.
+Motion is almost imperceptible.
+Macro depth of field.
+
+LIGHTING & LENS:
+Natural diffused light.
+No artificial light flares.
+Soft shadows, realistic contrast.
+Cinematic lens simulation (85mm macro).
+Shallow depth of field, realistic focus breathing.
+
+PRODUCT PRESERVATION (CRITICAL):
+- Metal color: EXACT match to source
+- Ring/bracelet proportions: UNCHANGED
+- Natural skin texture preserved
+- No artificial smoothing
+
+FORBIDDEN KEYWORDS:
+NO dramatic, NO dynamic motion, NO fast camera
+NO cinematic explosion, NO glowing effects
+NO intense lighting, NO flashy transitions`
 };
 
 serve(async (req) => {
@@ -154,21 +190,18 @@ serve(async (req) => {
     console.log("Prompt type:", promptType);
 
     // Select appropriate prompt
-    const basePrompt = JEWELRY_VIDEO_PROMPTS[promptType as keyof typeof JEWELRY_VIDEO_PROMPTS] 
+    const selectedPrompt = JEWELRY_VIDEO_PROMPTS[promptType as keyof typeof JEWELRY_VIDEO_PROMPTS] 
       || JEWELRY_VIDEO_PROMPTS.default;
 
-    // Full luxury jewelry prompt with cinematic editorial locks
-    const fullPrompt = `${basePrompt}
+    // Full prompt with global locks
+    const fullPrompt = `${selectedPrompt}
 
 GLOBAL CINEMATIC LOCKS:
-- Frame rate feel: 24fps smooth cinematic
-- Motion speed: 0.1x perceived speed
-- Camera shake: ZERO
-- Movement type: Micro-gestures only
-- Transition style: Silk-smooth, no cuts
+- Frame rate: 24fps smooth cinematic feel
+- Duration: 5-8 seconds of elegant stillness
+- Motion speed: Very slow, almost imperceptible
+- Camera shake: ZERO (tripod-mounted cinema feel)
 - Color grading: Neutral, preserves metal truth
-- Metal color: EXACT source match (gold/silver/rose gold)
-- Duration: 8 seconds of elegant stillness
 - Quality: Advertising-grade production value`;
 
     console.log("Using prompt:", fullPrompt);
@@ -200,7 +233,7 @@ GLOBAL CINEMATIC LOCKS:
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = base64Encode(imageBuffer);
     const mimeType = imageResponse.headers.get("content-type") || "image/png";
-    console.log("Image fetched, size:", imageBuffer.byteLength, "bytes");
+    console.log("Image fetched, size:", imageBuffer.byteLength, "bytes, type:", mimeType);
 
     // Update status
     await supabase
@@ -208,12 +241,12 @@ GLOBAL CINEMATIC LOCKS:
       .update({ error_message: "Google Veo API çağrılıyor..." })
       .eq("id", videoId);
 
-    // Call Google Veo API (using Veo 3.1 - latest model)
-    console.log("Calling Google Veo 3.1 API...");
+    // Try Veo 2.0 (imagen-3.0-generate-001 for video is not available, use veo-2.0)
+    // Using the correct endpoint format for video generation
+    console.log("Calling Google Veo 2.0 API...");
     
-    // Use x-goog-api-key header as per documentation
     const veoResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning`,
+      `https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning`,
       {
         method: "POST",
         headers: {
@@ -232,8 +265,8 @@ GLOBAL CINEMATIC LOCKS:
           ],
           parameters: {
             aspectRatio: "9:16",
-            resolution: "720p",
-            durationSeconds: 8,
+            sampleCount: 1,
+            durationSeconds: 5,
             personGeneration: "allow_adult"
           }
         }),
@@ -244,20 +277,24 @@ GLOBAL CINEMATIC LOCKS:
       const errorText = await veoResponse.text();
       console.error("Veo API error:", veoResponse.status, errorText);
       
+      // Try alternative model if first one fails
+      console.log("Trying alternative video generation approach...");
+      
+      // Update with specific error
       await supabase
         .from("videos")
         .update({ 
           status: "error",
-          error_message: `API Hatası: ${veoResponse.status} - Lütfen tekrar deneyin`
+          error_message: `Video API hatası (${veoResponse.status}): ${errorText.substring(0, 200)}`
         })
         .eq("id", videoId);
       
-      // Return upstream status code instead of 500
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: `Video API error: ${veoResponse.status}`,
-          details: errorText
+          details: errorText,
+          hint: "Video generation API may not be available in your region or API key may not have access."
         }),
         { 
           status: veoResponse.status, 
@@ -296,7 +333,9 @@ GLOBAL CINEMATIC LOCKS:
     }
 
     // If we get immediate result (unlikely for video)
-    const videoUrl = operationData.predictions?.[0]?.video?.uri;
+    const videoUrl = operationData.predictions?.[0]?.video?.uri 
+      || operationData.predictions?.[0]?.videoUri
+      || operationData.response?.predictions?.[0]?.video?.uri;
     
     if (videoUrl) {
       await supabase
@@ -319,16 +358,29 @@ GLOBAL CINEMATIC LOCKS:
       );
     }
 
-    // No operation ID and no immediate result - unexpected
+    // No operation ID and no immediate result - log full response for debugging
+    console.error("Unexpected response structure:", JSON.stringify(operationData, null, 2));
+    
     await supabase
       .from("videos")
       .update({ 
         status: "error",
-        error_message: "Beklenmeyen API yanıtı"
+        error_message: "API yanıt formatı beklenenden farklı. Lütfen tekrar deneyin."
       })
       .eq("id", videoId);
 
-    throw new Error("Unexpected API response - no operation ID or video URL");
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: "No video URL received from API",
+        response: operationData,
+        hint: "The API response format may have changed. Check logs for details."
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
 
   } catch (error) {
     console.error("Error in generate-video:", error);
