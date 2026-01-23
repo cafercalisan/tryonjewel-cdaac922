@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
@@ -6,20 +6,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { profileUpdateSchema, type ProfileUpdateFormData } from '@/lib/validation';
 
 export default function Account() {
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileUpdateFormData>({
     firstName: '',
     lastName: '',
     phone: '',
     company: '',
   });
+  const [errors, setErrors] = useState<Partial<Record<keyof ProfileUpdateFormData, string>>>({});
 
   // Initialize form when profile loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setFormData({
         firstName: profile.first_name || '',
@@ -28,31 +30,41 @@ export default function Account() {
         company: profile.company || '',
       });
     }
-  });
-
-  // Update form when profile changes
-  if (profile && formData.firstName === '' && profile.first_name) {
-    setFormData({
-      firstName: profile.first_name,
-      lastName: profile.last_name,
-      phone: profile.phone || '',
-      company: profile.company || '',
-    });
-  }
+  }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    // Clear error when user starts typing
+    if (errors[name as keyof ProfileUpdateFormData]) {
+      setErrors({ ...errors, [name]: undefined });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate form data
+    const result = profileUpdateSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Partial<Record<keyof ProfileUpdateFormData, string>> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as keyof ProfileUpdateFormData] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
+
     try {
       await updateProfile.mutateAsync({
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone: formData.phone,
-        company: formData.company,
+        phone: formData.phone || null,
+        company: formData.company || null,
       });
       toast.success('Bilgileriniz güncellendi');
     } catch (error) {
@@ -111,8 +123,12 @@ export default function Account() {
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
-                    required
+                    className={errors.firstName ? 'border-destructive' : ''}
+                    maxLength={50}
                   />
+                  {errors.firstName && (
+                    <p className="text-xs text-destructive">{errors.firstName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Soyad</Label>
@@ -121,8 +137,12 @@ export default function Account() {
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
-                    required
+                    className={errors.lastName ? 'border-destructive' : ''}
+                    maxLength={50}
                   />
+                  {errors.lastName && (
+                    <p className="text-xs text-destructive">{errors.lastName}</p>
+                  )}
                 </div>
               </div>
 
@@ -145,7 +165,12 @@ export default function Account() {
                   type="tel"
                   value={formData.phone}
                   onChange={handleChange}
+                  className={errors.phone ? 'border-destructive' : ''}
+                  maxLength={20}
                 />
+                {errors.phone && (
+                  <p className="text-xs text-destructive">{errors.phone}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -155,7 +180,12 @@ export default function Account() {
                   name="company"
                   value={formData.company}
                   onChange={handleChange}
+                  className={errors.company ? 'border-destructive' : ''}
+                  maxLength={100}
                 />
+                {errors.company && (
+                  <p className="text-xs text-destructive">{errors.company}</p>
+                )}
               </div>
 
               <Button 
