@@ -394,7 +394,7 @@ export default function Landing() {
                           </div>
                           <div className="text-center">
                             <p className="text-2xl font-semibold text-primary">%300</p>
-                            <p className="text-xs text-muted-foreground">Etkileşim Artışı</p>
+                            <p className="text-xs text-muted-foreground">Daha uygun</p>
                           </div>
                         </div>
                       </div>
