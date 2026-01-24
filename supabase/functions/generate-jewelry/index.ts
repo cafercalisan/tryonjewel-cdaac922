@@ -706,6 +706,104 @@ FORBIDDEN:
       // Then use Editorial as additional reference for E-commerce and Model Shot
       // ═══════════════════════════════════════════════════════════════
 
+      // ═══════════════════════════════════════════════════════════════
+      // DYNAMIC EDITORIAL BACKGROUNDS - Each generation gets a unique scene
+      // ═══════════════════════════════════════════════════════════════
+      const catalogBackgrounds = [
+        {
+          name: 'Carrara Marble Slab',
+          prompt: 'jewelry resting on a luxurious Carrara white marble surface with subtle gray veining, soft shadows, natural stone texture, Italian marble countertop'
+        },
+        {
+          name: 'Travertine Stone',
+          prompt: 'jewelry placed on warm travertine stone surface, natural porous texture, beige-cream tones, Mediterranean luxury, natural daylight'
+        },
+        {
+          name: 'Black Granite',
+          prompt: 'jewelry on polished black granite surface with subtle golden or white flecks, dramatic contrast, luxury countertop, sophisticated backdrop'
+        },
+        {
+          name: 'Raw Concrete',
+          prompt: 'jewelry on raw concrete surface, minimalist industrial chic, subtle gray texture, soft shadows, architectural simplicity'
+        },
+        {
+          name: 'Weathered Driftwood',
+          prompt: 'jewelry arranged on weathered driftwood piece, natural wood grain texture, coastal luxury, organic forms, soft natural light'
+        },
+        {
+          name: 'Cream Linen',
+          prompt: 'jewelry draped on luxurious cream linen fabric with natural folds and texture, soft diffused light, editorial fabric styling'
+        },
+        {
+          name: 'Slate Stone',
+          prompt: 'jewelry on dark slate stone surface with natural layered texture, moody elegance, charcoal gray tones, subtle surface variation'
+        },
+        {
+          name: 'Terracotta Tile',
+          prompt: 'jewelry on aged terracotta tile surface, warm earthy tones, Mediterranean villa aesthetic, rustic luxury, natural patina'
+        },
+        {
+          name: 'White Sand',
+          prompt: 'jewelry resting on fine white sand surface, pristine beach aesthetic, soft granular texture, coastal luxury, natural shadows'
+        },
+        {
+          name: 'Brushed Plaster Wall',
+          prompt: 'jewelry against textured brushed plaster wall, soft cream or white, Mediterranean architecture, artisanal texture, gallery lighting'
+        },
+        {
+          name: 'Onyx Surface',
+          prompt: 'jewelry on translucent onyx stone surface, honey or white onyx with natural banding, backlit luxury, unique natural patterns'
+        },
+        {
+          name: 'Velvet Cushion',
+          prompt: 'jewelry on deep navy or burgundy velvet cushion, rich fabric texture, jeweler display aesthetic, soft shadows, luxury presentation'
+        },
+        {
+          name: 'Aged Brass Tray',
+          prompt: 'jewelry on aged brass decorative tray with patina, vintage luxury, warm metallic surface, editorial still life, antique charm'
+        },
+        {
+          name: 'Seashell Arrangement',
+          prompt: 'jewelry arranged among natural seashells and coral pieces, coastal editorial, ocean treasures, white and cream palette, organic composition'
+        },
+        {
+          name: 'Rose Petals',
+          prompt: 'jewelry scattered among fresh rose petals, romantic editorial, soft pink and cream tones, delicate floral backdrop, feminine luxury'
+        },
+        {
+          name: 'Leather Surface',
+          prompt: 'jewelry on premium tan or cognac leather surface, rich grain texture, luxury goods aesthetic, warm sophisticated backdrop'
+        },
+        {
+          name: 'Eucalyptus Branch',
+          prompt: 'jewelry placed near dried eucalyptus branches, organic minimalism, sage green and cream tones, botanical editorial, natural elegance'
+        },
+        {
+          name: 'Water Droplets',
+          prompt: 'jewelry on clear glass surface with water droplets, fresh morning dew aesthetic, crystal clarity, light refraction, pure luxury'
+        },
+        {
+          name: 'Pebble Beach',
+          prompt: 'jewelry on smooth river pebbles, natural stone collection, earth tones, zen minimalism, organic shapes and textures'
+        },
+        {
+          name: 'Woven Rattan',
+          prompt: 'jewelry on natural woven rattan or wicker surface, artisanal craft texture, warm organic material, bohemian luxury'
+        },
+        {
+          name: 'Ice Block',
+          prompt: 'jewelry on or near clear ice block, frozen luxury aesthetic, cool blues and whites, crystalline clarity, dramatic cold beauty'
+        },
+        {
+          name: 'Raw Quartz Crystal',
+          prompt: 'jewelry arranged with raw quartz crystal clusters, natural gemstone setting, prismatic light, mineral beauty, geological luxury'
+        },
+      ];
+
+      // Randomly select one unique editorial background for this generation
+      const randomCatalogBg = catalogBackgrounds[Math.floor(Math.random() * catalogBackgrounds.length)];
+      console.log(`Selected random catalog background: ${randomCatalogBg.name}`);
+
       // Image 1 (PRIORITY): Editorial Luxury Scene - REFERENCE ANCHOR
       // This is generated first because it produces the most consistent results
       // and will be used as additional reference for subsequent generations
@@ -730,11 +828,11 @@ STRICT RULES:
 - Lighting shapes facets and metal naturally without exaggeration
 - Scene props/background must be non-metallic to avoid color contamination
 
-SCENE CONCEPT (NON-TRADITIONAL EDITORIAL ENVIRONMENT):
-- Environment: Non-traditional but realistic editorial setting
-- Surface examples: flowing silk/satin fabrics, refined mineral surfaces (marble, natural stone), sculptural minimal objects, soft organic textures
+SCENE CONCEPT (UNIQUE EDITORIAL ENVIRONMENT):
+- SELECTED SCENE: ${randomCatalogBg.name}
+- SCENE DESCRIPTION: ${randomCatalogBg.prompt}
 - The product must feel NATURALLY INTEGRATED into the scene — resting on, draped against, or nestled within the environment
-- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact
+- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact, green fabric
 
 CAMERA & COMPOSITION:
 - Lens feel: Cinematic 85–100mm
