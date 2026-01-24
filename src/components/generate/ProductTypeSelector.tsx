@@ -15,6 +15,7 @@ export const productTypes: ProductType[] = [
   { id: 'kolye', name: 'Kolye', icon: '📿', description: 'Zincir, pendant, choker' },
   { id: 'gerdanlik', name: 'Gerdanlık', icon: '👑', description: 'Statement, vintage gerdanlıklar' },
   { id: 'piercing', name: 'Piercing', icon: '💎', description: 'Tragus, helix, septum' },
+  { id: 'saat', name: 'Saat', icon: '⌚', description: 'Lüks saatler, pırlanta detaylı, inci işçilikli' },
 ];
 
 interface ProductTypeSelectorProps {
