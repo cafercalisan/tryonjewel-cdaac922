@@ -426,7 +426,7 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: `You are an expert jewelry analyst. Analyze this jewelry with extreme precision.
+              text: `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
 
 Return JSON:
 {
@@ -439,7 +439,7 @@ Return JSON:
   },
   "stones": [
     {
-      "type": "diamond|ruby|emerald|sapphire|pearl|amethyst|topaz|other",
+      "type": "diamond|ruby|emerald|sapphire|pearl|amethyst|topaz|mother_of_pearl|other",
       "count": number,
       "cut": "round|princess|oval|cushion|emerald|pear|marquise|cabochon|baguette",
       "color": "description",
@@ -447,18 +447,34 @@ Return JSON:
       "setting": "prong|bezel|channel|pave|tension|cluster|halo"
     }
   ],
+  "watch_details": {
+    "dial_color": "white|black|blue|champagne|mother_of_pearl|other",
+    "dial_finish": "sunburst|guilloché|enamel|textured|plain",
+    "complications": ["date", "chronograph", "moon_phase", "tourbillon", "none"],
+    "case_shape": "round|square|rectangular|tonneau|cushion",
+    "strap_type": "metal_bracelet|leather|rubber|fabric|ceramic",
+    "bezel_style": "smooth|fluted|diamond_set|ceramic",
+    "crystal_type": "sapphire|mineral|acrylic"
+  },
   "dimensions": {
     "estimated_width_mm": number,
     "estimated_height_mm": number
   },
   "design_elements": {
-    "style": "modern|vintage|art_deco|minimalist|ornate|classic|bohemian",
-    "patterns": ["filigree", "engraving", "milgrain", "rope", "cable", "none"],
+    "style": "modern|vintage|art_deco|minimalist|ornate|classic|bohemian|sports|dress",
+    "patterns": ["filigree", "engraving", "milgrain", "rope", "cable", "guilloché", "none"],
     "symmetry": "symmetric|asymmetric",
     "complexity": "simple|moderate|intricate"
   },
-  "unique_identifiers": "unique features"
+  "unique_identifiers": "unique features including brand indicators, logo placement, signature design elements"
 }
+
+NOTE: If analyzing a WATCH, pay special attention to:
+- Pearl/mother-of-pearl dial details
+- Diamond-set bezel or indices
+- Metal bracelet link patterns
+- Crown and pusher designs
+- Visible mechanical movement details
 
 ONLY valid JSON.`
             },
@@ -589,6 +605,26 @@ Using the ISOLATED jewelry object:
 ═══════════════════════════════════════════════════════════════
 `.trim();
 
+    // Build watch-specific details if applicable
+    const watchDetails = analysisResult.watch_details || {};
+    const watchDesc = analysisResult.type === 'watch' ? `
+LUXURY WATCH SPECIFICATIONS:
+- Dial: ${watchDetails.dial_color || 'classic'} ${watchDetails.dial_finish || ''} finish
+- Case Shape: ${watchDetails.case_shape || 'round'}
+- Bezel: ${watchDetails.bezel_style || 'smooth'}
+- Strap/Bracelet: ${watchDetails.strap_type || 'metal_bracelet'}
+- Crystal: ${watchDetails.crystal_type || 'sapphire'}
+${watchDetails.complications?.length > 0 ? `- Complications: ${watchDetails.complications.join(', ')}` : ''}
+
+WATCH CRAFTSMANSHIP PRESERVATION:
+- Preserve exact dial details: indices, hands, sub-dials, date window
+- Maintain precise bezel markings or diamond settings
+- Keep crown and pusher positions and designs accurate
+- Preserve metal bracelet link patterns or leather strap stitching
+- Mother-of-pearl dial iridescence must be realistic (not painted glow)
+- Diamond indices or bezel stones must follow the gemstone realism rules below
+` : '';
+
     const fidelityBlock = `
 JEWELRY SPECIFICATIONS (MUST BE PRESERVED EXACTLY):
 - Type: ${analysisResult.type || 'jewelry piece'}
@@ -598,6 +634,7 @@ ${metalColorHex ? `- Exact Metal Color Hex: ${metalColorHex}` : ''}
 ${stoneDesc ? `- Stones: ${stoneDesc}` : ''}
 - Style: ${analysisResult.design_elements?.style || 'classic'}
 ${analysisResult.unique_identifiers ? `- Unique features: ${analysisResult.unique_identifiers}` : ''}
+${watchDesc}
 ${userOverrideNote}
 ⚠️ ABSOLUTE METAL COLOR PRESERVATION (HIGHEST PRIORITY) ⚠️
 THE METAL COLOR MUST BE: ${metalColorCategory}
@@ -944,6 +981,12 @@ Ultra high resolution output.`;
         framingDescription = 'TIGHT CROP on brooch placement, fabric texture visible, brooch details sharp';
         cameraLens = '85mm prime lens';
         scaleNote = 'Brooch at natural size relative to garment';
+      } else if (productTypeUpper.includes('saat') || productTypeUpper.includes('watch')) {
+        modelBodyPart = 'wrist and forearm';
+        wearingDescription = 'elegantly worn on the wrist, watch face prominently displayed';
+        framingDescription = 'TIGHT MACRO CROP on wrist showing watch face, dial details, and strap/bracelet craftsmanship - watch occupies 65% of frame';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Watch at natural wrist proportion, dial size matches reference exactly, strap/bracelet width accurate';
       }
 
       // Get model details if modelId is provided
@@ -1273,6 +1316,11 @@ Ultra high resolution output.`;
           bodyPart: 'ear/body', 
           placement: 'Place the piercing jewelry in the appropriate piercing location as shown in the style reference.',
           removal: 'Remove any existing piercings or piercing jewelry from the target location in the style reference before placing the new piercing.'
+        },
+        'saat': {
+          bodyPart: 'wrist',
+          placement: 'Place the luxury watch on the wrist exactly as shown in the style reference. The watch must wrap naturally around the wrist with the dial face clearly visible and readable. Show the craftsmanship of the strap or metal bracelet.',
+          removal: 'Remove any existing watches, bracelets, bangles, or wrist accessories from the style reference model before placing the new watch.'
         },
       };
 
