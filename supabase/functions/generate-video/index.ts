@@ -16,7 +16,13 @@ Slow cinematic pacing, no exaggerated movement.
 Natural light behavior, soft highlights, realistic reflections.
 Camera movement is subtle and intentional.
 Luxury fashion campaign aesthetic.
-No fast cuts, no dramatic effects, no artificial glow.`;
+No fast cuts, no dramatic effects, no artificial glow.
+
+COMPLIANCE (CRITICAL):
+- No celebrity references
+- No real person's name
+- No real person's likeness
+- Use generic, non-identifiable model only (if a model is visible)`;
 
 const JEWELRY_VIDEO_PROMPTS = {
   // Default: Slow Push-In (Most Premium & Safe)
