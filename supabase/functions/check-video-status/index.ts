@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VIDEO_CREDIT_COST = 2;
+
+async function refundCredits(supabase: any, userId: string, amount: number): Promise<void> {
+  console.log(`Attempting to refund ${amount} credits to user ${userId}`);
+  const { data, error } = await supabase.rpc('refund_credits', { _user_id: userId, _amount: amount });
+  if (error) {
+    console.error('Refund error:', error);
+  } else {
+    console.log(`Credits refunded successfully. New balance: ${data?.new_credits}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -52,6 +64,10 @@ serve(async (req) => {
       throw new Error("Video not found");
     }
 
+    // Check if user is admin
+    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    const isAdminUser = isAdmin === true;
+
     // If video is already completed or error, just return status
     if (video.status === "completed" || video.status === "error") {
       return new Response(
@@ -95,13 +111,18 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error(`API error: ${response.status} - ${errorText}`);
       
-      // If operation not found (404), mark as error
+      // If operation not found (404), mark as error and refund
       if (response.status === 404) {
+        // Refund credits for non-admin users
+        if (!isAdminUser) {
+          await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        }
+
         await supabase
           .from("videos")
           .update({ 
             status: "error",
-            error_message: "Video generation failed - operation not found"
+            error_message: "Video üretimi başarısız - işlem bulunamadı. Krediniz iade edildi."
           })
           .eq("id", videoId);
         
@@ -109,7 +130,8 @@ serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             status: "error",
-            errorMessage: "Video generation failed - operation not found"
+            errorMessage: "Video generation failed - operation not found. Credits refunded.",
+            refunded: !isAdminUser
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -137,8 +159,13 @@ serve(async (req) => {
           ? raiFilteredReasons.join(" ")
           : "İçerik politikası nedeniyle çıktı üretilemedi.";
 
+        // Refund credits for content filter issues
+        if (!isAdminUser) {
+          await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        }
+
         const friendly =
-          `Video üretimi içerik filtresine takıldı. ` +
+          `Video üretimi içerik filtresine takıldı. Krediniz iade edildi. ` +
           `Lütfen gerçek kişi/ünlü içeren görseller veya isim/benzerlik çağrışımı yapan içerikler kullanmadan tekrar deneyin. ` +
           `\n\nSağlayıcı mesajı: ${reasonText}`;
 
@@ -157,6 +184,7 @@ serve(async (req) => {
             success: true,
             status: "error",
             errorMessage: friendly,
+            refunded: !isAdminUser
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -165,11 +193,17 @@ serve(async (req) => {
       // Check for error
       if (operationData.error) {
         console.error("Operation error:", operationData.error);
+        
+        // Refund credits for API errors
+        if (!isAdminUser) {
+          await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        }
+
         await supabase
           .from("videos")
           .update({ 
             status: "error",
-            error_message: operationData.error.message || "Video generation failed"
+            error_message: (operationData.error.message || "Video üretimi başarısız") + " Krediniz iade edildi."
           })
           .eq("id", videoId);
         
@@ -177,7 +211,8 @@ serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             status: "error",
-            errorMessage: operationData.error.message || "Video generation failed"
+            errorMessage: operationData.error.message || "Video generation failed",
+            refunded: !isAdminUser
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -282,12 +317,17 @@ serve(async (req) => {
         );
       } else {
         console.error("No video URL in response:", operationData);
+        
+        // Refund credits when no URL received
+        if (!isAdminUser) {
+          await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        }
+
         await supabase
           .from("videos")
           .update({ 
             status: "error",
-            // Provide a more actionable message than the raw fallback.
-            error_message: "Video tamamlandı ancak URL alınamadı. Lütfen farklı bir görsel ile tekrar deneyin (özellikle gerçek kişi/ünlü benzerliği içeren görseller filtrelenebilir)."
+            error_message: "Video tamamlandı ancak URL alınamadı. Krediniz iade edildi. Lütfen farklı bir görsel ile tekrar deneyin (özellikle gerçek kişi/ünlü benzerliği içeren görseller filtrelenebilir)."
           })
           .eq("id", videoId);
         
@@ -295,7 +335,8 @@ serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             status: "error",
-            errorMessage: "Video tamamlandı ancak URL alınamadı. Lütfen farklı bir görsel ile tekrar deneyin (özellikle gerçek kişi/ünlü benzerliği içeren görseller filtrelenebilir)."
+            errorMessage: "Video tamamlandı ancak URL alınamadı. Krediniz iade edildi.",
+            refunded: !isAdminUser
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
