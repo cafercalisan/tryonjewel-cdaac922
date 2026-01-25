@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut, Video } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut, Video, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +12,8 @@ import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 import { getSignedImageUrl } from '@/lib/getSignedImageUrl';
+import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
+import { ImageNavigator } from '@/components/gallery/ImageNavigator';
 
 interface ImageRecord {
   id: string;
@@ -30,9 +32,12 @@ export default function Gallery() {
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null);
   const [selectedVariation, setSelectedVariation] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxKey, setLightboxKey] = useState(0); // Key to force re-render and reset state
+  const [lightboxKey, setLightboxKey] = useState(0);
   const [lightboxScale, setLightboxScale] = useState(1);
   const [signedUrls, setSignedUrls] = useState<Record<string, string[]>>({});
+  const [signedOriginalUrls, setSignedOriginalUrls] = useState<Record<string, string>>({});
+  const [showComparison, setShowComparison] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { data: images, isLoading } = useQuery({
     queryKey: ['images', user?.id],
@@ -55,33 +60,92 @@ export default function Gallery() {
     
     const loadSignedUrls = async () => {
       const urlMap: Record<string, string[]> = {};
+      const originalUrlMap: Record<string, string> = {};
       
       await Promise.all(
         images.map(async (image) => {
+          // Sign generated images
           if (image.generated_image_urls && image.generated_image_urls.length > 0) {
             const signedImageUrls = await Promise.all(
               image.generated_image_urls.map(url => getSignedImageUrl(url))
             );
             urlMap[image.id] = signedImageUrls.filter(Boolean) as string[];
           }
+          
+          // Sign original image
+          if (image.original_image_url) {
+            const signedOriginal = await getSignedImageUrl(image.original_image_url);
+            if (signedOriginal) {
+              originalUrlMap[image.id] = signedOriginal;
+            }
+          }
         })
       );
       
       setSignedUrls(urlMap);
+      setSignedOriginalUrls(originalUrlMap);
     };
     
     loadSignedUrls();
   }, [images]);
 
+  // Keyboard navigation for gallery
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedImage || lightboxOpen) return;
+      
+      const urls = getImageUrls(selectedImage);
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
+      } else if (e.key === 'Escape') {
+        setSelectedImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage, lightboxOpen]);
+
+  // Gallery-level keyboard navigation
+  useEffect(() => {
+    const handleGalleryKeyDown = (e: KeyboardEvent) => {
+      if (selectedImage || !completedImages.length) return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedImageIndex(prev => prev > 0 ? prev - 1 : completedImages.length - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedImageIndex(prev => prev < completedImages.length - 1 ? prev + 1 : 0);
+      } else if (e.key === 'Enter') {
+        const img = completedImages[selectedImageIndex];
+        if (img) {
+          setSelectedImage(img);
+          setSelectedVariation(0);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGalleryKeyDown);
+    return () => window.removeEventListener('keydown', handleGalleryKeyDown);
+  }, [selectedImage, selectedImageIndex]);
+
   // Helper to get image URLs for an image record
   const getImageUrls = useCallback((image: ImageRecord): string[] => {
-    // First check if we have signed URLs
     if (signedUrls[image.id] && signedUrls[image.id].length > 0) {
       return signedUrls[image.id];
     }
-    // Fallback to original URLs
     return image.generated_image_urls || [];
   }, [signedUrls]);
+
+  // Helper to get original image URL
+  const getOriginalUrl = useCallback((image: ImageRecord): string => {
+    return signedOriginalUrls[image.id] || image.original_image_url || '';
+  }, [signedOriginalUrls]);
 
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
@@ -115,7 +179,7 @@ export default function Gallery() {
     });
   };
 
-  // Only show completed images - hide processing/analyzing states
+  // Only show completed images
   const completedImages = images?.filter(i => i.status === 'completed') || [];
 
   return (
@@ -129,12 +193,22 @@ export default function Gallery() {
               Tüm oluşturduğunuz görselleri buradan yönetin
             </p>
           </div>
-          <Link to="/olustur">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Oluştur
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {completedImages.length > 1 && (
+              <ImageNavigator
+                currentIndex={selectedImageIndex}
+                totalImages={completedImages.length}
+                onNavigate={setSelectedImageIndex}
+                showArrows={false}
+              />
+            )}
+            <Link to="/olustur">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Yeni Oluştur
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (
@@ -162,17 +236,20 @@ export default function Gallery() {
               <div>
                 <h2 className="text-lg font-medium mb-4">Tamamlanan ({completedImages.length})</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {completedImages.map((image) => (
+                  {completedImages.map((image, index) => (
                     <div 
                       key={image.id}
-                      className="group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer"
+                      className={`group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer transition-all ${
+                        selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''
+                      }`}
                       onClick={() => {
-                        // Reset all state when opening a new image
                         setSelectedImage(image);
                         setSelectedVariation(0);
                         setLightboxOpen(false);
                         setLightboxScale(1);
-                        setLightboxKey(prev => prev + 1); // Force fresh lightbox state
+                        setLightboxKey(prev => prev + 1);
+                        setShowComparison(false);
+                        setSelectedImageIndex(index);
                       }}
                     >
                       {getImageUrls(image)?.[0] && (
@@ -191,7 +268,6 @@ export default function Gallery() {
                           Görüntüle
                         </Button>
                       </div>
-                      {/* Scene name or Master Package indicator */}
                       <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent">
                         <p className="text-sm text-background font-medium">
                           {image.scenes?.name_tr || (image.generated_image_urls?.length === 3 ? 'Master Paket' : 'Özel Görsel')}
@@ -203,64 +279,148 @@ export default function Gallery() {
                     </div>
                   ))}
                 </div>
+                
+                {/* Keyboard hint */}
+                <p className="text-xs text-muted-foreground text-center mt-4">
+                  💡 Görseller arasında gezinmek için ← → ok tuşlarını kullanın
+                </p>
               </div>
             )}
           </>
         )}
 
-        {/* Detail Modal - Compact */}
+        {/* Detail Modal with Before/After */}
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-base">
-                {selectedImage?.scenes?.name_tr || 'Görsel Detayı'}
+              <DialogTitle className="text-base flex items-center justify-between">
+                <span>{selectedImage?.scenes?.name_tr || 'Görsel Detayı'}</span>
+                {selectedImage && getOriginalUrl(selectedImage) && (
+                  <Button
+                    size="sm"
+                    variant={showComparison ? 'default' : 'outline'}
+                    onClick={() => setShowComparison(!showComparison)}
+                    className="text-xs"
+                  >
+                    <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
+                    {showComparison ? 'Karşılaştırmayı Kapat' : 'Önce/Sonra'}
+                  </Button>
+                )}
               </DialogTitle>
               <DialogDescription>
-                Görsellerinizi büyütebilir ve indirebilirsiniz.
+                Görsellerinizi büyütebilir, karşılaştırabilir ve indirebilirsiniz. Ok tuşları ile gezinin.
               </DialogDescription>
             </DialogHeader>
             
             {selectedImage && (
               <div className="space-y-4">
-                {/* Main Image - Smaller */}
-                <div 
-                  className="aspect-[4/5] max-h-[50vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative mx-auto"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLightboxOpen(true);
-                    setLightboxScale(1);
-                  }}
-                >
-                  {getImageUrls(selectedImage)?.[selectedVariation] && (
-                    <img 
-                      src={getImageUrls(selectedImage)[selectedVariation]} 
-                      alt="Generated jewelry"
-                      className="w-full h-full object-contain"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
+                {/* Comparison Mode or Normal View */}
+                {showComparison && getOriginalUrl(selectedImage) ? (
+                  <BeforeAfterComparison
+                    beforeImage={getOriginalUrl(selectedImage)}
+                    afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
+                    beforeLabel="Orijinal"
+                    afterLabel="Sonuç"
+                    className="aspect-[4/5] max-h-[55vh]"
+                  />
+                ) : (
+                  <div 
+                    className="aspect-[4/5] max-h-[55vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative mx-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxOpen(true);
+                      setLightboxScale(1);
+                    }}
+                  >
+                    {getImageUrls(selectedImage)?.[selectedVariation] && (
+                      <img 
+                        src={getImageUrls(selectedImage)[selectedVariation]} 
+                        alt="Generated jewelry"
+                        className="w-full h-full object-contain"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
+                    </div>
+                    
+                    {/* Navigation arrows on image */}
+                    {getImageUrls(selectedImage).length > 1 && (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const urls = getImageUrls(selectedImage);
+                            setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
+                          }}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const urls = getImageUrls(selectedImage);
+                            setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
+                          }}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
-                </div>
+                )}
                 
-                {/* Thumbnails - Horizontal */}
-                {getImageUrls(selectedImage)?.length > 1 && (
-                  <div className="flex justify-center gap-2">
+                {/* Thumbnails with Original */}
+                {(getImageUrls(selectedImage)?.length > 1 || getOriginalUrl(selectedImage)) && (
+                  <div className="flex justify-center gap-2 flex-wrap">
+                    {/* Original thumbnail */}
+                    {getOriginalUrl(selectedImage) && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowComparison(true)}
+                          className={`w-16 h-20 rounded-md overflow-hidden transition-all border-2 ${
+                            showComparison ? 'border-primary scale-105' : 'border-muted opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img 
+                            src={getOriginalUrl(selectedImage)} 
+                            alt="Orijinal" 
+                            className="w-full h-full object-cover" 
+                          />
+                        </button>
+                        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground">
+                          Orijinal
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Generated thumbnails */}
                     {getImageUrls(selectedImage).map((url, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setSelectedVariation(index)}
-                        className={`w-16 h-20 rounded-md overflow-hidden transition-all ${
-                          selectedVariation === index ? 'ring-2 ring-primary scale-105' : 'opacity-60 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
-                      </button>
+                      <div key={index} className="relative">
+                        <button
+                          onClick={() => {
+                            setSelectedVariation(index);
+                            setShowComparison(false);
+                          }}
+                          className={`w-16 h-20 rounded-md overflow-hidden transition-all ${
+                            selectedVariation === index && !showComparison 
+                              ? 'ring-2 ring-primary scale-105' 
+                              : 'opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
 
-                {/* Actions - Horizontal */}
+                {/* Actions */}
                 <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
                   <Button 
                     size="sm"
@@ -287,7 +447,6 @@ export default function Gallery() {
                     <ZoomIn className="mr-1.5 h-4 w-4" />
                     Büyüt
                   </Button>
-                  {/* Video Generate Button */}
                   <VideoGenerateButton 
                     imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
                     variant="outline"
@@ -313,14 +472,14 @@ export default function Gallery() {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
-                  })}
+                  })} • ← → tuşları ile gezinin
                 </p>
               </div>
             )}
           </DialogContent>
         </Dialog>
 
-        {/* Fullscreen Lightbox */}
+        {/* Fullscreen Lightbox with Navigation */}
         <AnimatePresence mode="wait">
           {lightboxOpen && selectedImage && getImageUrls(selectedImage)?.[selectedVariation] && (
             <motion.div
@@ -334,6 +493,36 @@ export default function Gallery() {
                 setLightboxScale(1);
               }}
             >
+              {/* Navigation arrows */}
+              {getImageUrls(selectedImage).length > 1 && (
+                <>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const urls = getImageUrls(selectedImage);
+                      setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
+                    }}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const urls = getImageUrls(selectedImage);
+                      setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
+                    }}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </>
+              )}
+
               {/* Controls */}
               <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
                 <Button
@@ -395,9 +584,18 @@ export default function Gallery() {
                 dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               />
 
-              {/* Scale indicator */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
+              {/* Scale and variation indicator */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
+                <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
+                </div>
+                {getImageUrls(selectedImage).length > 1 && (
+                  <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                    <span className="text-sm font-medium">
+                      {selectedVariation + 1} / {getImageUrls(selectedImage).length}
+                    </span>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
