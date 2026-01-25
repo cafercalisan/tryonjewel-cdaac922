@@ -124,6 +124,43 @@ serve(async (req) => {
     // Check if operation is done
     if (operationData.done === true) {
       console.log("Operation completed!");
+
+      // Some responses complete without a video URI because the provider filtered the media.
+      // Veo 3.x can return this under generateVideoResponse.raiMediaFilteredReasons.
+      const raiFilteredReasons: string[] | undefined =
+        operationData?.response?.generateVideoResponse?.raiMediaFilteredReasons;
+      const raiFilteredCount: number | undefined =
+        operationData?.response?.generateVideoResponse?.raiMediaFilteredCount;
+
+      if ((raiFilteredCount && raiFilteredCount > 0) || (raiFilteredReasons && raiFilteredReasons.length > 0)) {
+        const reasonText = (raiFilteredReasons && raiFilteredReasons.length > 0)
+          ? raiFilteredReasons.join(" ")
+          : "İçerik politikası nedeniyle çıktı üretilemedi.";
+
+        const friendly =
+          `Video üretimi içerik filtresine takıldı. ` +
+          `Lütfen gerçek kişi/ünlü içeren görseller veya isim/benzerlik çağrışımı yapan içerikler kullanmadan tekrar deneyin. ` +
+          `\n\nSağlayıcı mesajı: ${reasonText}`;
+
+        console.error("RAI media filtered:", { raiFilteredCount, raiFilteredReasons });
+
+        await supabase
+          .from("videos")
+          .update({
+            status: "error",
+            error_message: friendly,
+          })
+          .eq("id", videoId);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: "error",
+            errorMessage: friendly,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       // Check for error
       if (operationData.error) {
@@ -249,7 +286,8 @@ serve(async (req) => {
           .from("videos")
           .update({ 
             status: "error",
-            error_message: "No video URL received from API"
+            // Provide a more actionable message than the raw fallback.
+            error_message: "Video tamamlandı ancak URL alınamadı. Lütfen farklı bir görsel ile tekrar deneyin (özellikle gerçek kişi/ünlü benzerliği içeren görseller filtrelenebilir)."
           })
           .eq("id", videoId);
         
@@ -257,7 +295,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             status: "error",
-            errorMessage: "No video URL received from API"
+            errorMessage: "Video tamamlandı ancak URL alınamadı. Lütfen farklı bir görsel ile tekrar deneyin (özellikle gerçek kişi/ünlü benzerliği içeren görseller filtrelenebilir)."
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
