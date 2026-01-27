@@ -10,33 +10,35 @@ import emeraldBraceletResult3 from '@/assets/showcase/emerald-bracelet-result-3.
 import ringResult from '@/assets/showcase/ring-result.webp';
 import sapphireBraceletResult from '@/assets/showcase/sapphire-bracelet-result.webp';
 
-// External AI-generated images
+// External AI-generated images - Using more reliable image URLs
 const externalImages = [
-  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-0eb9fe47-c9d8-4cb0-b151-3a2b11fb0c19-2-4k-scaled.webp',
-  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-7960246d-a583-48c1-b0d8-c2229cc8014c-2-4k-scaled.webp',
-  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-4ba486bd-af31-4dc7-9ab9-2a78bf929700-3-4k-scaled.webp',
-  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-fb6d0874-1cf3-4abc-a826-6eca5da5bb0c-2-4k-1-scaled.webp',
-  'http://eurodiamond.com.tr/wp-content/uploads/2026/01/jewelry-840e1052-e824-4365-aa4b-f8ae3509a93d-3-4k-scaled.webp',
-];
-
-// Two strips with AI results only - opposite directions
-const topRowImages = [
   blueSapphireBraceletResult,
-  externalImages[0],
+  emeraldBraceletResult2,
+  sapphireBraceletResult,
   emeraldBraceletResult1,
-  externalImages[1],
-  earringResult,
-  externalImages[2],
   ringResult,
 ];
 
-const bottomRowImages = [
-  externalImages[3],
+// Two strips with AI results only - opposite directions
+// Using only local imported images for reliability
+const topRowImages = [
+  blueSapphireBraceletResult,
+  emeraldBraceletResult1,
+  earringResult,
+  ringResult,
+  sapphireBraceletResult,
+  emeraldBraceletResult2,
   emeraldBraceletResult3,
-  externalImages[4],
+];
+
+const bottomRowImages = [
+  emeraldBraceletResult3,
   sapphireBraceletResult,
   emeraldBraceletResult2,
   blueSapphireBraceletResult,
+  ringResult,
+  earringResult,
+  emeraldBraceletResult1,
 ];
 
 interface MarqueeRowProps {
