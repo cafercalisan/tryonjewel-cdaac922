@@ -128,18 +128,18 @@ export default function Videos() {
 
   return (
     <AppLayout showFooter={false}>
-      <div className="container py-8 md:py-12">
+      <div className="container py-8 md:py-12 overflow-x-hidden">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-semibold">Videolarım</h1>
-              <p className="text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl font-semibold truncate">Videolarım</h1>
+              <p className="text-muted-foreground text-sm">
                 Oluşturduğunuz premium video animasyonları
               </p>
             </div>
-            <Link to="/olustur">
-              <Button>
+            <Link to="/olustur" className="shrink-0">
+              <Button size="sm" className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Yeni Görsel
               </Button>
@@ -171,7 +171,7 @@ export default function Videos() {
 
           {/* Videos Grid */}
           {videos && videos.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {videos.map((video, index) => (
                 <motion.div
                   key={video.id}
@@ -267,7 +267,7 @@ export default function Videos() {
                     </div>
 
                     {video.error_message && (
-                      <p className="text-xs text-red-500 mt-2">{video.error_message}</p>
+                      <p className="text-xs text-red-500 mt-2 line-clamp-2 break-words">{video.error_message}</p>
                     )}
                   </div>
                 </motion.div>
