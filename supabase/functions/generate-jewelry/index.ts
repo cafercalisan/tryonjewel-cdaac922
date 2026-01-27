@@ -254,12 +254,13 @@ serve(async (req) => {
     const hasStyleReference = styleReferencePath && typeof styleReferencePath === 'string' && styleReferencePath.startsWith(`${userId}/style-references/`);
     console.log(`Style reference mode: ${hasStyleReference ? 'ENABLED' : 'disabled'}`);
 
-    // Validate sceneId (required for standard without style reference, optional for master)
+    // Validate sceneId (required for standard without style reference, optional for master, not needed for retouch)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isMasterPackage = packageType === 'master';
+    const isRetouchPackage = packageType === 'retouch';
     
-    // Scene is NOT required if style reference is provided
-    if (!isMasterPackage && !hasStyleReference && (!sceneId || !uuidRegex.test(sceneId))) {
+    // Scene is NOT required if style reference is provided OR if retouch mode
+    if (!isMasterPackage && !hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
       return new Response(
         JSON.stringify({ error: 'Invalid scene ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -680,7 +681,122 @@ FORBIDDEN:
 
     const generatedUrls: string[] = [];
 
-    if (isMasterPackage) {
+    // ═══════════════════════════════════════════════════════════════
+    // RETOUCH PACKAGE: Professional photo retouching
+    // ═══════════════════════════════════════════════════════════════
+    if (isRetouchPackage) {
+      console.log('Retouch Package: Professional photo enhancement...');
+      
+      const retouchPrompt = `
+═══════════════════════════════════════════════════════════════
+PROFESSIONAL JEWELRY PHOTO RETOUCH
+═══════════════════════════════════════════════════════════════
+
+You are operating as a professional high-end jewelry photo retoucher.
+This is a PRECISION IMAGE ENHANCEMENT task, NOT creative generation.
+The uploaded image is a real product photograph. Your task is to enhance it.
+
+CORE RETOUCH PHILOSOPHY:
+- Work like an experienced jewelry retoucher using Photoshop/Capture One workflows
+- Goal: Clean, premium, realistic, commercially usable jewelry image
+- Suitable for: luxury e-commerce, product catalogs, brand presentations
+
+ABSOLUTE PRODUCT INTEGRITY RULES (CRITICAL):
+- Do NOT change product geometry, proportions, or scale
+- Do NOT add, remove, resize or reshape stones
+- Do NOT modify stone count, cut, setting or prong structure
+- Do NOT change metal structure, engravings or design language
+- Do NOT invent or reconstruct missing parts
+- Do NOT stylize, redesign or reinterpret the product
+- The final output must be the EXACT SAME jewelry piece, only professionally retouched
+
+BACKGROUND & MASKING:
+- Isolate the jewelry using precision masking techniques
+- Preserve all fine contours, curves and micro details
+- Maintain inner cutouts (ring holes, chain gaps, openwork areas)
+- Apply subtle anti-aliasing to avoid jagged edges or halos
+- Apply a pure white background (RGB 255,255,255)
+- Remove all shadows, reflections, stands, wires or supports
+- The jewelry must appear fully isolated, clean and floating naturally
+
+LIGHTING & COLOR CORRECTION:
+- Correct white balance to reflect true material properties
+  - Yellow gold: warm and natural, never orange or green
+  - White gold/platinum: neutral to slightly cool
+  - Rose gold: soft pink warmth without saturation excess
+  - Silver: neutral and clean
+- Simulate professional studio lighting from upper-left (10–11 o'clock)
+- Soft, diffuse light with controlled highlights
+- No harsh directional shadows
+- Adjust tonal balance: subtle contrast increase, no blown highlights or crushed blacks
+- Brightness slightly enhanced (+5–10%) while preserving detail
+
+STONE ENHANCEMENT:
+- Improve clarity while preserving natural inclusions
+- Enhance facet definition and internal light paths
+- Increase brilliance and fire subtly and realistically
+- For colored stones: increase saturation by 20–30% within natural limits
+- Maintain realistic refraction and depth
+- Avoid artificial sparkle, glow or exaggerated refraction
+- NEVER change stone shape, size, count or position
+
+METAL SURFACE REFINEMENT:
+- Remove dust, scratches, fingerprints and micro defects
+- Preserve natural metal texture (polished, matte, brushed)
+- Balance highlights and shadows to reveal form
+- Enhance engravings or micro details without exaggeration
+- Metal must look premium, clean and physically real
+- Avoid mirror-like CGI reflections or plastic smoothness
+
+EDGE & DETAIL CONTROL:
+- Apply controlled sharpening exclusively to the jewelry
+- Sharpening: Radius 0.5–1.0 px, Amount 120–150%
+- Increase micro-contrast on fine details (+30–40)
+- Prevent halos, ringing or oversharpening artifacts
+
+TECHNICAL OUTPUT:
+- Process in high-quality color depth
+- Color profile: sRGB
+- Maximum resolution from source
+- No compression artifacts
+
+FORBIDDEN:
+- ❌ Redesign or artistic interpretation
+- ❌ Cinematic or lifestyle styling
+- ❌ Background scenes or environments
+- ❌ Model hands/neck/ears
+- ❌ CGI or 3D rendered look
+- ❌ Changing any physical product attributes
+
+FINAL QUALITY CHECK:
+✓ Product identity fully preserved
+✓ No geometry or design changes
+✓ Clean white background
+✓ Stones look premium but realistic
+✓ Metal finish natural and detailed
+✓ Suitable for e-commerce zoom
+✓ No AI artifacts or plastic look
+
+OUTPUT: Single professionally retouched jewelry image on pure white background.
+`.trim();
+
+      // Generate single retouched image
+      const retouchUrl = await generateSingleImage(
+        base64Images,
+        retouchPrompt,
+        userId,
+        imageRecord.id,
+        0,
+        supabase
+      );
+      
+      if (retouchUrl) {
+        generatedUrls.push(retouchUrl);
+        console.log('Retouch complete');
+      } else {
+        console.error('Retouch generation failed');
+      }
+    } else if (isMasterPackage) {
       // MASTER PACKAGE: 3 images sequentially
       console.log('Master Package: Generating 3 images sequentially...');
 

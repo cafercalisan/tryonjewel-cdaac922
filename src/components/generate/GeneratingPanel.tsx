@@ -8,7 +8,7 @@ interface GeneratingPanelProps {
   currentImageIndex?: number;
   totalImages?: number;
   completedImages?: number;
-  packageType?: 'standard' | 'master';
+  packageType?: 'standard' | 'master' | 'retouch';
   previewImage?: string | null;
 }
 
@@ -41,10 +41,18 @@ export function GeneratingPanel({
     switch (step) {
       case 'analyzing':
         return {
-          title: 'Ürün Analiz Ediliyor',
-          description: 'AI mücevherinizin detaylarını analiz ediyor...',
+          title: packageType === 'retouch' ? 'Görsel Analiz Ediliyor' : 'Ürün Analiz Ediliyor',
+          description: packageType === 'retouch' 
+            ? 'AI görselinizi profesyonel rötuş için analiz ediyor...'
+            : 'AI mücevherinizin detaylarını analiz ediyor...',
         };
       case 'generating':
+        if (packageType === 'retouch') {
+          return {
+            title: 'Profesyonel Rötuş',
+            description: 'Görselinize stüdyo kalitesinde rötuş uygulanıyor...',
+          };
+        }
         if (packageType === 'master') {
           const labels = ['E-Ticaret Görseli', 'Lüks Katalog Görseli', 'Manken Çekimi'];
           return {
@@ -59,7 +67,9 @@ export function GeneratingPanel({
       case 'finalizing':
         return {
           title: 'Son Rötuşlar',
-          description: '4K kalitede görselleriniz hazırlanıyor...',
+          description: packageType === 'retouch' 
+            ? 'Rötuşlu görseliniz hazırlanıyor...'
+            : '4K kalitede görselleriniz hazırlanıyor...',
         };
       default:
         return {
