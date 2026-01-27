@@ -184,16 +184,16 @@ export default function Gallery() {
 
   return (
     <AppLayout>
-      <div className="container py-8 md:py-12 animate-fade-in">
+      <div className="container py-8 md:py-12 animate-fade-in overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">Görsellerim</h1>
-            <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-3xl font-semibold mb-1">Görsellerim</h1>
+            <p className="text-muted-foreground text-sm">
               Tüm oluşturduğunuz görselleri buradan yönetin
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {completedImages.length > 1 && (
               <ImageNavigator
                 currentIndex={selectedImageIndex}
@@ -203,7 +203,7 @@ export default function Gallery() {
               />
             )}
             <Link to="/olustur">
-              <Button>
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Yeni Oluştur
               </Button>

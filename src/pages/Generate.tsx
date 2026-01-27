@@ -6,6 +6,7 @@ import {
   Check, 
   ChevronDown,
   User,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -53,7 +54,7 @@ interface UserModel {
   preview_image_url: string | null;
 }
 
-type PackageType = 'standard' | 'master';
+type PackageType = 'standard' | 'master' | 'retouch';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
 interface UploadedImage {
@@ -205,12 +206,22 @@ export default function Generate() {
 
   const creditsNeeded = packageType === 'master' ? 2 : 1;
   const totalImages = packageType === 'master' ? 3 : 1;
+  const isRetouchMode = packageType === 'retouch';
 
   // When style reference is uploaded, scene selection is disabled
   const hasStyleReference = styleReference !== null;
 
   const canGenerate = useMemo(() => {
     if (uploadedImages.length === 0 || !user) return false;
+    
+    // Retouch mode only needs image upload
+    if (isRetouchMode) {
+      if (!isAdminUser) {
+        if (!profile || profile.credits < creditsNeeded) return false;
+      }
+      return true;
+    }
+    
     if (!selectedProductType) return false;
 
     if (!isAdminUser) {
@@ -225,7 +236,7 @@ export default function Generate() {
     }
 
     return true;
-  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -256,12 +267,15 @@ export default function Generate() {
         imagePath: imagePaths[0],
         additionalImagePaths: imagePaths.slice(1),
         packageType,
-        productType: selectedProductType,
-        metalColorOverride: selectedMetalColor,
+        productType: isRetouchMode ? null : selectedProductType,
+        metalColorOverride: isRetouchMode ? null : selectedMetalColor,
       };
 
-      // If style reference is used, upload it and pass path instead of scene
-      if (styleReference) {
+      // Retouch mode doesn't need style reference or scene
+      if (isRetouchMode) {
+        // No additional configuration needed for retouch
+      } else if (styleReference) {
+        // If style reference is used, upload it and pass path instead of scene
         const styleFileExt = styleReference.file.name.split(".").pop();
         const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
         
@@ -394,102 +408,160 @@ export default function Generate() {
               />
             </section>
 
-            {/* Step 3: Product Type */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
-                  3
-                </div>
-                <h2 className="text-sm font-semibold">Ürün Tipi</h2>
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {productTypes.map((type) => {
-                  const isSelected = selectedProductType === type.id;
-                  return (
-                    <motion.button
-                      key={type.id}
-                      onClick={() => setSelectedProductType(type.id)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`relative p-3 rounded-xl border-2 transition-all text-center ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-border hover:border-primary/30 bg-card'
-                      }`}
-                    >
-                      <div className="text-xl mb-1">{type.icon}</div>
-                      <p className="text-xs font-medium">{type.name}</p>
-                      {isSelected && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
-                        >
-                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Step 4: Metal Color (Optional) */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
-                    4
+            {/* Retouch Mode Info */}
+            <AnimatePresence>
+              {isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-2xl border border-primary/20 p-5">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 rounded-xl bg-primary/10 shrink-0">
+                        <Wand2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm mb-1">Profesyonel Rötuş</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Ürününüzü yeniden tasarlamaz, sadece profesyonel stüdyo rötuşu uygular.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { icon: '✨', label: 'Arka plan temizleme' },
+                        { icon: '💎', label: 'Taş parlaklığı artırma' },
+                        { icon: '🔆', label: 'Işık & renk düzeltme' },
+                        { icon: '🎯', label: 'Detay keskinleştirme' },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center gap-2 bg-background/50 rounded-lg px-2.5 py-1.5">
+                          <span>{item.icon}</span>
+                          <span className="text-muted-foreground">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <h2 className="text-sm font-semibold">Maden Rengi</h2>
-                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
-                </div>
-                {selectedMetalColor && (
-                  <button
-                    onClick={() => setSelectedMetalColor(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Temizle
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {metalColors.map((metal) => {
-                  const isSelected = selectedMetalColor === metal.id;
-                  return (
-                    <motion.button
-                      key={metal.id}
-                      onClick={() => setSelectedMetalColor(metal.id === selectedMetalColor ? null : metal.id)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`relative p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
-                        isSelected
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/30 bg-card'
-                      }`}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-full shadow-inner ring-1 ring-black/10"
-                        style={{ background: metal.gradient || metal.color }}
-                      />
-                      <p className="text-[10px] font-medium leading-tight">{metal.name}</p>
-                      {isSelected && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Step 3: Product Type - Hidden in Retouch mode */}
+            <AnimatePresence>
+              {!isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                      3
+                    </div>
+                    <h2 className="text-sm font-semibold">Ürün Tipi</h2>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {productTypes.map((type) => {
+                      const isSelected = selectedProductType === type.id;
+                      return (
+                        <motion.button
+                          key={type.id}
+                          onClick={() => setSelectedProductType(type.id)}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`relative p-3 rounded-xl border-2 transition-all text-center ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/30 bg-card'
+                          }`}
                         >
-                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-2">
-                Ürün tek renk veya ayırt edilemiyorsa seçin
-              </p>
-            </section>
+                          <div className="text-xl mb-1">{type.icon}</div>
+                          <p className="text-xs font-medium">{type.name}</p>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                            >
+                              <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Step 4: Metal Color (Optional) - Hidden in Retouch mode */}
+            <AnimatePresence>
+              {!isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                        4
+                      </div>
+                      <h2 className="text-sm font-semibold">Maden Rengi</h2>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                    </div>
+                    {selectedMetalColor && (
+                      <button
+                        onClick={() => setSelectedMetalColor(null)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Temizle
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {metalColors.map((metal) => {
+                      const isSelected = selectedMetalColor === metal.id;
+                      return (
+                        <motion.button
+                          key={metal.id}
+                          onClick={() => setSelectedMetalColor(metal.id === selectedMetalColor ? null : metal.id)}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`relative p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                            isSelected
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/30 bg-card'
+                          }`}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-full shadow-inner ring-1 ring-black/10"
+                            style={{ background: metal.gradient || metal.color }}
+                          />
+                          <p className="text-[10px] font-medium leading-tight">{metal.name}</p>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                            >
+                              <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Ürün tek renk veya ayırt edilemiyorsa seçin
+                  </p>
+                </motion.section>
+              )}
+            </AnimatePresence>
 
             {/* Step 5: Model Selection (Master Only) */}
             <AnimatePresence>

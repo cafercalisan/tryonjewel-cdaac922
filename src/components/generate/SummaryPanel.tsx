@@ -1,4 +1,4 @@
-import { Crown, Image as ImageIcon, Sparkles, User, Check } from "lucide-react";
+import { Crown, Image as ImageIcon, Sparkles, User, Check, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { metalColors } from "./MetalColorSelector";
 import { productTypes } from "./ProductTypeSelector";
@@ -17,7 +17,7 @@ interface UserModel {
 }
 
 interface SummaryPanelProps {
-  packageType: 'standard' | 'master';
+  packageType: 'standard' | 'master' | 'retouch';
   selectedProductType: string | null;
   selectedMetalColor: string | null;
   selectedModel: UserModel | null;
@@ -89,6 +89,10 @@ export function SummaryPanel({
             <div className="p-2 rounded-xl bg-primary/10">
               <Crown className="h-5 w-5 text-primary" />
             </div>
+          ) : packageType === 'retouch' ? (
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Wand2 className="h-5 w-5 text-primary" />
+            </div>
           ) : (
             <div className="p-2 rounded-xl bg-muted">
               <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -96,10 +100,10 @@ export function SummaryPanel({
           )}
           <div>
             <h3 className="font-semibold">
-              {packageType === 'master' ? 'Master Paket' : 'Standart Paket'}
+              {packageType === 'master' ? 'Master Paket' : packageType === 'retouch' ? 'Retouch' : 'Standart Paket'}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {totalImages} görsel oluşturulacak
+              {packageType === 'retouch' ? 'Profesyonel rötuş işlemi' : `${totalImages} görsel oluşturulacak`}
             </p>
           </div>
         </div>
