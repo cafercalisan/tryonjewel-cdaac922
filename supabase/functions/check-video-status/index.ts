@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const VIDEO_CREDIT_COST = 2;
+const VIDEO_CREDIT_COST = 200;
 
 async function refundCredits(supabase: any, userId: string, amount: number): Promise<void> {
   console.log(`Attempting to refund ${amount} credits to user ${userId}`);
