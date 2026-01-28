@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Eye, Image as ImageIcon, Loader2, ZoomIn, X, ZoomOut, Video, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, Image as ImageIcon, ZoomIn, X, ZoomOut, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,7 +13,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 import { getSignedImageUrl } from '@/lib/getSignedImageUrl';
 import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
-import { ImageNavigator } from '@/components/gallery/ImageNavigator';
 
 interface ImageRecord {
   id: string;
@@ -194,14 +193,6 @@ export default function Gallery() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {completedImages.length > 1 && (
-              <ImageNavigator
-                currentIndex={selectedImageIndex}
-                totalImages={completedImages.length}
-                onNavigate={setSelectedImageIndex}
-                showArrows={false}
-              />
-            )}
             <Link to="/olustur">
               <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
@@ -292,25 +283,29 @@ export default function Gallery() {
         {/* Detail Modal with Before/After */}
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base flex items-center justify-between">
-                <span>{selectedImage?.scenes?.name_tr || 'Görsel Detayı'}</span>
-                {selectedImage && getOriginalUrl(selectedImage) && (
-                  <Button
-                    size="sm"
-                    variant={showComparison ? 'default' : 'outline'}
-                    onClick={() => setShowComparison(!showComparison)}
-                    className="text-xs"
-                  >
-                    <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
-                    {showComparison ? 'Karşılaştırmayı Kapat' : 'Önce/Sonra'}
-                  </Button>
-                )}
+            <DialogHeader className="pr-10">
+              <DialogTitle className="text-base">
+                {selectedImage?.scenes?.name_tr || 'Görsel Detayı'}
               </DialogTitle>
               <DialogDescription>
                 Görsellerinizi büyütebilir, karşılaştırabilir ve indirebilirsiniz. Ok tuşları ile gezinin.
               </DialogDescription>
             </DialogHeader>
+            
+            {/* Before/After toggle button - separate from header */}
+            {selectedImage && getOriginalUrl(selectedImage) && (
+              <div className="flex justify-end -mt-2 mb-2">
+                <Button
+                  size="sm"
+                  variant={showComparison ? 'default' : 'outline'}
+                  onClick={() => setShowComparison(!showComparison)}
+                  className="text-xs"
+                >
+                  <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
+                  {showComparison ? 'Karşılaştırmayı Kapat' : 'Önce/Sonra'}
+                </Button>
+              </div>
+            )}
             
             {selectedImage && (
               <div className="space-y-4">
@@ -487,7 +482,7 @@ export default function Gallery() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4"
+              className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4 touch-manipulation"
               onClick={() => {
                 setLightboxOpen(false);
                 setLightboxScale(1);
@@ -499,7 +494,7 @@ export default function Gallery() {
                   <Button
                     size="icon"
                     variant="secondary"
-                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10"
+                    className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
                     onClick={(e) => {
                       e.stopPropagation();
                       const urls = getImageUrls(selectedImage);
@@ -511,7 +506,7 @@ export default function Gallery() {
                   <Button
                     size="icon"
                     variant="secondary"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10"
+                    className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
                     onClick={(e) => {
                       e.stopPropagation();
                       const urls = getImageUrls(selectedImage);
@@ -523,54 +518,66 @@ export default function Gallery() {
                 </>
               )}
 
-              {/* Controls */}
-              <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLightboxScale(s => Math.max(0.5, s - 0.25));
-                  }}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLightboxScale(s => Math.min(3, s + 0.25));
-                  }}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const urls = getImageUrls(selectedImage);
-                    if (urls[selectedVariation]) {
-                      handleDownload(urls[selectedVariation], selectedVariation);
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={() => {
-                    setLightboxOpen(false);
-                    setLightboxScale(1);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              {/* Controls - top bar */}
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+                {/* Scale indicator - left */}
+                <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
+                </div>
+                
+                {/* Controls - right */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxScale(s => Math.max(0.5, s - 0.25));
+                    }}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxScale(s => Math.min(3, s + 0.25));
+                    }}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const urls = getImageUrls(selectedImage);
+                      if (urls[selectedVariation]) {
+                        handleDownload(urls[selectedVariation], selectedVariation);
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
+                    onClick={() => {
+                      setLightboxOpen(false);
+                      setLightboxScale(1);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              {/* Image */}
+              {/* Image with pinch zoom support */}
               <motion.img
                 src={getImageUrls(selectedImage)[selectedVariation]}
                 alt="Generated jewelry fullscreen"
@@ -578,25 +585,21 @@ export default function Gallery() {
                 animate={{ scale: lightboxScale }}
                 exit={{ scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl pinch-zoom-enabled"
                 onClick={(e) => e.stopPropagation()}
                 drag
-                dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
+                dragElastic={0.1}
               />
 
-              {/* Scale and variation indicator */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
+              {/* Variation indicator - bottom */}
+              {getImageUrls(selectedImage).length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <span className="text-sm font-medium">
+                    {selectedVariation + 1} / {getImageUrls(selectedImage).length}
+                  </span>
                 </div>
-                {getImageUrls(selectedImage).length > 1 && (
-                  <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <span className="text-sm font-medium">
-                      {selectedVariation + 1} / {getImageUrls(selectedImage).length}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

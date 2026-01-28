@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface ImageNavigatorProps {
   currentIndex: number;
   totalImages: number;
   onNavigate: (index: number) => void;
   showArrows?: boolean;
+  showCounter?: boolean;
   className?: string;
 }
 
@@ -16,6 +16,7 @@ export function ImageNavigator({
   totalImages,
   onNavigate,
   showArrows = true,
+  showCounter = true,
   className = '',
 }: ImageNavigatorProps) {
   // Keyboard navigation
@@ -49,21 +50,6 @@ export function ImageNavigator({
         </Button>
       )}
       
-      {/* Dots indicator */}
-      <div className="flex items-center gap-1.5">
-        {Array.from({ length: totalImages }).map((_, index) => (
-          <button
-            key={index}
-            onClick={() => onNavigate(index)}
-            className={`w-2 h-2 rounded-full transition-all ${
-              index === currentIndex
-                ? 'bg-primary w-4'
-                : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-            }`}
-          />
-        ))}
-      </div>
-
       {showArrows && (
         <Button
           size="icon"
@@ -75,10 +61,12 @@ export function ImageNavigator({
         </Button>
       )}
       
-      {/* Counter */}
-      <span className="text-xs text-muted-foreground ml-2">
-        {currentIndex + 1} / {totalImages}
-      </span>
+      {/* Counter only */}
+      {showCounter && (
+        <span className="text-xs text-muted-foreground">
+          {currentIndex + 1} / {totalImages}
+        </span>
+      )}
     </div>
   );
 }
