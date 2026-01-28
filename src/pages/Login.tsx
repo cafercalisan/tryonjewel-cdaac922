@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Gem, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import mooreLogo from '@/assets/moore-logo.png';
 import { toast } from 'sonner';
 import { loginSchema, type LoginFormData } from '@/lib/validation';
 
@@ -63,8 +64,8 @@ export default function Login() {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <Gem className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-semibold tracking-tight">TryOnJewel</span>
+          <img src={mooreLogo} alt="MooreLabs" className="h-10 w-auto" />
+          <span className="text-2xl font-semibold tracking-tight">MooreLabs</span>
         </Link>
 
         {/* Card */}

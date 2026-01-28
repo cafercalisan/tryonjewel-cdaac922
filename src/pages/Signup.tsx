@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Gem, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import mooreLogo from '@/assets/moore-logo.png';
 import { toast } from 'sonner';
 import { signupSchema, type SignupFormData } from '@/lib/validation';
 
@@ -72,15 +73,15 @@ export default function Signup() {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <Gem className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-semibold tracking-tight">TryOnJewel</span>
+          <img src={mooreLogo} alt="MooreLabs" className="h-10 w-auto" />
+          <span className="text-2xl font-semibold tracking-tight">MooreLabs</span>
         </Link>
 
         {/* Card */}
         <div className="bg-card rounded-2xl shadow-luxury p-8">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-semibold mb-2">Hesap Oluştur</h1>
-            <p className="text-muted-foreground">10 ücretsiz kredi ile başlayın</p>
+            <p className="text-muted-foreground">100 ücretsiz kredi ile başlayın</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -2,10 +2,21 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Clock, Zap, TrendingUp, X, Check, Share2, Instagram, Calendar, Repeat, MessageCircle } from 'lucide-react';
+import { Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Clock, Zap, TrendingUp, X, Check, Share2, Instagram, Calendar, Repeat, MessageCircle, Mail } from 'lucide-react';
 import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
 import { AnimatedWord } from '@/components/landing/AnimatedWord';
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
 export default function Landing() {
+  const [showContactModal, setShowContactModal] = useState(false);
+
   return <AppLayout>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
@@ -106,35 +117,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Infinite Product Showcase */}
-      <InfiniteProductShowcase />
-      
-      {/* Example Works Button */}
-      <section className="py-8 bg-background">
-        <div className="container">
-          <motion.div className="flex justify-center" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.5
-        }} viewport={{
-          once: true
-        }}>
-            <Link to="/ornekler">
-              <Button size="lg" variant="outline" className="rounded-full px-10 py-6 text-base font-medium border-2 border-primary/30 hover:border-primary hover:bg-primary/5 transition-all duration-300 group">
-                <Sparkles className="mr-2 h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-                Örnek Çalışmaları Keşfedin
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
+      {/* How It Works Section - MOVED BEFORE CAROUSEL */}
       <section className="py-20 md:py-28 bg-muted/20">
         <div className="container">
           <motion.div className="text-center mb-16" initial={{
@@ -179,7 +162,35 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why TryOnJewel - Modern Comparison Section */}
+      {/* Infinite Product Showcase - MOVED AFTER HOW IT WORKS */}
+      <InfiniteProductShowcase />
+      
+      {/* Example Works Button */}
+      <section className="py-8 bg-background">
+        <div className="container">
+          <motion.div className="flex justify-center" initial={{
+          opacity: 0,
+          y: 20
+        }} whileInView={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          duration: 0.5
+        }} viewport={{
+          once: true
+        }}>
+            <Link to="/ornekler">
+              <Button size="lg" variant="outline" className="rounded-full px-10 py-6 text-base font-medium border-2 border-primary/30 hover:border-primary hover:bg-primary/5 transition-all duration-300 group">
+                <Sparkles className="mr-2 h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                Örnek Çalışmaları Keşfedin
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Why MooreLabs - Modern Comparison Section */}
       <section className="py-20 md:py-28 bg-background">
         <div className="container">
           <motion.div className="text-center mb-16" initial={{
@@ -239,7 +250,7 @@ export default function Landing() {
                 </ul>
               </motion.div>
               
-              {/* TryOnJewel Method Card */}
+              {/* MooreLabs Method Card */}
               <motion.div className="relative rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-8 md:p-10 shadow-luxury" initial={{
               opacity: 0,
               x: 30
@@ -257,7 +268,7 @@ export default function Landing() {
                     <Check className="h-5 w-5 text-primary" />
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold mb-6">TryOnJewel ile</h3>
+                <h3 className="text-xl font-semibold mb-6">MooreLabs ile</h3>
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
                     <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -508,12 +519,15 @@ export default function Landing() {
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               İhtiyaçlarınıza göre esnek fiyatlandırma seçenekleri
             </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              1 görsel = 10 kredi • 1 video = 200 kredi
+            </p>
           </motion.div>
           
-          <div className="max-w-5xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-              {/* Starter Package */}
-              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-8 hover:border-primary/30 transition-colors" initial={{
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Free Package */}
+              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
               opacity: 0,
               y: 30
             }} whileInView={{
@@ -524,37 +538,38 @@ export default function Landing() {
             }} viewport={{
               once: true
             }}>
-                <div className="text-center mb-8">
-                  <h3 className="text-xl font-semibold mb-2">Starter</h3>
-                  <p className="text-muted-foreground text-sm mb-4">Keşfetmek için</p>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Free</h3>
+                  <p className="text-muted-foreground text-xs mb-4">Deneme için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold">10</span>
-                    <span className="text-muted-foreground">kredi</span>
+                    <span className="text-3xl font-bold">100</span>
+                    <span className="text-muted-foreground text-sm">kredi</span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">Ücretsiz</p>
                 </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>10 adet görsel üretimi</span>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>≈ 10 görsel üretimi</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     <span>4K çözünürlük</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     <span>Tüm sahne seçenekleri</span>
                   </li>
                 </ul>
                 <Link to="/kayit" className="block">
-                  <Button variant="outline" className="w-full rounded-full">
-                    Başla
+                  <Button variant="outline" className="w-full rounded-full text-sm">
+                    Ücretsiz Başla
                   </Button>
                 </Link>
               </motion.div>
-              
-              {/* Pro Package */}
-              <motion.div className="relative rounded-3xl border-2 border-primary bg-gradient-to-b from-primary/10 to-transparent p-8 shadow-luxury-lg" initial={{
+
+              {/* Starter Package */}
+              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
               opacity: 0,
               y: 30
             }} whileInView={{
@@ -566,46 +581,44 @@ export default function Landing() {
             }} viewport={{
               once: true
             }}>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
-                    En Popüler
-                  </span>
-                </div>
-                <div className="text-center mb-8">
-                  <h3 className="text-xl font-semibold mb-2">Pro</h3>
-                  <p className="text-muted-foreground text-sm mb-4">Büyüyen markalar için</p>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Starter</h3>
+                  <p className="text-muted-foreground text-xs mb-4">Keşfetmek için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold text-primary">50</span>
-                    <span className="text-muted-foreground">kredi</span>
+                    <span className="text-3xl font-bold">1.000</span>
+                    <span className="text-muted-foreground text-sm">kredi/ay</span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-sm text-muted-foreground line-through">₺3.699</span>
+                    <span className="text-xl font-bold text-primary ml-2">₺2.499</span>
+                    <span className="text-xs text-muted-foreground">/ay</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>50 adet görsel üretimi</span>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>≈ 100 görsel üretimi</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>≈ 5 video üretimi</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     <span>4K çözünürlük</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     <span>Tüm sahne seçenekleri</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Manken görselleri</span>
-                  </li>
                 </ul>
-                <a href="https://wa.me/905393165217?text=Merhaba%2C%20Pro%20paket%20hakkında%20bilgi%20almak%20istiyorum" target="_blank" rel="noopener noreferrer" className="block">
-                  <Button className="w-full rounded-full">
-                    Pro'ya Geç
-                  </Button>
-                </a>
+                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
+                  Satın Al
+                </Button>
               </motion.div>
               
-              {/* Enterprise Package */}
-              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-8 hover:border-primary/30 transition-colors" initial={{
+              {/* Pro Package */}
+              <motion.div className="relative rounded-3xl border-2 border-primary bg-gradient-to-b from-primary/10 to-transparent p-6 shadow-luxury-lg" initial={{
               opacity: 0,
               y: 30
             }} whileInView={{
@@ -617,36 +630,97 @@ export default function Landing() {
             }} viewport={{
               once: true
             }}>
-                <div className="text-center mb-8">
-                  <h3 className="text-xl font-semibold mb-2">Enterprise</h3>
-                  <p className="text-muted-foreground text-sm mb-4">Kurumsal çözümler</p>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
+                    En Popüler
+                  </span>
+                </div>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Pro</h3>
+                  <p className="text-muted-foreground text-xs mb-4">Büyüyen markalar için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-2xl font-bold">Özel Fiyat</span>
+                    <span className="text-3xl font-bold text-primary">3.000</span>
+                    <span className="text-muted-foreground text-sm">kredi/ay</span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-sm text-muted-foreground line-through">₺9.999</span>
+                    <span className="text-xl font-bold text-primary ml-2">₺6.999</span>
+                    <span className="text-xs text-muted-foreground">/ay</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Markanıza özel çalışmalar</span>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>≈ 300 görsel üretimi</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Firma içi entegrasyon</span>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>≈ 15 video üretimi</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Özel sahne tasarımları</span>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>4K çözünürlük</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>API erişimi</span>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Tüm sahne seçenekleri</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Manken görselleri</span>
                   </li>
                 </ul>
-                <a href="https://wa.me/905393165217?text=Merhaba%2C%20Enterprise%20paket%20hakkında%20bilgi%20almak%20istiyorum" target="_blank" rel="noopener noreferrer" className="block">
-                  <Button variant="outline" className="w-full rounded-full">
-                    İletişime Geç
-                  </Button>
-                </a>
+                <Button className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
+                  Pro'ya Geç
+                </Button>
+              </motion.div>
+              
+              {/* Enterprise Package */}
+              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
+              opacity: 0,
+              y: 30
+            }} whileInView={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5,
+              delay: 0.3
+            }} viewport={{
+              once: true
+            }}>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Enterprise</h3>
+                  <p className="text-muted-foreground text-xs mb-4">Kurumsal çözümler</p>
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="text-xl font-bold">Özel Fiyat</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Size özel teklif</p>
+                </div>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Markanıza özel çalışmalar</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Firma içi entegrasyon</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Özel sahne tasarımları</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>API erişimi</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span>Öncelikli destek</span>
+                  </li>
+                </ul>
+                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
+                  İletişime Geç
+                </Button>
               </motion.div>
             </div>
           </div>
@@ -683,7 +757,7 @@ export default function Landing() {
               Mücevher Görsellerinizi Dönüştürmeye Hazır mısınız?
             </h2>
             <p className="text-lg opacity-90 mb-8">
-              Hemen ücretsiz hesap oluşturun ve 10 kredi ile başlayın.
+              Hemen ücretsiz hesap oluşturun ve 100 kredi ile başlayın.
             </p>
             <Link to="/kayit">
               <Button size="lg" variant="secondary" className="text-base px-8">
@@ -694,8 +768,41 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* Contact Modal */}
+      <Dialog open={showContactModal} onOpenChange={setShowContactModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Kredi Satın Alma
+            </DialogTitle>
+            <DialogDescription>
+              Ödeme altyapımız yakında aktif olacaktır. Şu an için kredi yüklemek istiyorsanız aşağıdaki e-posta adresinden bizimle iletişime geçebilirsiniz.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 p-4 bg-muted/50 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground mb-2">E-posta:</p>
+            <a 
+              href="mailto:moorestudioai@gmail.com?subject=Kredi%20Yükleme%20Talebi"
+              className="text-lg font-medium text-primary hover:underline"
+            >
+              moorestudioai@gmail.com
+            </a>
+            <p className="text-xs text-muted-foreground mt-4">
+              Kredi yükleme süreciniz hakkında bilgi alabilir ve ödeme yapabilirsiniz.
+            </p>
+          </div>
+          <div className="flex justify-center mt-4">
+            <Button variant="outline" onClick={() => setShowContactModal(false)}>
+              Kapat
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>;
 }
+
 function HowItWorksStep({
   number,
   title,
