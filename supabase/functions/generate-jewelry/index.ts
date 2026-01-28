@@ -341,8 +341,8 @@ serve(async (req) => {
     const isAdminUser = isAdmin === true;
     console.log(`User ${userId} admin status: ${isAdminUser}`);
 
-    // Calculate credits needed
-    const creditsNeeded = isMasterPackage ? 2 : 1;
+    // Calculate credits needed: 10 credits per image output, 20 for master (2 outputs)
+    const creditsNeeded = isMasterPackage ? 20 : 10;
 
     // Skip credit deduction for admin users - they have unlimited generation rights
     if (!isAdminUser) {

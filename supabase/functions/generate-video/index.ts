@@ -196,7 +196,7 @@ serve(async (req) => {
     console.log("Prompt type:", promptType);
 
     // ========== CREDIT CHECK & DEDUCTION ==========
-    const VIDEO_CREDIT_COST = 2; // Video costs 2 credits
+    const VIDEO_CREDIT_COST = 200; // Video costs 200 credits
 
     // Check if user is admin (unlimited generation)
     const { data: isAdmin } = await supabase

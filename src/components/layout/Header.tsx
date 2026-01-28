@@ -2,8 +2,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
-import { Gem, User, LogOut, Menu, X } from 'lucide-react';
+import { User, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import mooreLogo from '@/assets/moore-logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,8 +29,8 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to={user ? '/panel' : '/'} className="flex items-center gap-2">
-          <Gem className="h-7 w-7 text-primary" />
-          <span className="text-xl font-semibold tracking-tight">TryOnJewel</span>
+          <img src={mooreLogo} alt="MooreLabs" className="h-8 w-auto" />
+          <span className="text-xl font-semibold tracking-tight hidden sm:inline">MooreLabs</span>
         </Link>
 
         {/* Desktop Navigation */}
