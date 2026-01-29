@@ -20,16 +20,24 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check if user is admin
-  const { data: isAdmin } = useQuery({
+  const {
+    data: isAdmin
+  } = useQuery({
     queryKey: ['is-admin', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      const {
+        data,
+        error
+      } = await supabase.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'admin'
+      });
       if (error) return false;
       return data === true;
     },
     enabled: !!user,
-    staleTime: 60_000,
+    staleTime: 60_000
   });
   const handleSignOut = async () => {
     await signOut();
@@ -39,7 +47,7 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to={user ? '/panel' : '/'} className="flex items-center gap-2">
-          <img alt="MooreLabs" className="h-8 w-auto" src="/lovable-uploads/3b707f09-2004-43f8-b563-4c83eb004be1.png" />
+          <img alt="MooreLabs" className="h-8 w-auto" src="/lovable-uploads/c9d0b223-a4e7-46f2-b15e-8523b6128646.png" />
           
         </Link>
 
@@ -84,12 +92,10 @@ export function Header() {
                   <User className="mr-2 h-4 w-4" />
                   Hesap Ayarları
                 </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                {isAdmin && <DropdownMenuItem onClick={() => navigate('/admin')}>
                     <Shield className="mr-2 h-4 w-4" />
                     Admin Paneli
-                  </DropdownMenuItem>
-                )}
+                  </DropdownMenuItem>}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -134,12 +140,10 @@ export function Header() {
                 <Link to="/hesap" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Hesap Ayarları
                 </Link>
-                {isAdmin && (
-                  <Link to="/admin" className="py-2 text-sm font-medium flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+                {isAdmin && <Link to="/admin" className="py-2 text-sm font-medium flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
                     <Shield className="h-4 w-4" />
                     Admin Paneli
-                  </Link>
-                )}
+                  </Link>}
                 <div className="pt-2 border-t border-border">
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm text-muted-foreground">Kalan Kredi</span>
