@@ -47,7 +47,7 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to={user ? '/panel' : '/'} className="flex items-center gap-2">
-          <img alt="MooreLabs" className="h-8 w-auto" src="/lovable-uploads/c9d0b223-a4e7-46f2-b15e-8523b6128646.png" />
+          <img alt="MooreLabs" className="h-8 w-auto object-contain opacity-100" src="/lovable-uploads/c9d0b223-a4e7-46f2-b15e-8523b6128646.png" />
           
         </Link>
 
