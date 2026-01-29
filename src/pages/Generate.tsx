@@ -204,7 +204,7 @@ export default function Generate() {
     e.target.value = '';
   }, [processFile, uploadedImages.length]);
 
-  const creditsNeeded = packageType === 'master' ? 2 : 1;
+  const creditsNeeded = packageType === 'master' ? 20 : 10;
   const totalImages = packageType === 'master' ? 3 : 1;
   const isRetouchMode = packageType === 'retouch';
 
