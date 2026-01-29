@@ -25,7 +25,7 @@ export function Header() {
         {/* Logo */}
         <Link to={user ? '/panel' : '/'} className="flex items-center gap-2">
           <img alt="MooreLabs" className="h-8 w-auto" src="/lovable-uploads/3b707f09-2004-43f8-b563-4c83eb004be1.png" />
-          <span className="text-xl font-semibold tracking-tight hidden sm:inline">​Studi</span>
+          <span className="text-xl font-semibold tracking-tight hidden sm:inline">​Studio</span>
         </Link>
 
         {/* Desktop Navigation */}
