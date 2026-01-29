@@ -5,65 +5,44 @@ import { Button } from '@/components/ui/button';
 import { User, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import mooreLogo from '@/assets/moore-logo.png';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 export function Header() {
-  const { user, signOut } = useAuth();
-  const { data: profile } = useProfile();
+  const {
+    user,
+    signOut
+  } = useAuth();
+  const {
+    data: profile
+  } = useProfile();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
   };
-
-  return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+  return <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to={user ? '/panel' : '/'} className="flex items-center gap-2">
-          <img src={mooreLogo} alt="MooreLabs" className="h-8 w-auto" />
-          <span className="text-xl font-semibold tracking-tight hidden sm:inline">MooreLabs</span>
+          <img alt="MooreLabs" className="h-8 w-auto" src="/lovable-uploads/3b707f09-2004-43f8-b563-4c83eb004be1.png" />
+          <span className="text-xl font-semibold tracking-tight hidden sm:inline">​Studi</span>
         </Link>
 
         {/* Desktop Navigation */}
-        {user ? (
-          <nav className="hidden md:flex items-center gap-6">
-            <Link 
-              to="/panel" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
+        {user ? <nav className="hidden md:flex items-center gap-6">
+            <Link to="/panel" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Panel
             </Link>
-            <Link 
-              to="/olustur" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link to="/olustur" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Oluştur
             </Link>
-            <Link 
-              to="/gorsellerim" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link to="/gorsellerim" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Görsellerim
             </Link>
-            <Link 
-              to="/modellerim" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link to="/modellerim" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Modellerim
             </Link>
-            <Link 
-              to="/videolarim" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link to="/videolarim" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Videolarım
             </Link>
 
@@ -97,73 +76,41 @@ export function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </nav>
-        ) : (
-          <nav className="hidden md:flex items-center gap-4">
+          </nav> : <nav className="hidden md:flex items-center gap-4">
             <Link to="/giris">
               <Button variant="ghost">Giriş Yap</Button>
             </Link>
             <Link to="/kayit">
               <Button>Ücretsiz Başla</Button>
             </Link>
-          </nav>
-        )}
+          </nav>}
 
         {/* Mobile Menu Button */}
-        <button
-          className="md:hidden p-2"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
+        <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background animate-fade-in">
+      {mobileMenuOpen && <div className="md:hidden border-t border-border bg-background animate-fade-in">
           <nav className="container py-4 flex flex-col gap-2">
-            {user ? (
-              <>
-                <Link 
-                  to="/panel" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+            {user ? <>
+                <Link to="/panel" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Panel
                 </Link>
-                <Link 
-                  to="/olustur" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/olustur" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Oluştur
                 </Link>
-                <Link 
-                  to="/gorsellerim" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/gorsellerim" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Görsellerim
                 </Link>
-                <Link 
-                  to="/modellerim" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/modellerim" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Modellerim
                 </Link>
-                <Link 
-                  to="/videolarim" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/videolarim" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Videolarım
                 </Link>
-                <Link
-                  to="/hesap" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/hesap" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Hesap Ayarları
                 </Link>
                 <div className="pt-2 border-t border-border">
@@ -171,39 +118,23 @@ export function Header() {
                     <span className="text-sm text-muted-foreground">Kalan Kredi</span>
                     <span className="font-medium">{profile?.credits ?? 0}</span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start text-destructive"
-                    onClick={() => {
-                      handleSignOut();
-                      setMobileMenuOpen(false);
-                    }}
-                  >
+                  <Button variant="ghost" className="w-full justify-start text-destructive" onClick={() => {
+              handleSignOut();
+              setMobileMenuOpen(false);
+            }}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Çıkış Yap
                   </Button>
                 </div>
-              </>
-            ) : (
-              <>
-                <Link 
-                  to="/giris" 
-                  className="py-2 text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+              </> : <>
+                <Link to="/giris" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Giriş Yap
                 </Link>
-                <Link 
-                  to="/kayit"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
+                <Link to="/kayit" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full">Ücretsiz Başla</Button>
                 </Link>
-              </>
-            )}
+              </>}
           </nav>
-        </div>
-      )}
-    </header>
-  );
+        </div>}
+    </header>;
 }
