@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { User, LogOut, Menu, X } from 'lucide-react';
+import { User, LogOut, Menu, X, Shield } from 'lucide-react';
 import { useState } from 'react';
 import mooreLogo from '@/assets/moore-logo.png';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -16,6 +18,19 @@ export function Header() {
   } = useProfile();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Check if user is admin
+  const { data: isAdmin } = useQuery({
+    queryKey: ['is-admin', user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      if (error) return false;
+      return data === true;
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -69,6 +84,12 @@ export function Header() {
                   <User className="mr-2 h-4 w-4" />
                   Hesap Ayarları
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Admin Paneli
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -113,6 +134,12 @@ export function Header() {
                 <Link to="/hesap" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                   Hesap Ayarları
                 </Link>
+                {isAdmin && (
+                  <Link to="/admin" className="py-2 text-sm font-medium flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+                    <Shield className="h-4 w-4" />
+                    Admin Paneli
+                  </Link>
+                )}
                 <div className="pt-2 border-t border-border">
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm text-muted-foreground">Kalan Kredi</span>
