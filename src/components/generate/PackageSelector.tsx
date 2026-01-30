@@ -33,10 +33,10 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
       id: 'retouch' as PackageType,
       name: 'Retouch',
       description: 'Profesyonel rötuş',
-      credits: 10,
-      images: 1,
+      credits: 20,
+      images: 2,
       icon: Wand2,
-      features: ['Stüdyo kalitesi rötuş', 'Arka plan temizleme', 'Renk düzeltme'],
+      features: ['2 versiyon (siyah/beyaz bg)', 'Açı ve zemin seçimi', 'Renk düzeltme'],
     },
   ];
 
