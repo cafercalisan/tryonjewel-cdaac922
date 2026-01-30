@@ -22,6 +22,7 @@ import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
 import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
+import { RetouchOptions } from "@/components/generate/RetouchOptions";
 import {
   Dialog,
   DialogContent,
@@ -83,6 +84,10 @@ export default function Generate() {
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
   const [isStyleCompressing, setIsStyleCompressing] = useState(false);
+  
+  // Retouch options state
+  const [retouchCameraAngle, setRetouchCameraAngle] = useState(15);
+  const [retouchSurfaceType, setRetouchSurfaceType] = useState<string | null>('reflective-white');
   
   const MAX_IMAGES = 4;
   
@@ -204,8 +209,8 @@ export default function Generate() {
     e.target.value = '';
   }, [processFile, uploadedImages.length]);
 
-  const creditsNeeded = packageType === 'master' ? 20 : 10;
-  const totalImages = packageType === 'master' ? 3 : 1;
+  const creditsNeeded = packageType === 'master' ? 20 : (packageType === 'retouch' ? 20 : 10); // Retouch: 2 outputs = 20 credits
+  const totalImages = packageType === 'master' ? 3 : (packageType === 'retouch' ? 2 : 1); // Retouch gives 2 outputs
   const isRetouchMode = packageType === 'retouch';
 
   // When style reference is uploaded, scene selection is disabled
@@ -271,9 +276,10 @@ export default function Generate() {
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
       };
 
-      // Retouch mode doesn't need style reference or scene
+      // Retouch mode: add angle and surface options
       if (isRetouchMode) {
-        // No additional configuration needed for retouch
+        body.retouchAngle = retouchCameraAngle;
+        body.retouchSurface = retouchSurfaceType;
       } else if (styleReference) {
         // If style reference is used, upload it and pass path instead of scene
         const styleFileExt = styleReference.file.name.split(".").pop();
@@ -408,7 +414,7 @@ export default function Generate() {
               />
             </section>
 
-            {/* Retouch Mode Info */}
+            {/* Retouch Mode Options */}
             <AnimatePresence>
               {isRetouchMode && (
                 <motion.section
@@ -425,12 +431,20 @@ export default function Generate() {
                       <div>
                         <h3 className="font-semibold text-sm mb-1">Profesyonel Rötuş</h3>
                         <p className="text-xs text-muted-foreground">
-                          Ürününüzü yeniden tasarlamaz, sadece profesyonel stüdyo rötuşu uygular.
+                          Ürününüzü yeniden tasarlamaz, profesyonel stüdyo rötuşu uygular. 2 çıktı verir: Siyah ve beyaz arka plan.
                         </p>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/* Retouch Options Component */}
+                    <RetouchOptions
+                      cameraAngle={retouchCameraAngle}
+                      onAngleChange={setRetouchCameraAngle}
+                      surfaceType={retouchSurfaceType}
+                      onSurfaceChange={setRetouchSurfaceType}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs mt-4 pt-4 border-t border-primary/10">
                       {[
                         { icon: '✨', label: 'Arka plan temizleme' },
                         { icon: '💎', label: 'Taş parlaklığı artırma' },

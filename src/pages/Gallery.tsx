@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
+import { download4KImage } from '@/lib/download4K';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 import { getSignedImageUrl } from '@/lib/getSignedImageUrl';
@@ -165,17 +165,20 @@ export default function Gallery() {
     },
   });
 
+  const [is4KDownloading, setIs4KDownloading] = useState(false);
+
   const handleDownload = async (url: string, index: number) => {
     const id = selectedImage?.id;
     if (!id) return;
 
-    await downloadImageAs4kJpeg({
-      url,
-      filenameBase: `jewelry-${id}-${index + 1}-4k`,
-      width: 3840,
-      height: 4800,
-      quality: 0.95,
-    });
+    setIs4KDownloading(true);
+    toast.info('4K görsel hazırlanıyor...');
+    
+    try {
+      await download4KImage(url, `jewelry-${id}-${index + 1}`);
+    } finally {
+      setIs4KDownloading(false);
+    }
   };
 
   // Only show completed images

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Clock, Zap, TrendingUp, X, Check, Share2, Instagram, Calendar, Repeat, MessageCircle, Mail } from 'lucide-react';
-import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
+import { DynamicShowcase } from '@/components/landing/DynamicShowcase';
 import { AnimatedWord } from '@/components/landing/AnimatedWord';
 import { useState } from 'react';
 import {
@@ -163,7 +163,7 @@ export default function Landing() {
       </section>
 
       {/* Infinite Product Showcase - MOVED AFTER HOW IT WORKS */}
-      <InfiniteProductShowcase />
+      <DynamicShowcase />
       
       {/* Example Works Button */}
       <section className="py-8 bg-background">
