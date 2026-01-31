@@ -55,6 +55,11 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.15,
+        maxOutputTokens: 8192,
+        // CRITICAL: Request 4K resolution output from Gemini
+        imageConfig: {
+          imageSize: "4K"
+        }
       },
     }),
   });
