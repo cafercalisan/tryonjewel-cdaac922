@@ -10,6 +10,9 @@ interface GeneratingPanelProps {
   completedImages?: number;
   packageType?: 'standard' | 'master' | 'retouch';
   previewImage?: string | null;
+  // New props for background job status
+  currentStep?: string;
+  progress?: number;
 }
 
 export function GeneratingPanel({ 
@@ -18,7 +21,9 @@ export function GeneratingPanel({
   totalImages = 1,
   completedImages = 0,
   packageType = 'standard',
-  previewImage = null
+  previewImage = null,
+  currentStep,
+  progress: jobProgress,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -38,31 +43,34 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const getStepInfo = () => {
+    // If we have a currentStep from the job, use it as description
+    const jobDescription = currentStep && currentStep !== 'Bekliyor...' ? currentStep : null;
+    
     switch (step) {
       case 'analyzing':
         return {
           title: packageType === 'retouch' ? 'Görsel Analiz Ediliyor' : 'Ürün Analiz Ediliyor',
-          description: packageType === 'retouch' 
+          description: jobDescription || (packageType === 'retouch' 
             ? 'AI görselinizi profesyonel rötuş için analiz ediyor...'
-            : 'AI mücevherinizin detaylarını analiz ediyor...',
+            : 'AI mücevherinizin detaylarını analiz ediyor...'),
         };
       case 'generating':
         if (packageType === 'retouch') {
           return {
             title: 'Profesyonel Rötuş',
-            description: 'Görselinize stüdyo kalitesinde rötuş uygulanıyor...',
+            description: jobDescription || 'Görselinize stüdyo kalitesinde rötuş uygulanıyor...',
           };
         }
         if (packageType === 'master') {
-          const labels = ['E-Ticaret Görseli', 'Lüks Katalog Görseli', 'Manken Çekimi'];
+          const labels = ['Lüks Katalog Görseli', 'E-Ticaret Görseli', 'Manken Çekimi'];
           return {
             title: labels[currentImageIndex - 1] || 'Görsel Oluşturuluyor',
-            description: `Master paket: ${currentImageIndex}/${totalImages} görsel oluşturuluyor...`,
+            description: jobDescription || `Master paket: ${currentImageIndex}/${totalImages} görsel oluşturuluyor...`,
           };
         }
         return {
           title: 'Görsel Oluşturuluyor',
-          description: 'Profesyonel mücevher görseli render ediliyor...',
+          description: jobDescription || 'Profesyonel mücevher görseli render ediliyor...',
         };
       case 'finalizing':
         return {
@@ -74,12 +82,21 @@ export function GeneratingPanel({
       default:
         return {
           title: 'İşleniyor',
-          description: 'Lütfen bekleyin...',
+          description: jobDescription || 'Lütfen bekleyin...',
         };
     }
   };
 
   const { title, description } = getStepInfo();
+  
+  // Calculate progress: use job progress if available, otherwise calculate from completedImages
+  const displayProgress = jobProgress !== undefined 
+    ? jobProgress 
+    : step === 'analyzing' 
+      ? 10 
+      : step === 'finalizing'
+        ? 100
+        : 10 + (completedImages / totalImages) * 90;
 
   return (
     <motion.div
@@ -189,44 +206,33 @@ export function GeneratingPanel({
           )}
         </div>
 
-        {/* Progress bar - based on completed images */}
+        {/* Progress bar - based on job progress or completed images */}
         <div className="space-y-2">
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: '0%' }}
-              animate={{ 
-                width: step === 'analyzing' 
-                  ? '10%' 
-                  : step === 'finalizing'
-                    ? '100%'
-                    : `${10 + (completedImages / totalImages) * 90}%`
-              }}
+              animate={{ width: `${displayProgress}%` }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
           </div>
           
-          {/* Progress text for master package */}
-          {packageType === 'master' && totalImages > 1 && (
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground">
-                {step === 'analyzing' 
-                  ? 'Analiz ediliyor...'
-                  : step === 'finalizing'
-                    ? 'Tamamlandı'
-                    : `${completedImages}/${totalImages} görsel oluşturuldu`
-                }
-              </span>
-              <span className="text-primary font-medium">
-                {step === 'analyzing' 
-                  ? '10%'
-                  : step === 'finalizing'
-                    ? '100%'
-                    : `${Math.round(10 + (completedImages / totalImages) * 90)}%`
-                }
-              </span>
-            </div>
-          )}
+          {/* Progress text - show for all package types now */}
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-muted-foreground">
+              {step === 'analyzing' 
+                ? 'Analiz ediliyor...'
+                : step === 'finalizing'
+                  ? 'Tamamlandı'
+                  : totalImages > 1 
+                    ? `${completedImages}/${totalImages} görsel oluşturuldu`
+                    : 'İşleniyor...'
+              }
+            </span>
+            <span className="text-primary font-medium">
+              {Math.round(displayProgress)}%
+            </span>
+          </div>
         </div>
 
         {/* Jewelry Facts Section */}

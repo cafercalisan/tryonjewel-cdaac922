@@ -61,6 +61,57 @@ export type Database = {
           },
         ]
       }
+      processing_jobs: {
+        Row: {
+          completed_images: number
+          created_at: string
+          credits_used: number | null
+          current_step: string | null
+          error_message: string | null
+          id: string
+          image_record_id: string | null
+          progress: number
+          refunded: boolean | null
+          result_urls: Json | null
+          status: string
+          total_images: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_images?: number
+          created_at?: string
+          credits_used?: number | null
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          image_record_id?: string | null
+          progress?: number
+          refunded?: boolean | null
+          result_urls?: Json | null
+          status?: string
+          total_images?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_images?: number
+          created_at?: string
+          credits_used?: number | null
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          image_record_id?: string | null
+          progress?: number
+          refunded?: boolean | null
+          result_urls?: Json | null
+          status?: string
+          total_images?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company: string | null
