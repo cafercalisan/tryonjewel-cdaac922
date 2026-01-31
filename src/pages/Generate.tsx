@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
@@ -9,7 +9,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,7 @@ import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
 import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
 import { RetouchOptions } from "@/components/generate/RetouchOptions";
+import { useJobPolling, JobStatus } from "@/hooks/useJobPolling";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +70,7 @@ export default function Generate() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
@@ -98,6 +100,53 @@ export default function Generate() {
   const [completedImages, setCompletedImages] = useState(0);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const currentImageRecordId = useRef<string | null>(null);
+  
+  // Background job polling
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  
+  // Job polling with callbacks
+  const { job } = useJobPolling(activeJobId, {
+    onComplete: (completedJob) => {
+      console.log('Job completed:', completedJob);
+      setGenerationStep('finalizing');
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      
+      setTimeout(() => {
+        toast.success("Görselleriniz başarıyla oluşturuldu!");
+        navigate(`/sonuclar?id=${completedJob.image_record_id}`);
+        setIsGenerating(false);
+        setActiveJobId(null);
+        setGenerationStep("idle");
+        setCompletedImages(0);
+      }, 1000);
+    },
+    onError: (failedJob) => {
+      console.error('Job failed:', failedJob);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      
+      if (failedJob.refunded) {
+        toast.error(`İşlem başarısız oldu. Kredileriniz iade edildi.`);
+      } else {
+        toast.error(failedJob.error_message || "Görsel oluşturulurken bir hata oluştu.");
+      }
+      
+      setIsGenerating(false);
+      setActiveJobId(null);
+      setGenerationStep("idle");
+      setCompletedImages(0);
+    },
+    onProgress: (progressJob) => {
+      // Update UI based on job progress
+      if (progressJob.status === 'analyzing') {
+        setGenerationStep('analyzing');
+      } else if (progressJob.status === 'generating') {
+        setGenerationStep('generating');
+      }
+      
+      setCompletedImages(progressJob.completed_images);
+      setCurrentImageIndex(progressJob.completed_images + 1);
+    },
+  });
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -266,8 +315,6 @@ export default function Generate() {
         imagePaths.push(filePath);
       }
 
-      setGenerationStep("generating");
-
       const body: any = {
         imagePath: imagePaths[0],
         additionalImagePaths: imagePaths.slice(1),
@@ -302,44 +349,23 @@ export default function Generate() {
 
       if (error) throw error;
 
-      const imageId = data.imageId;
-      currentImageRecordId.current = imageId;
-
-      const channel = supabase
-        .channel(`image-progress-${imageId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'images',
-            filter: `id=eq.${imageId}`
-          },
-          (payload) => {
-            const newData = payload.new as { generated_image_urls?: string[]; status?: string };
-            const urlCount = newData.generated_image_urls?.length || 0;
-            setCompletedImages(urlCount);
-            setCurrentImageIndex(urlCount + 1);
-            
-            if (newData.status === 'completed') {
-              setGenerationStep('finalizing');
-              setTimeout(() => {
-                channel.unsubscribe();
-                toast.success("Görselleriniz başarıyla oluşturuldu!");
-                navigate(`/sonuclar?id=${imageId}`);
-              }, 1000);
-            }
-          }
-        )
-        .subscribe();
-
-      toast.success("Görselleriniz başarıyla oluşturuldu!");
-      channel.unsubscribe();
-      navigate(`/sonuclar?id=${data.imageId}`);
+      // New background processing flow: set job ID and let polling handle the rest
+      if (data.jobId) {
+        console.log('Background job started:', data.jobId);
+        currentImageRecordId.current = data.imageId;
+        setActiveJobId(data.jobId);
+        // Don't navigate or set isGenerating to false - let the polling callbacks handle it
+      } else {
+        // Fallback for old sync flow (shouldn't happen)
+        toast.success("Görselleriniz başarıyla oluşturuldu!");
+        navigate(`/sonuclar?id=${data.imageId}`);
+        setIsGenerating(false);
+        setGenerationStep("idle");
+        setCompletedImages(0);
+      }
     } catch (error) {
       console.error("Generation error:", error);
       toast.error("Görsel oluşturulurken bir hata oluştu.");
-    } finally {
       setIsGenerating(false);
       setGenerationStep("idle");
       setCompletedImages(0);
@@ -360,6 +386,8 @@ export default function Generate() {
             completedImages={completedImages}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
+            currentStep={job?.current_step}
+            progress={job?.progress}
           />
         </div>
       </AppLayout>
