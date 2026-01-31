@@ -142,12 +142,12 @@ export function DynamicShowcase() {
 
       if (error) throw error;
       
-      // Flatten and shuffle all generated URLs
+      // Take only ONE image per record to ensure unique products
       const allUrls: string[] = [];
       data?.forEach(record => {
-        if (record.generated_image_urls && Array.isArray(record.generated_image_urls)) {
-          // Take only first image from each record for variety
-          allUrls.push(...record.generated_image_urls.slice(0, 2));
+        if (record.generated_image_urls && Array.isArray(record.generated_image_urls) && record.generated_image_urls.length > 0) {
+          // Only take the first image from each record for maximum variety
+          allUrls.push(record.generated_image_urls[0]);
         }
       });
 
