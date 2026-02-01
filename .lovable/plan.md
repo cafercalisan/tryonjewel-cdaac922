@@ -1,162 +1,177 @@
 
 
-# Background Processing Implementasyonu - WORKER_LIMIT Çözümü
+# Master Paket Üretim Süreci İyileştirmesi
 
-## Problem Analizi
+## Problem Özeti
 
-Mevcut `generate-jewelry` Edge Function, **Master Package** için 3 görseli **senkron olarak** üretiyor. Her görsel ~30-40 saniye sürüyor ve CPU-yoğun işlemler (base64 encoding, API çağrıları) 2 saniyelik CPU limitini aşıyor.
-
-**Supabase Pro Plan bu sorunu çözmez** çünkü:
-- Free: 2 sec CPU / 150 sec wall clock
-- Pro: 2 sec CPU / 400 sec wall clock (CPU aynı kalıyor)
+Master pakette üretim %65 civarında takılıyor ve görsel çıktıları görünmüyor. Bunun nedenleri:
+1. API çağrılarında timeout kontrolü yok
+2. Başarısız görsel için retry mekanizması yok
+3. Kısmi başarı (2/3 görsel) durumunda job tamamlanmıyor
+4. Kullanıcı her görsel tamamlandığında anlık olarak sonucu göremiyor
 
 ---
 
-## Çözüm Mimarisi
+## Yeni Mimari Tasarım
 
 ```text
-┌─────────────────┐      ┌──────────────────────┐      ┌─────────────────┐
-│   Frontend      │──1──▶│  Edge Function       │──2──▶│  processing_    │
-│   (Generate.tsx)│      │  (generate-jewelry)  │      │  jobs table     │
-└─────────────────┘      └──────────────────────┘      └─────────────────┘
-        │                         │                            │
-        │                         │ 3. EdgeRuntime             │
-        │                         │    .waitUntil()            │
-        │                         ▼                            │
-        │                ┌──────────────────────┐              │
-        │                │  Background Worker   │──4──────────▶│
-        │                │  (async processing)  │   update     │
-        │                └──────────────────────┘   status     │
-        │                                                      │
-        └───────────────────5. Poll status ───────────────────▶│
-```
-
-### Akış:
-1. Frontend request gönderir
-2. Edge Function hemen `job_id` oluşturup döner (~100ms)
-3. `EdgeRuntime.waitUntil()` ile arka plan işlemi başlar
-4. Her görsel tamamlandığında DB güncellenir
-5. Frontend job durumunu polling ile takip eder
-
----
-
-## Teknik Implementasyon Planı
-
-### Adım 1: processing_jobs Tablosu Oluşturma
-
-Database'e yeni bir tablo eklenecek:
-
-**Tablo Şeması:**
-- `id` (UUID, primary key)
-- `user_id` (UUID, foreign key to profiles)
-- `status` (TEXT): `pending`, `analyzing`, `generating`, `completed`, `failed`
-- `progress` (INTEGER): 0-100
-- `current_step` (TEXT): Kullanıcıya gösterilecek mesaj
-- `total_images` (INTEGER): Toplam üretilecek görsel sayısı
-- `completed_images` (INTEGER): Tamamlanan görsel sayısı
-- `image_record_id` (UUID): İlişkili images kaydı
-- `result_urls` (JSONB): Tamamlanan görsel URL'leri
-- `error_message` (TEXT): Hata durumunda mesaj
-- `created_at`, `updated_at` (TIMESTAMPTZ)
-
-**RLS Politikaları:**
-- Kullanıcılar sadece kendi job'larını görebilir
-- Service role tüm job'ları güncelleyebilir
-
----
-
-### Adım 2: Edge Function Yeniden Yapılandırma
-
-**generate-jewelry/index.ts** dosyası ikiye ayrılacak:
-
-**A) Ana Handler (Hızlı Yanıt):**
-```
-1. Kullanıcı doğrulama
-2. Kredi kontrolü ve düşme
-3. Job kaydı oluşturma (status: pending)
-4. Image kaydı oluşturma
-5. EdgeRuntime.waitUntil() ile background task başlatma
-6. Hemen job_id döndürme
-```
-
-**B) Background Worker (Async):**
-```
-1. Görselleri yükleme ve analiz
-2. Her görsel için:
-   - Prompt oluşturma
-   - Gemini API çağrısı
-   - Storage'a upload
-   - Job progress güncelleme
-3. Tamamlandığında status: completed
-4. Hata durumunda status: failed + refund
+Kullanıcı Request
+       │
+       ▼
+┌─────────────────────────┐
+│ Edge Function (Hızlı)   │
+│ - Job ID oluştur        │
+│ - Kredi düş              │
+│ - Background başlat     │
+└─────────────────────────┘
+       │ waitUntil()
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  BACKGROUND WORKER                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
+│  │ 1. Katalog Görseli│───────────────▶│ Retry (1x)     │  │
+│  │    (Editorial)    │                 └────────────────┘  │
+│  └─────────┬─────────┘                         │           │
+│            │ Başarılı?                         │           │
+│            ▼                                   ▼           │
+│  ┌──── DB UPDATE ────┐              ┌─── DB UPDATE ───┐   │
+│  │ completed_images=1│              │ (başarısız log) │   │
+│  │ result_urls=[url1]│              └─────────────────┘   │
+│  └───────────────────┘                                     │
+│            │                                               │
+│            ▼                                               │
+│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
+│  │ 2. E-Ticaret      │───────────────▶│ Retry (1x)     │  │
+│  │    (Sade arkaplan)│                 └────────────────┘  │
+│  └─────────┬─────────┘                                     │
+│            │                                               │
+│            ▼                                               │
+│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
+│  │ 3. Model Çekimi   │───────────────▶│ Retry (1x)     │  │
+│  │    (Manken)       │                 └────────────────┘  │
+│  └─────────┬─────────┘                                     │
+│            │                                               │
+│            ▼                                               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ SONUÇ DEĞERLENDİRME                                 │   │
+│  │ • 3/3 başarılı → status: completed                  │   │
+│  │ • 2/3 başarılı → status: completed + kısmi iade     │   │
+│  │ • 1/3 başarılı → status: completed + kısmi iade     │   │
+│  │ • 0/3 başarılı → status: failed + tam iade          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+       │
+       │ Realtime Updates
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (Generate.tsx)                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │         GeneratingPanel (Üretim Ekranı)             │   │
+│  │                                                     │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐             │   │
+│  │  │ KART 1  │  │ KART 2  │  │ KART 3  │             │   │
+│  │  │ Katalog │  │E-Ticaret│  │ Model   │             │   │
+│  │  │         │  │         │  │         │             │   │
+│  │  │ [Görsel]│  │[Spinner]│  │[Bekliyor]│            │   │
+│  │  │   ✓     │  │   ...   │  │    ○    │             │   │
+│  │  └─────────┘  └─────────┘  └─────────┘             │   │
+│  │                                                     │   │
+│  │  Progress: ████████░░░░░░░░░░ 45%                   │   │
+│  │  "E-ticaret görseli oluşturuluyor (2/3)..."        │   │
+│  │                                                     │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Adım 3: Frontend Polling Sistemi
+## Teknik Değişiklikler
 
-**Generate.tsx** ve ilgili hook'lar güncellenecek:
+### 1. Edge Function: Timeout + Retry Mekanizması
 
-**Yeni Hook: useJobPolling**
-```typescript
-// Örnek yapı
-const useJobPolling = (jobId: string | null) => {
-  // 2 saniyede bir job durumunu kontrol et
-  // status === 'completed' olunca sonuçları döndür
-  // status === 'failed' olunca hata göster
-  // progress değerini UI'a aktar
-}
+**Dosya:** `supabase/functions/generate-jewelry/index.ts`
+
+Yeni `generateSingleImageWithTimeout` fonksiyonu eklenecek:
+- Her görsel için 4 dakika (240.000ms) timeout
+- Başarısız olursa 1 kez retry
+- `Promise.race()` ile timeout kontrolü
+- Her görsel sonucu anında DB'ye yazılacak
+
+```text
+Örnek akış:
+1. Katalog görseli başlat → 4dk timeout ile izle
+2. Başarılı → DB güncelle (completed_images=1, result_urls=[url])
+3. Başarısız → 1x retry → hala başarısız → log yaz, devam et
+4. E-ticaret görseli başlat → aynı süreç
+5. Model çekimi başlat → aynı süreç
+6. Toplam sonuçları değerlendir → kısmi/tam iade hesapla
 ```
 
-**UI Güncellemeleri:**
-- Mevcut "Generating..." overlay'i gerçek progress gösterecek
-- "Görsel 1/3 tamamlandı" gibi canlı güncellemeler
-- Hata durumunda kullanıcıya bilgi + kredi iadesi bildirimi
+### 2. Kısmi Başarı ve Kredi İadesi
+
+**Kısmi iade formülü:**
+- 3/3 başarılı → 0 kredi iade
+- 2/3 başarılı → 7 kredi iade (20 × 1/3)
+- 1/3 başarılı → 14 kredi iade (20 × 2/3)
+- 0/3 başarılı → 20 kredi iade (tam)
+
+Yeni `processing_jobs` alanları:
+- `partial_refund_amount` (INTEGER) - İade edilen kredi miktarı
+- `failed_image_indices` (JSONB) - Hangi görsellerin başarısız olduğu
+
+### 3. Frontend: 3 Kartlı Önizleme UI
+
+**Dosya:** `src/components/generate/GeneratingPanel.tsx`
+
+Yeni kart bazlı UI:
+- 3 kart: "Lüks Katalog", "E-Ticaret", "Model Çekimi"
+- Her kart durumu:
+  - `waiting` → Gri placeholder + "Bekliyor..."
+  - `generating` → Spinner + pulse animasyonu
+  - `completed` → Gerçek görsel thumbnail
+  - `failed` → Kırmızı uyarı ikonu
+- Kartlar `result_urls` array'inden sırayla dolar
+- Tamamlanan görsele tıklayınca büyük önizleme
 
 ---
 
-### Adım 4: Hata Yönetimi ve Kredi İadesi
-
-**Partial Failure Handling:**
-- 3 görselden 2'si başarılı olursa: Kısmi başarı göster
-- Tüm görseller başarısız olursa: Tam kredi iadesi
-- Zaman aşımı (10 dakika): Job failed olarak işaretle
-
-**Kredi İadesi Mekanizması:**
-- Background worker hata yakalayınca `refund_credits` RPC çağırılır
-- Job kaydına refund bilgisi eklenir
-
----
-
-## Dosya Değişiklikleri
+## Dosya Değişiklik Listesi
 
 | Dosya | Değişiklik |
 |-------|------------|
-| `supabase/migrations/xxx_processing_jobs.sql` | Yeni tablo ve RLS |
-| `supabase/functions/generate-jewelry/index.ts` | Background processing |
-| `src/hooks/useJobPolling.ts` | Yeni polling hook |
-| `src/pages/Generate.tsx` | Polling entegrasyonu |
-| `src/components/generate/GeneratingPanel.tsx` | Gerçek progress UI |
-| `src/integrations/supabase/types.ts` | Otomatik güncellenir |
+| `supabase/functions/generate-jewelry/index.ts` | Timeout wrapper, retry logic, kısmi başarı yönetimi |
+| `src/components/generate/GeneratingPanel.tsx` | 3 kartlı önizleme UI, anlık görsel gösterimi |
+| `src/hooks/useJobPolling.ts` | `result_urls` değişikliklerini takip etme |
+| `supabase/migrations/xxx_update_processing_jobs.sql` | Yeni alanlar: `partial_refund_amount`, `failed_image_indices` |
 
 ---
 
-## Beklenen Sonuçlar
+## Kullanıcı Deneyimi Akışı
 
-- Edge Function yanıt süresi: ~30-40 saniye → ~500ms
-- WORKER_LIMIT hatası: Çözülür
-- Kullanıcı deneyimi: Gerçek zamanlı progress gösterimi
-- Güvenilirlik: Partial failure handling + kredi iadesi
-- Ölçeklenebilirlik: Birden fazla eşzamanlı job desteklenir
+1. Kullanıcı "Oluştur" butonuna basar
+2. 3 boş kart görünür (Katalog / E-Ticaret / Model)
+3. 1. kart: Spinner döner, "Lüks katalog görseli oluşturuluyor..."
+4. ~30-40sn sonra 1. kart tamamlanır, görsel görünür, ✓ işareti
+5. 2. kart: Spinner başlar, "E-ticaret görseli oluşturuluyor..."
+6. ~30-40sn sonra 2. kart tamamlanır
+7. 3. kart: Spinner başlar, "Model çekimi oluşturuluyor..."
+8. ~30-40sn sonra 3. kart tamamlanır (veya 4dk timeout sonrası başarısız)
+9. İşlem biter: Başarılı görseller sonuçlar sayfasına yönlendirilir
+10. Kısmi başarı varsa: "2/3 görsel başarılı. 7 kredi iade edildi." bildirimi
 
 ---
 
-## Alternatif Değerlendirme
+## Zaman ve Güvenilirlik İyileştirmesi
 
-**Lovable Cloud vs Kendi Supabase:**
-- Lovable Cloud edge function'ları aynı limitlere tabi
-- Kendi Supabase Pro hesabınız da aynı limitlere tabi
-- **Çözüm platform değişikliği değil, mimari değişiklik**
-
-Bu plan onaylanırsa implementasyona başlayabilirim.
+| Durum | Eski Sistem | Yeni Sistem |
+|-------|-------------|-------------|
+| Normal üretim | ~2-3 dk | ~2-3 dk (aynı) |
+| 3. görsel takılırsa | Sonsuza kadar bekler | 4dk sonra timeout + devam |
+| 2/3 başarılı | Hiçbir sonuç yok | 2 görsel gösterilir + kısmi iade |
+| Anlık feedback | Sadece progress % | Her görsel anında görünür |
 
