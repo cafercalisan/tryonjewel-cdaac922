@@ -18,6 +18,9 @@ export interface ProcessingJob {
   credits_used: number;
   created_at: string;
   updated_at: string;
+  // New fields for partial success
+  partial_refund_amount: number;
+  failed_image_indices: number[];
 }
 
 interface UseJobPollingOptions {

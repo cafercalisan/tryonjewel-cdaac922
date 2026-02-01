@@ -20,6 +20,9 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 // Max image size in bytes (1.5MB to avoid memory issues)
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
+// Timeout for each image generation (4 minutes = 240000ms)
+const IMAGE_GENERATION_TIMEOUT = 240000;
+
 // Helper: Convert ArrayBuffer to base64 in chunks
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -30,6 +33,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
   return btoa(binary);
+}
+
+// Helper: Create timeout promise
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+  });
 }
 
 async function callGeminiImageGeneration({
@@ -202,6 +212,57 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
 }
 
 // ═══════════════════════════════════════════════════════════════
+// GENERATE SINGLE IMAGE WITH TIMEOUT AND RETRY
+// Wraps generateSingleImage with 4 minute timeout and 1 retry
+// ═══════════════════════════════════════════════════════════════
+async function generateSingleImageWithTimeout(
+  base64Images: string[],
+  prompt: string,
+  userId: string,
+  imageRecordId: string,
+  index: number,
+  supabase: any,
+  imageName: string
+): Promise<{ success: boolean; url: string | null; error?: string }> {
+  const maxRetries = 1;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`${imageName}: Attempt ${attempt + 1}/${maxRetries + 1} starting...`);
+      
+      // Race between generation and timeout
+      const result = await Promise.race([
+        generateSingleImage(base64Images, prompt, userId, imageRecordId, index, supabase),
+        timeout(IMAGE_GENERATION_TIMEOUT)
+      ]);
+      
+      if (result) {
+        console.log(`${imageName}: Success on attempt ${attempt + 1}`);
+        return { success: true, url: result };
+      } else {
+        console.error(`${imageName}: No result on attempt ${attempt + 1}`);
+        if (attempt < maxRetries) {
+          console.log(`${imageName}: Retrying...`);
+          continue;
+        }
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`${imageName}: Error on attempt ${attempt + 1}: ${errMsg}`);
+      
+      if (attempt < maxRetries) {
+        console.log(`${imageName}: Retrying after error...`);
+        continue;
+      }
+      
+      return { success: false, url: null, error: errMsg };
+    }
+  }
+  
+  return { success: false, url: null, error: 'Max retries exceeded' };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // BACKGROUND PROCESSING WORKER
 // This function runs asynchronously after the main response is sent
 // ═══════════════════════════════════════════════════════════════
@@ -242,6 +303,9 @@ async function processJobInBackground(params: {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
+  // Track failed images for partial refund
+  const failedImageIndices: number[] = [];
+  
   const updateJobProgress = async (updates: {
     status?: string;
     progress?: number;
@@ -250,6 +314,8 @@ async function processJobInBackground(params: {
     result_urls?: string[];
     error_message?: string;
     refunded?: boolean;
+    partial_refund_amount?: number;
+    failed_image_indices?: number[];
   }) => {
     await supabase
       .from('processing_jobs')
@@ -727,17 +793,18 @@ OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
         completed_images: 0,
       });
       
-      const blackBgUrl = await generateSingleImage(
+      const blackResult = await generateSingleImageWithTimeout(
         base64Images,
         buildRetouchPrompt('black'),
         userId,
         imageRecordId,
         0,
-        supabase
+        supabase,
+        'Retouch Black BG'
       );
       
-      if (blackBgUrl) {
-        generatedUrls.push(blackBgUrl);
+      if (blackResult.success && blackResult.url) {
+        generatedUrls.push(blackResult.url);
         await supabase
           .from('images')
           .update({ generated_image_urls: [...generatedUrls] })
@@ -749,27 +816,37 @@ OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
           completed_images: 1,
           result_urls: [...generatedUrls],
         });
+      } else {
+        failedImageIndices.push(0);
+        await updateJobProgress({
+          progress: 55,
+          current_step: 'Siyah versiyon başarısız, beyaz versiyona geçiliyor (2/2)...',
+          completed_images: 0,
+        });
       }
       
       // Generate WHITE/CUSTOM background version
-      const whiteBgUrl = await generateSingleImage(
+      const whiteResult = await generateSingleImageWithTimeout(
         base64Images,
         buildRetouchPrompt('white'),
         userId,
         imageRecordId,
         1,
-        supabase
+        supabase,
+        'Retouch White BG'
       );
       
-      if (whiteBgUrl) {
-        generatedUrls.push(whiteBgUrl);
+      if (whiteResult.success && whiteResult.url) {
+        generatedUrls.push(whiteResult.url);
+      } else {
+        failedImageIndices.push(1);
       }
     } 
     // ═══════════════════════════════════════════════════════════════
     // MASTER PACKAGE
     // ═══════════════════════════════════════════════════════════════
     else if (isMasterPackage) {
-      console.log('Master Package: Generating 3 images...');
+      console.log('Master Package: Generating 3 images with timeout protection...');
 
       const colorMap: Record<string, { name: string; prompt: string }> = {
         'white': { name: 'Beyaz', prompt: 'matte seamless paper backdrop, soft off-white, clean ivory (NON-METALLIC)' },
@@ -803,7 +880,7 @@ OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
       const randomCatalogBg = catalogBackgrounds[Math.floor(Math.random() * catalogBackgrounds.length)];
       console.log(`Selected random catalog background: ${randomCatalogBg.name}`);
 
-      // Image 1: Editorial Luxury Scene
+      // ─── IMAGE 1: Editorial Luxury Scene ───
       await updateJobProgress({
         progress: 20,
         current_step: 'Lüks katalog görseli oluşturuluyor (1/3)...',
@@ -833,38 +910,37 @@ STRICT RULES:
 
 SCENE CONCEPT (UNIQUE EDITORIAL ENVIRONMENT):
 - SELECTED SCENE: ${randomCatalogBg.name}
-- SCENE DESCRIPTION: ${randomCatalogBg.prompt}
-- The product must feel NATURALLY INTEGRATED into the scene — resting on, draped against, or nestled within the environment
-- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact, green fabric
+- ENVIRONMENT: ${randomCatalogBg.prompt}
+- Editorial luxury photography style
+- Soft directional lighting from upper-left
+- Natural shadows and depth
+- Premium catalog quality
 
-CAMERA & COMPOSITION:
-- Lens feel: Cinematic 85–100mm
-- Perspective: Slightly low or side-angled, creating depth and drama
-- Composition: Asymmetrical but balanced, editorial negative space allowed
-- Focus: Razor-sharp on jewelry with natural depth of field falloff
-
-LIGHTING (CHARACTER-DRIVEN):
-- Directional, character-driven light source
-- Shadows add depth and dimension without heaviness
-- Facets and metal surfaces shaped naturally, not exaggerated
-- Avoid: HDR glow, rim lights that shift color, artificial sparkle
-
-MOOD & STYLE:
-- Luxury fashion editorial aesthetic
-- Calm, sophisticated, timeless atmosphere
-- Artistic vision yet commercially viable
-- Premium catalog/magazine quality
+COMPOSITION:
+- Product dominant in frame (70-80%)
+- Elegant negative space
+- Natural integration with surface
+- Premium e-commerce aesthetic
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecordId, 1, supabase);
-      
-      let editorialReferenceBase64: string | null = null;
-      
-      if (catalogUrl) {
-        generatedUrls.push(catalogUrl);
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
+      const catalogResult = await generateSingleImageWithTimeout(
+        base64Images,
+        catalogPrompt,
+        userId,
+        imageRecordId,
+        1,
+        supabase,
+        'Master Catalog'
+      );
+
+      if (catalogResult.success && catalogResult.url) {
+        generatedUrls.push(catalogResult.url);
+        await supabase
+          .from('images')
+          .update({ generated_image_urls: [...generatedUrls] })
+          .eq('id', imageRecordId);
         
         await updateJobProgress({
           progress: 40,
@@ -872,131 +948,127 @@ Ultra high resolution output.`;
           completed_images: 1,
           result_urls: [...generatedUrls],
         });
-        
-        // Fetch editorial as reference
-        try {
-          const editorialResponse = await fetch(catalogUrl);
-          if (editorialResponse.ok) {
-            const editorialBuffer = await editorialResponse.arrayBuffer();
-            if (editorialBuffer.byteLength <= MAX_IMAGE_SIZE) {
-              editorialReferenceBase64 = arrayBufferToBase64(editorialBuffer);
-            }
-          }
-        } catch (err) {
-          console.warn('Could not fetch editorial as reference');
-        }
+      } else {
+        failedImageIndices.push(0);
+        await updateJobProgress({
+          progress: 40,
+          current_step: 'Katalog görseli başarısız, e-ticaret görseline geçiliyor (2/3)...',
+          completed_images: 0,
+        });
       }
 
-      const enhancedBase64Images = editorialReferenceBase64 
-        ? [editorialReferenceBase64, ...base64Images] 
-        : base64Images;
-
-      // Image 2: E-commerce clean background
-      const ecommercePrompt = `[STRICT INPAINTING MODE - BACKGROUND REPLACEMENT ONLY]
-
-This is NOT a regeneration task. This is a BACKGROUND REPLACEMENT task.
-The jewelry object is FROZEN. Do NOT regenerate, reinterpret, or modify it in any way.
-
-Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // ─── IMAGE 2: Clean E-Commerce ───
+      const ecomPrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${productExtractionBlock}
 
 ${fidelityBlock}
 
-═══════════════════════════════════════════════════════════════
-⚠️⚠️⚠️ ABSOLUTE LOCK - PRODUCT FROZEN ⚠️⚠️⚠️
-═══════════════════════════════════════════════════════════════
-
-WHAT IS FROZEN (DO NOT TOUCH):
-- ✔ Exact jewelry geometry and proportions
-- ✔ Every stone position and count
-- ✔ Every metal link/chain segment
-- ✔ Pendant shape and drop angle
-- ✔ Setting structure and prong positions
-- ✔ Metal color, finish, and reflective properties
-- ✔ All design elements exactly as reference
-
-WHAT TO CHANGE (BACKGROUND ONLY):
+TASK TYPE (CRITICAL): CLEAN E-COMMERCE PRODUCT SHOT
+- This is a PURE PRODUCT IMAGE for online retail
 - Background: ${selectedColor.prompt}
-- Surface: matte, non-reflective
-- Lighting: soft, diffused, neutral (no warm/cool bias affecting product)
+- NO lifestyle elements, NO props, NO contextual styling
 
 ⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
 - Original Color Category: ${metalColorCategory.toUpperCase()}
 ${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-STRICT INPAINTING RULES:
-- Treat this as BACKGROUND INPAINTING, not image generation
-- The jewelry pixels are SACRED - copy them exactly
-- Only the background/environment pixels change
-- NO metal recoloring (yellow↔white↔rose) under any circumstances
-- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
-- Background must be NON-METALLIC and MATTE to avoid color casts
+[STRICT INPAINTING] PRODUCT ISOLATION PROTOCOL:
+1. Extract ONLY the jewelry from reference
+2. FREEZE all jewelry pixels - no modification allowed
+3. Place on clean, solid-color paper backdrop
+4. Soft diffused studio lighting
+5. Minimal natural shadow for depth
 
-SCENE: Clean, minimal e-commerce product shot
-- The jewelry should be the absolute focal point
-- Clean, uncluttered, listing-quality product photo
-- Product centered, well-lit, commercially ready
+BACKGROUND REQUIREMENTS:
+- Color: ${selectedColor.name} (${selectedColor.prompt})
+- MATTE paper texture - NO metallic or reflective surfaces
+- Seamless, even lighting
+- NO gradients, patterns or textures that could contaminate metal color
+
+COMPOSITION:
+- Product centered, hero framing
+- Clean negative space
+- Professional e-commerce standard
+- Ready for web/catalog use
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      const ecomUrl = await generateSingleImage(enhancedBase64Images, ecommercePrompt, userId, imageRecordId, 2, supabase);
-      if (ecomUrl) {
-        generatedUrls.push(ecomUrl);
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
+      const ecomResult = await generateSingleImageWithTimeout(
+        base64Images,
+        ecomPrompt,
+        userId,
+        imageRecordId,
+        2,
+        supabase,
+        'Master E-commerce'
+      );
+
+      if (ecomResult.success && ecomResult.url) {
+        generatedUrls.push(ecomResult.url);
+        await supabase
+          .from('images')
+          .update({ generated_image_urls: [...generatedUrls] })
+          .eq('id', imageRecordId);
         
         await updateJobProgress({
           progress: 65,
           current_step: 'Model çekimi oluşturuluyor (3/3)...',
-          completed_images: 2,
+          completed_images: generatedUrls.length,
           result_urls: [...generatedUrls],
+        });
+      } else {
+        failedImageIndices.push(1);
+        await updateJobProgress({
+          progress: 65,
+          current_step: 'E-ticaret görseli başarısız, model çekimine geçiliyor (3/3)...',
+          completed_images: generatedUrls.length,
         });
       }
 
-      // Image 3: Model shot - Editorial backgrounds
-      const editorialBackgrounds = [
-        { name: 'Carrara Marble', prompt: 'Polished Carrara marble surface with natural gray veining, soft neutral daylight, clean luxury backdrop, premium product photography' },
-        { name: 'Travertine Stone', prompt: 'Warm travertine stone surface with natural cream and beige tones, soft shadows, Mediterranean elegance, refined understated backdrop' },
-        { name: 'Black Volcanic Stone', prompt: 'Matte black volcanic stone surface, subtle natural texture, dramatic contrast backdrop for precious metals, bold editorial setting' },
-        { name: 'White Onyx', prompt: 'Polished white onyx stone with subtle translucent veining, soft diffused light, minimal luxury aesthetic, premium product photography' },
-        { name: 'Gray Slate', prompt: 'Natural gray slate surface with subtle layered texture, cool neutral tones, sophisticated minimal backdrop, editorial product photography' },
-        { name: 'Ivory Silk', prompt: 'Flowing ivory silk fabric with soft sculptural folds, warm studio lighting, timeless elegance, premium editorial photography' },
-        { name: 'Deep Navy Velvet', prompt: 'Rich deep navy velvet fabric surface, subtle light play on texture, luxurious sophisticated backdrop, premium editorial setting' },
-      ];
-
-      const randomEditorialBg = editorialBackgrounds[Math.floor(Math.random() * editorialBackgrounds.length)];
-      console.log(`Selected random editorial background: ${randomEditorialBg.name}`);
-
+      // ─── IMAGE 3: Model Shot ───
       // Get model if selected
       let modelPromptAddition = '';
       if (modelId) {
-        const { data: model } = await supabase
+        const { data: modelData } = await supabase
           .from('user_models')
           .select('*')
           .eq('id', modelId)
           .single();
         
-        if (model) {
+        if (modelData) {
           modelPromptAddition = `
-MODEL SPECIFICATIONS (MANDATORY):
-- Gender: ${model.gender}
-- Age Range: ${model.age_range}
-- Skin Tone: ${model.skin_tone}
-- Skin Undertone: ${model.skin_undertone}
-- Ethnicity: ${model.ethnicity}
-- Hair Color: ${model.hair_color}
-- Hair Texture: ${model.hair_texture}
-${model.face_shape ? `- Face Shape: ${model.face_shape}` : ''}
-${model.eye_color ? `- Eye Color: ${model.eye_color}` : ''}
-${model.expression ? `- Expression: ${model.expression}` : ''}
-${model.hair_style ? `- Hair Style: ${model.hair_style}` : ''}
+CHARACTER DNA (MUST MATCH EXACTLY):
+- Gender: ${modelData.gender}
+- Ethnicity: ${modelData.ethnicity}
+- Age Range: ${modelData.age_range}
+- Skin Tone: ${modelData.skin_tone}
+- Skin Undertone: ${modelData.skin_undertone}
+- Hair Color: ${modelData.hair_color}
+- Hair Texture: ${modelData.hair_texture}
+${modelData.face_shape ? `- Face Shape: ${modelData.face_shape}` : ''}
+${modelData.eye_color ? `- Eye Color: ${modelData.eye_color}` : ''}
+${modelData.expression ? `- Expression: ${modelData.expression}` : ''}
+${modelData.hair_style ? `- Hair Style: ${modelData.hair_style}` : ''}
 
-THE MODEL MUST MATCH THESE SPECIFICATIONS EXACTLY.
-`;
+This model must appear EXACTLY as described above. Match all physical attributes precisely.`;
         }
       }
+
+      // Use previous successful images as reference for consistency
+      const enhancedBase64Images = [...base64Images];
+      
+      const editorialBackgrounds = [
+        { name: 'Minimal Studio', prompt: 'clean minimal photography studio, soft gray gradient backdrop, professional fashion lighting, editorial simplicity' },
+        { name: 'Natural Light Window', prompt: 'soft natural window light, bright airy interior, subtle warm tones, organic editorial mood' },
+        { name: 'Architectural Detail', prompt: 'modern architectural interior, concrete or marble elements, sophisticated neutral tones, high-end editorial' },
+        { name: 'Soft Focus Garden', prompt: 'blurred garden background, soft bokeh greenery, natural daylight, romantic editorial outdoor' },
+        { name: 'Urban Chic', prompt: 'urban setting with soft focus cityscape, sophisticated metropolitan mood, editorial fashion context' },
+      ];
+
+      const randomEditorialBg = editorialBackgrounds[Math.floor(Math.random() * editorialBackgrounds.length)];
 
       const modelPrompt = `PRODUCT-FOCUSED LUXURY CLOSE-UP WITH MODEL. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
@@ -1047,9 +1119,20 @@ LIGHTING:
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      const modelUrl = await generateSingleImage(enhancedBase64Images, modelPrompt, userId, imageRecordId, 3, supabase);
-      if (modelUrl) {
-        generatedUrls.push(modelUrl);
+      const modelResult = await generateSingleImageWithTimeout(
+        enhancedBase64Images,
+        modelPrompt,
+        userId,
+        imageRecordId,
+        3,
+        supabase,
+        'Master Model Shot'
+      );
+
+      if (modelResult.success && modelResult.url) {
+        generatedUrls.push(modelResult.url);
+      } else {
+        failedImageIndices.push(2);
       }
     }
     // ═══════════════════════════════════════════════════════════════
@@ -1188,15 +1271,47 @@ TECHNICAL REQUIREMENTS:
 Ultra high resolution output.`;
       }
 
-      const url = await generateSingleImage(base64Images, standardPrompt, userId, imageRecordId, 1, supabase);
-      if (url) generatedUrls.push(url);
+      const result = await generateSingleImageWithTimeout(
+        base64Images,
+        standardPrompt,
+        userId,
+        imageRecordId,
+        1,
+        supabase,
+        'Standard Image'
+      );
+      
+      if (result.success && result.url) {
+        generatedUrls.push(result.url);
+      } else {
+        failedImageIndices.push(0);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RESULT EVALUATION & PARTIAL REFUND
+    // ═══════════════════════════════════════════════════════════════
+    const successCount = generatedUrls.length;
+    const failCount = failedImageIndices.length;
+    
+    console.log(`Generation complete: ${successCount}/${totalImages} successful, ${failCount} failed`);
+
+    // Calculate partial refund
+    let partialRefundAmount = 0;
+    if (!isAdminUser && failCount > 0 && successCount > 0) {
+      // Partial success - refund proportionally
+      const creditPerImage = Math.floor(creditsNeeded / totalImages);
+      partialRefundAmount = creditPerImage * failCount;
+      
+      console.log(`Partial refund: ${partialRefundAmount} credits for ${failCount} failed images`);
+      await supabase.rpc('refund_credits', { _user_id: userId, _amount: partialRefundAmount });
     }
 
     // Check results
     if (generatedUrls.length === 0) {
-      // Refund credits since generation failed
+      // Total failure - refund all credits
       if (!isAdminUser) {
-        console.log('Generation failed, refunding credits...');
+        console.log('Generation failed, refunding all credits...');
         await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
       }
 
@@ -1211,11 +1326,12 @@ Ultra high resolution output.`;
         current_step: 'Görsel oluşturulamadı',
         error_message: 'Görsel oluşturma başarısız oldu. Kredileriniz iade edildi.',
         refunded: !isAdminUser,
+        failed_image_indices: failedImageIndices,
       });
       return;
     }
 
-    // Update image record with success
+    // Update image record with success (partial or full)
     await supabase
       .from('images')
       .update({
@@ -1224,16 +1340,25 @@ Ultra high resolution output.`;
       })
       .eq('id', imageRecordId);
 
+    // Build completion message
+    let completionMessage = 'Tamamlandı!';
+    if (failCount > 0) {
+      completionMessage = `${successCount}/${totalImages} görsel oluşturuldu. ${partialRefundAmount} kredi iade edildi.`;
+    }
+
     // Update job as completed
     await updateJobProgress({
       status: 'completed',
       progress: 100,
-      current_step: 'Tamamlandı!',
+      current_step: completionMessage,
       completed_images: generatedUrls.length,
       result_urls: generatedUrls,
+      partial_refund_amount: partialRefundAmount,
+      failed_image_indices: failedImageIndices,
+      refunded: partialRefundAmount > 0,
     });
 
-    console.log('Background processing complete:', generatedUrls.length, 'images');
+    console.log('Background processing complete:', generatedUrls.length, 'images, refund:', partialRefundAmount);
 
   } catch (error) {
     console.error('Background processing error:', error);
@@ -1254,6 +1379,7 @@ Ultra high resolution output.`;
       current_step: 'Hata oluştu',
       error_message: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu',
       refunded: !isAdminUser,
+      failed_image_indices: failedImageIndices,
     });
   }
 }
@@ -1437,16 +1563,15 @@ serve(async (req) => {
         success: true, 
         jobId: jobRecord.id,
         imageId: imageRecord.id,
-        message: 'İşlem başlatıldı. Lütfen bekleyin...',
+        message: 'İşlem başlatıldı. Görseller arka planda oluşturuluyor...'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    console.error('Handler error:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

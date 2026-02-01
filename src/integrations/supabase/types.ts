@@ -68,8 +68,10 @@ export type Database = {
           credits_used: number | null
           current_step: string | null
           error_message: string | null
+          failed_image_indices: Json | null
           id: string
           image_record_id: string | null
+          partial_refund_amount: number | null
           progress: number
           refunded: boolean | null
           result_urls: Json | null
@@ -84,8 +86,10 @@ export type Database = {
           credits_used?: number | null
           current_step?: string | null
           error_message?: string | null
+          failed_image_indices?: Json | null
           id?: string
           image_record_id?: string | null
+          partial_refund_amount?: number | null
           progress?: number
           refunded?: boolean | null
           result_urls?: Json | null
@@ -100,8 +104,10 @@ export type Database = {
           credits_used?: number | null
           current_step?: string | null
           error_message?: string | null
+          failed_image_indices?: Json | null
           id?: string
           image_record_id?: string | null
+          partial_refund_amount?: number | null
           progress?: number
           refunded?: boolean | null
           result_urls?: Json | null
