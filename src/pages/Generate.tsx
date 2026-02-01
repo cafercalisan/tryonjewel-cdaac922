@@ -111,14 +111,24 @@ export default function Generate() {
       setGenerationStep('finalizing');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       
+      // Show partial success message if applicable
+      const failedCount = Array.isArray(completedJob.failed_image_indices) 
+        ? completedJob.failed_image_indices.length 
+        : 0;
+      const refundAmount = completedJob.partial_refund_amount || 0;
+      
       setTimeout(() => {
-        toast.success("Görselleriniz başarıyla oluşturuldu!");
+        if (failedCount > 0 && refundAmount > 0) {
+          toast.warning(`${totalImages - failedCount}/${totalImages} görsel oluşturuldu. ${refundAmount} kredi iade edildi.`);
+        } else {
+          toast.success("Görselleriniz başarıyla oluşturuldu!");
+        }
         navigate(`/sonuclar?id=${completedJob.image_record_id}`);
         setIsGenerating(false);
         setActiveJobId(null);
         setGenerationStep("idle");
         setCompletedImages(0);
-      }, 1000);
+      }, 1500);
     },
     onError: (failedJob) => {
       console.error('Job failed:', failedJob);
@@ -376,6 +386,14 @@ export default function Generate() {
   const selectedScene = scenes?.find(s => s.id === selectedSceneId) || null;
 
   if (isGenerating) {
+    // Parse result_urls from job if available
+    const jobResultUrls = Array.isArray(job?.result_urls) 
+      ? job.result_urls 
+      : [];
+    const jobFailedIndices = Array.isArray(job?.failed_image_indices) 
+      ? job.failed_image_indices 
+      : [];
+    
     return (
       <AppLayout showFooter={false}>
         <div className="container py-10 max-w-2xl mx-auto">
@@ -388,6 +406,9 @@ export default function Generate() {
             previewImage={uploadedImages[0]?.preview || null}
             currentStep={job?.current_step}
             progress={job?.progress}
+            resultUrls={jobResultUrls}
+            failedImageIndices={jobFailedIndices}
+            partialRefundAmount={job?.partial_refund_amount || 0}
           />
         </div>
       </AppLayout>
