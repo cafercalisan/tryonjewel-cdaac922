@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Check, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { Lightbulb, Check, AlertCircle, Loader2, Clock, AlertTriangle } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ interface GeneratingPanelProps {
   resultUrls?: string[];
   failedImageIndices?: number[];
   partialRefundAmount?: number;
+  isStuck?: boolean;
 }
 
 // Image card status type
@@ -48,6 +49,7 @@ export function GeneratingPanel({
   resultUrls = [],
   failedImageIndices = [],
   partialRefundAmount = 0,
+  isStuck = false,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -336,6 +338,25 @@ export function GeneratingPanel({
 
       {/* Content */}
       <div className="p-6 space-y-4">
+        {/* Stuck/Timeout Warning */}
+        {isStuck && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3"
+          >
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-destructive text-sm">İşlem Zaman Aşımına Uğradı</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                İşlem beklenenden uzun sürdü. {resultUrls.length > 0 
+                  ? `${resultUrls.length} görsel başarıyla oluşturuldu.` 
+                  : 'Lütfen tekrar deneyin.'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* Progress Header */}
         <div className="text-center">
           <h3 className="text-lg font-semibold mb-1">{title}</h3>
@@ -346,7 +367,7 @@ export function GeneratingPanel({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5 inline-flex items-center gap-1"
+              className="mt-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 rounded-lg px-3 py-1.5 inline-flex items-center gap-1"
             >
               <AlertCircle className="h-3 w-3" />
               {partialRefundAmount} kredi iade edildi
