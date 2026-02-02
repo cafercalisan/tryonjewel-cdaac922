@@ -20,9 +20,6 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 // Max image size in bytes (1.5MB to avoid memory issues)
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
-// Timeout for each image generation (3 minutes = 180000ms - reduced from 4 to avoid memory crashes)
-const IMAGE_GENERATION_TIMEOUT = 180000;
-
 // Helper: Convert ArrayBuffer to base64 in chunks
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -33,13 +30,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
   return btoa(binary);
-}
-
-// Helper: Create timeout promise
-function timeout(ms: number): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-  });
 }
 
 async function callGeminiImageGeneration({
@@ -65,11 +55,6 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.15,
-        maxOutputTokens: 8192,
-        // CRITICAL: Request 4K resolution output from Gemini
-        imageConfig: {
-          imageSize: "4K"
-        }
       },
     }),
   });
@@ -211,172 +196,126 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// GENERATE SINGLE IMAGE WITH TIMEOUT AND RETRY
-// Wraps generateSingleImage with 4 minute timeout and 1 retry
-// ═══════════════════════════════════════════════════════════════
-async function generateSingleImageWithTimeout(
-  base64Images: string[],
-  prompt: string,
-  userId: string,
-  imageRecordId: string,
-  index: number,
-  supabase: any,
-  imageName: string
-): Promise<{ success: boolean; url: string | null; error?: string }> {
-  const maxRetries = 1;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`${imageName}: Attempt ${attempt + 1}/${maxRetries + 1} starting...`);
-      
-      // Race between generation and timeout
-      const result = await Promise.race([
-        generateSingleImage(base64Images, prompt, userId, imageRecordId, index, supabase),
-        timeout(IMAGE_GENERATION_TIMEOUT)
-      ]);
-      
-      if (result) {
-        console.log(`${imageName}: Success on attempt ${attempt + 1}`);
-        return { success: true, url: result };
-      } else {
-        console.error(`${imageName}: No result on attempt ${attempt + 1}`);
-        if (attempt < maxRetries) {
-          console.log(`${imageName}: Retrying...`);
-          continue;
-        }
-      }
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`${imageName}: Error on attempt ${attempt + 1}: ${errMsg}`);
-      
-      if (attempt < maxRetries) {
-        console.log(`${imageName}: Retrying after error...`);
-        continue;
-      }
-      
-      return { success: false, url: null, error: errMsg };
-    }
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-  
-  return { success: false, url: null, error: 'Max retries exceeded' };
-}
-
-// ═══════════════════════════════════════════════════════════════
-// BACKGROUND PROCESSING WORKER
-// This function runs asynchronously after the main response is sent
-// ═══════════════════════════════════════════════════════════════
-async function processJobInBackground(params: {
-  jobId: string;
-  imageRecordId: string;
-  userId: string;
-  imagePaths: string[];
-  packageType: string;
-  sceneId: string | null;
-  colorId: string | null;
-  productType: string | null;
-  modelId: string | null;
-  metalColorOverride: string | null;
-  styleReferencePath: string | null;
-  retouchAngle: number | null;
-  retouchSurface: string | null;
-  creditsNeeded: number;
-  isAdminUser: boolean;
-}) {
-  const {
-    jobId,
-    imageRecordId,
-    userId,
-    imagePaths,
-    packageType,
-    sceneId,
-    colorId,
-    productType,
-    modelId,
-    metalColorOverride,
-    styleReferencePath,
-    retouchAngle,
-    retouchSurface,
-    creditsNeeded,
-    isAdminUser,
-  } = params;
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  
-  // Track failed images for partial refund
-  const failedImageIndices: number[] = [];
-  
-  const updateJobProgress = async (updates: {
-    status?: string;
-    progress?: number;
-    current_step?: string;
-    completed_images?: number;
-    result_urls?: string[];
-    error_message?: string;
-    refunded?: boolean;
-    partial_refund_amount?: number;
-    failed_image_indices?: number[];
-  }) => {
-    await supabase
-      .from('processing_jobs')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', jobId);
-  };
 
   try {
-    // Update status to analyzing
-    await updateJobProgress({
-      status: 'analyzing',
-      progress: 5,
-      current_step: 'Ürün analiz ediliyor...',
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
     });
 
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = user.id;
+    console.log('Authenticated user:', userId);
+
+    // Parse request body
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, retouchAngle, retouchSurface } = await req.json();
+    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, retouchAngle, retouchSurface, userId });
+
+    // Validate imagePath
+    if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid image path' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate additional image paths if provided
+    const validAdditionalPaths: string[] = [];
+    if (Array.isArray(additionalImagePaths)) {
+      for (const path of additionalImagePaths) {
+        if (typeof path === 'string' && path.startsWith(`${userId}/originals/`)) {
+          validAdditionalPaths.push(path);
+        }
+      }
+    }
+    console.log(`Processing ${1 + validAdditionalPaths.length} reference image(s)`);
+
+    // Check if style reference is provided
+    const hasStyleReference = styleReferencePath && typeof styleReferencePath === 'string' && styleReferencePath.startsWith(`${userId}/style-references/`);
+    console.log(`Style reference mode: ${hasStyleReference ? 'ENABLED' : 'disabled'}`);
+
+    // Validate sceneId (required for standard without style reference, optional for master, not needed for retouch)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isMasterPackage = packageType === 'master';
+    const isRetouchPackage = packageType === 'retouch';
+    
+    // Scene is NOT required if style reference is provided OR if retouch mode
+    if (!isMasterPackage && !hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid scene ID' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     // Get signed URLs for all images
+    const allImagePaths = [imagePath, ...validAdditionalPaths];
     const imageUrls: string[] = [];
-    for (const path of imagePaths) {
+    
+    for (const path of allImagePaths) {
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('jewelry-images')
         .createSignedUrl(path, 3600);
       
-      if (!signedUrlError && signedUrlData?.signedUrl) {
-        imageUrls.push(signedUrlData.signedUrl);
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error(`Failed to get signed URL for ${path}`);
+        continue;
       }
+      imageUrls.push(signedUrlData.signedUrl);
     }
 
     if (imageUrls.length === 0) {
-      throw new Error('Failed to access images');
+      return new Response(
+        JSON.stringify({ error: 'Failed to access images' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch and convert all images to base64
-    const base64Images: string[] = [];
-    for (const url of imageUrls) {
-      const imageResponse = await fetch(url);
-      const imageBuffer = await imageResponse.arrayBuffer();
-      
-      if (imageBuffer.byteLength <= MAX_IMAGE_SIZE) {
-        base64Images.push(arrayBufferToBase64(imageBuffer));
-      }
-    }
+    const imageUrl = imageUrls[0]; // Primary image URL for analysis
 
-    if (base64Images.length === 0) {
-      throw new Error('All images too large. Max 1.5MB each.');
-    }
-
-    const base64Image = base64Images[0];
-
-    // Get style reference if provided
+    // Get style reference image if provided
+    let styleReferenceUrl: string | null = null;
     let styleReferenceBase64: string | null = null;
-    if (styleReferencePath) {
-      const { data: styleSignedData } = await supabase.storage
+    
+    if (hasStyleReference) {
+      const { data: styleSignedData, error: styleSignedError } = await supabase.storage
         .from('jewelry-images')
         .createSignedUrl(styleReferencePath, 3600);
       
-      if (styleSignedData?.signedUrl) {
+      if (!styleSignedError && styleSignedData?.signedUrl) {
+        styleReferenceUrl = styleSignedData.signedUrl;
+        console.log('Style reference URL obtained');
+        
+        // Fetch and convert style reference to base64
         try {
-          const styleResponse = await fetch(styleSignedData.signedUrl);
+          const styleResponse = await fetch(styleReferenceUrl);
           const styleBuffer = await styleResponse.arrayBuffer();
           if (styleBuffer.byteLength <= MAX_IMAGE_SIZE) {
             styleReferenceBase64 = arrayBufferToBase64(styleBuffer);
+            console.log('Style reference converted to base64');
+          } else {
+            console.warn('Style reference too large, skipping');
           }
         } catch (err) {
           console.error('Failed to fetch style reference:', err);
@@ -384,10 +323,9 @@ async function processJobInBackground(params: {
       }
     }
 
-    // Get scene if provided
+    // Get scene if provided (and not using style reference)
     let scene = null;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (sceneId && uuidRegex.test(sceneId)) {
+    if (!hasStyleReference && sceneId && uuidRegex.test(sceneId)) {
       const { data: sceneData } = await supabase
         .from('scenes')
         .select('*')
@@ -396,12 +334,92 @@ async function processJobInBackground(params: {
       scene = sceneData;
     }
 
-    // Analyze jewelry
-    await updateJobProgress({
-      progress: 10,
-      current_step: 'AI mücevheri analiz ediyor...',
-    });
+    // Check if user is admin (has unlimited generation rights)
+    const { data: isAdmin } = await supabase
+      .rpc('has_role', { _user_id: userId, _role: 'admin' });
+    
+    const isAdminUser = isAdmin === true;
+    console.log(`User ${userId} admin status: ${isAdminUser}`);
 
+    // Calculate credits needed: 10 credits per image output, 20 for master (3 outputs), 20 for retouch (2 outputs)
+    const creditsNeeded = isMasterPackage ? 20 : (isRetouchPackage ? 20 : 10);
+
+    // Skip credit deduction for admin users - they have unlimited generation rights
+    if (!isAdminUser) {
+      // ATOMIC CREDIT DEDUCTION - Prevents race conditions
+      // Deduct credits BEFORE starting generation using database-level locking
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
+
+      if (deductError) {
+        console.error('Credit deduction error:', deductError);
+        return new Response(
+          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!deductResult?.success) {
+        const currentCredits = deductResult?.current_credits ?? 0;
+        return new Response(
+          JSON.stringify({ 
+            error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${currentCredits}.` 
+          }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+    } else {
+      console.log('Admin user - skipping credit deduction (unlimited generation rights)');
+    }
+
+    // Create image record
+    const { data: imageRecord, error: insertError } = await supabase
+      .from('images')
+      .insert({
+        user_id: userId,
+        scene_id: sceneId || null,
+        original_image_url: imagePath,
+        status: 'analyzing',
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Fetch and convert all images to base64
+    console.log('Step 1: Analyzing jewelry...');
+    const base64Images: string[] = [];
+    
+    for (const url of imageUrls) {
+      const imageResponse = await fetch(url);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      
+      if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
+        console.warn(`Skipping image - too large (${imageBuffer.byteLength} bytes)`);
+        continue;
+      }
+      
+      base64Images.push(arrayBufferToBase64(imageBuffer));
+    }
+
+    if (base64Images.length === 0) {
+      await supabase
+        .from('images')
+        .update({ status: 'failed', error_message: 'Görsel boyutu çok büyük (max 1.5MB)' })
+        .eq('id', imageRecord.id);
+      
+      return new Response(
+        JSON.stringify({ error: 'All images too large. Max 1.5MB each.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`Loaded ${base64Images.length} reference image(s) for generation`);
+    const base64Image = base64Images[0]; // Primary image for analysis
+
+    // Analyze jewelry
     const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -452,6 +470,13 @@ Return JSON:
   "unique_identifiers": "unique features including brand indicators, logo placement, signature design elements"
 }
 
+NOTE: If analyzing a WATCH, pay special attention to:
+- Pearl/mother-of-pearl dial details
+- Diamond-set bezel or indices
+- Metal bracelet link patterns
+- Crown and pusher designs
+- Visible mechanical movement details
+
 ONLY valid JSON.`
             },
             { inline_data: { mime_type: "image/jpeg", data: base64Image } }
@@ -475,19 +500,14 @@ ONLY valid JSON.`
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));
 
-    // Update image record with analysis
+    // Update status
     await supabase
       .from('images')
       .update({ status: 'generating', analysis_data: analysisResult })
-      .eq('id', imageRecordId);
-
-    await updateJobProgress({
-      status: 'generating',
-      progress: 15,
-      current_step: 'Görseller oluşturuluyor...',
-    });
+      .eq('id', imageRecord.id);
 
     // Build fidelity block with STRONG metal color preservation
+    // User override takes priority over AI analysis
     const metalColorOverrideMap: Record<string, { type: string; category: string }> = {
       'yellow_gold': { type: 'gold', category: 'YELLOW GOLD' },
       'white_gold': { type: 'white_gold', category: 'WHITE GOLD' },
@@ -496,12 +516,14 @@ ONLY valid JSON.`
       'silver': { type: 'silver', category: 'SILVER' },
     };
 
+    // Use user override if provided, otherwise use AI analysis
     const userMetalOverride = metalColorOverride ? metalColorOverrideMap[metalColorOverride] : null;
     const metalType = userMetalOverride?.type || analysisResult.metal?.type || 'gold';
     const metalFinish = analysisResult.metal?.finish || 'polished';
     const metalKarat = analysisResult.metal?.karat || '18k';
     const metalColorHex = analysisResult.metal?.color_hex || '';
     
+    // Determine metal color category for strict enforcement
     let metalColorCategory = userMetalOverride?.category || 'YELLOW GOLD';
     if (!userMetalOverride) {
       if (metalType === 'white_gold' || metalType === 'platinum' || metalType === 'silver') {
@@ -513,10 +535,12 @@ ONLY valid JSON.`
       }
     }
     
+    // Log metal color decision
     console.log('Metal color decision:', { 
       userOverride: metalColorOverride, 
       finalType: metalType, 
       finalCategory: metalColorCategory,
+      aiAnalysis: analysisResult.metal?.type 
     });
     
     const metalDesc = `${metalFinish} ${metalType.replace('_', ' ')} (${metalKarat})`;
@@ -531,7 +555,8 @@ ONLY valid JSON.`
       ? `\n⚠️ USER SPECIFIED METAL COLOR: ${metalColorCategory} - THIS TAKES ABSOLUTE PRIORITY ⚠️\nThe user has explicitly specified that this jewelry is ${metalColorCategory}. Ignore any visual ambiguity and render as ${metalColorCategory}.\n`
       : '';
 
-    // PRODUCT EXTRACTION MODE
+    // PRODUCT EXTRACTION MODE - Critical instruction that must precede all scene prompts
+    // This ensures the uploaded image is treated purely as product reference, not as scene/environment
     const productExtractionBlock = `
 ═══════════════════════════════════════════════════════════════
 SYSTEM INSTRUCTION — PRODUCT EXTRACTION MODE
@@ -655,16 +680,15 @@ FORBIDDEN:
 `.trim();
 
     const generatedUrls: string[] = [];
-    const isMasterPackage = packageType === 'master';
-    const isRetouchPackage = packageType === 'retouch';
-    const totalImages = isMasterPackage ? 3 : (isRetouchPackage ? 2 : 1);
 
     // ═══════════════════════════════════════════════════════════════
-    // RETOUCH PACKAGE
+    // RETOUCH PACKAGE: Professional photo retouching
     // ═══════════════════════════════════════════════════════════════
     if (isRetouchPackage) {
       console.log('Retouch Package: Professional photo enhancement with dual output...');
+      console.log(`Retouch settings: angle=${retouchAngle || 15}°, surface=${retouchSurface || 'reflective-white'}`);
       
+      // Surface type mapping
       const surfaceMap: Record<string, { name: string; promptBg: string }> = {
         'reflective-black': {
           name: 'Lüks Siyah',
@@ -684,7 +708,7 @@ FORBIDDEN:
         }
       };
 
-      const selectedSurface = surfaceMap[retouchSurface || 'reflective-white'] || surfaceMap['reflective-white'];
+      const selectedSurface = surfaceMap[retouchSurface] || surfaceMap['reflective-white'];
       const cameraAngle = retouchAngle || 15;
       
       const buildRetouchPrompt = (bgType: 'black' | 'white') => {
@@ -787,67 +811,51 @@ OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
       };
 
       // Generate BLACK background version first
-      await updateJobProgress({
-        progress: 25,
-        current_step: 'Siyah arka plan versiyonu oluşturuluyor (1/2)...',
-        completed_images: 0,
-      });
-      
-      const blackResult = await generateSingleImageWithTimeout(
+      console.log('Generating retouch version 1: Black background...');
+      const blackBgUrl = await generateSingleImage(
         base64Images,
         buildRetouchPrompt('black'),
         userId,
-        imageRecordId,
+        imageRecord.id,
         0,
-        supabase,
-        'Retouch Black BG'
+        supabase
       );
       
-      if (blackResult.success && blackResult.url) {
-        generatedUrls.push(blackResult.url);
+      if (blackBgUrl) {
+        generatedUrls.push(blackBgUrl);
+        console.log('Retouch black background complete');
+        
+        // Update progress
         await supabase
           .from('images')
           .update({ generated_image_urls: [...generatedUrls] })
-          .eq('id', imageRecordId);
-          
-        await updateJobProgress({
-          progress: 55,
-          current_step: 'Beyaz arka plan versiyonu oluşturuluyor (2/2)...',
-          completed_images: 1,
-          result_urls: [...generatedUrls],
-        });
-      } else {
-        failedImageIndices.push(0);
-        await updateJobProgress({
-          progress: 55,
-          current_step: 'Siyah versiyon başarısız, beyaz versiyona geçiliyor (2/2)...',
-          completed_images: 0,
-        });
+          .eq('id', imageRecord.id);
       }
       
       // Generate WHITE/CUSTOM background version
-      const whiteResult = await generateSingleImageWithTimeout(
+      console.log('Generating retouch version 2: White/Custom background...');
+      const whiteBgUrl = await generateSingleImage(
         base64Images,
         buildRetouchPrompt('white'),
         userId,
-        imageRecordId,
+        imageRecord.id,
         1,
-        supabase,
-        'Retouch White BG'
+        supabase
       );
       
-      if (whiteResult.success && whiteResult.url) {
-        generatedUrls.push(whiteResult.url);
-      } else {
-        failedImageIndices.push(1);
+      if (whiteBgUrl) {
+        generatedUrls.push(whiteBgUrl);
+        console.log('Retouch white background complete');
       }
-    } 
-    // ═══════════════════════════════════════════════════════════════
-    // MASTER PACKAGE
-    // ═══════════════════════════════════════════════════════════════
-    else if (isMasterPackage) {
-      console.log('Master Package: Generating 3 images with timeout protection...');
+      
+      if (generatedUrls.length === 0) {
+        console.error('Both retouch generations failed');
+      }
+    } else if (isMasterPackage) {
+      // MASTER PACKAGE: 3 images sequentially
+      console.log('Master Package: Generating 3 images sequentially...');
 
+      // Color mapping for e-commerce background (NON-METALLIC to prevent metal color contamination)
       const colorMap: Record<string, { name: string; prompt: string }> = {
         'white': { name: 'Beyaz', prompt: 'matte seamless paper backdrop, soft off-white, clean ivory (NON-METALLIC)' },
         'cream': { name: 'Krem', prompt: 'matte seamless paper backdrop, warm cream, soft ivory, delicate beige-white (NON-METALLIC)' },
@@ -856,37 +864,120 @@ OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
         'mint': { name: 'Nane Yeşili', prompt: 'matte seamless paper backdrop, soft mint, pale sage, gentle seafoam (NON-METALLIC)' },
         'skyblue': { name: 'Gök Mavisi', prompt: 'matte seamless paper backdrop, soft sky blue, pale powder blue (NON-METALLIC)' },
         'peach': { name: 'Şeftali', prompt: 'matte seamless paper backdrop, soft peach, gentle apricot, muted coral tint (NON-METALLIC)' },
+        // IMPORTANT: Avoid words like "gold/silver/metallic" in the background prompt.
         'champagne': { name: 'Şampanya', prompt: 'matte seamless paper backdrop, warm champagne-beige, soft nude, elegant sand (NON-METALLIC)' },
         'silver': { name: 'Gümüş', prompt: 'matte seamless paper backdrop, cool light gray, pale dove gray, soft neutral gray (NON-METALLIC)' },
         'gray': { name: 'Gri', prompt: 'matte seamless paper backdrop, soft dove gray, gentle stone gray, neutral warm gray (NON-METALLIC)' },
       };
 
-      const selectedColor = colorMap[colorId || 'white'] || colorMap['white'];
+      const selectedColor = colorMap[colorId] || colorMap['white'];
 
-      // Dynamic editorial backgrounds
+      // ═══════════════════════════════════════════════════════════════
+      // CONSISTENCY OPTIMIZATION: Generate Editorial first (best consistency)
+      // Then use Editorial as additional reference for E-commerce and Model Shot
+      // ═══════════════════════════════════════════════════════════════
+
+      // ═══════════════════════════════════════════════════════════════
+      // DYNAMIC EDITORIAL BACKGROUNDS - Each generation gets a unique scene
+      // ═══════════════════════════════════════════════════════════════
       const catalogBackgrounds = [
-        { name: 'Carrara Marble Slab', prompt: 'jewelry resting on a luxurious Carrara white marble surface with subtle gray veining, soft shadows, natural stone texture, Italian marble countertop' },
-        { name: 'Travertine Stone', prompt: 'jewelry placed on warm travertine stone surface, natural porous texture, beige-cream tones, Mediterranean luxury, natural daylight' },
-        { name: 'Black Granite', prompt: 'jewelry on polished black granite surface with subtle golden or white flecks, dramatic contrast, luxury countertop, sophisticated backdrop' },
-        { name: 'Raw Concrete', prompt: 'jewelry on raw concrete surface, minimalist industrial chic, subtle gray texture, soft shadows, architectural simplicity' },
-        { name: 'Cream Linen', prompt: 'jewelry draped on luxurious cream linen fabric with natural folds and texture, soft diffused light, editorial fabric styling' },
-        { name: 'Slate Stone', prompt: 'jewelry on dark slate stone surface with natural layered texture, moody elegance, charcoal gray tones, subtle surface variation' },
-        { name: 'White Sand', prompt: 'jewelry resting on fine white sand surface, pristine beach aesthetic, soft granular texture, coastal luxury, natural shadows' },
-        { name: 'Velvet Cushion', prompt: 'jewelry on deep navy or burgundy velvet cushion, rich fabric texture, jeweler display aesthetic, soft shadows, luxury presentation' },
-        { name: 'Rose Petals', prompt: 'jewelry scattered among fresh rose petals, romantic editorial, soft pink and cream tones, delicate floral backdrop, feminine luxury' },
-        { name: 'Water Droplets', prompt: 'jewelry on clear glass surface with water droplets, fresh morning dew aesthetic, crystal clarity, light refraction, pure luxury' },
+        {
+          name: 'Carrara Marble Slab',
+          prompt: 'jewelry resting on a luxurious Carrara white marble surface with subtle gray veining, soft shadows, natural stone texture, Italian marble countertop'
+        },
+        {
+          name: 'Travertine Stone',
+          prompt: 'jewelry placed on warm travertine stone surface, natural porous texture, beige-cream tones, Mediterranean luxury, natural daylight'
+        },
+        {
+          name: 'Black Granite',
+          prompt: 'jewelry on polished black granite surface with subtle golden or white flecks, dramatic contrast, luxury countertop, sophisticated backdrop'
+        },
+        {
+          name: 'Raw Concrete',
+          prompt: 'jewelry on raw concrete surface, minimalist industrial chic, subtle gray texture, soft shadows, architectural simplicity'
+        },
+        {
+          name: 'Weathered Driftwood',
+          prompt: 'jewelry arranged on weathered driftwood piece, natural wood grain texture, coastal luxury, organic forms, soft natural light'
+        },
+        {
+          name: 'Cream Linen',
+          prompt: 'jewelry draped on luxurious cream linen fabric with natural folds and texture, soft diffused light, editorial fabric styling'
+        },
+        {
+          name: 'Slate Stone',
+          prompt: 'jewelry on dark slate stone surface with natural layered texture, moody elegance, charcoal gray tones, subtle surface variation'
+        },
+        {
+          name: 'Terracotta Tile',
+          prompt: 'jewelry on aged terracotta tile surface, warm earthy tones, Mediterranean villa aesthetic, rustic luxury, natural patina'
+        },
+        {
+          name: 'White Sand',
+          prompt: 'jewelry resting on fine white sand surface, pristine beach aesthetic, soft granular texture, coastal luxury, natural shadows'
+        },
+        {
+          name: 'Brushed Plaster Wall',
+          prompt: 'jewelry against textured brushed plaster wall, soft cream or white, Mediterranean architecture, artisanal texture, gallery lighting'
+        },
+        {
+          name: 'Onyx Surface',
+          prompt: 'jewelry on translucent onyx stone surface, honey or white onyx with natural banding, backlit luxury, unique natural patterns'
+        },
+        {
+          name: 'Velvet Cushion',
+          prompt: 'jewelry on deep navy or burgundy velvet cushion, rich fabric texture, jeweler display aesthetic, soft shadows, luxury presentation'
+        },
+        {
+          name: 'Aged Brass Tray',
+          prompt: 'jewelry on aged brass decorative tray with patina, vintage luxury, warm metallic surface, editorial still life, antique charm'
+        },
+        {
+          name: 'Seashell Arrangement',
+          prompt: 'jewelry arranged among natural seashells and coral pieces, coastal editorial, ocean treasures, white and cream palette, organic composition'
+        },
+        {
+          name: 'Rose Petals',
+          prompt: 'jewelry scattered among fresh rose petals, romantic editorial, soft pink and cream tones, delicate floral backdrop, feminine luxury'
+        },
+        {
+          name: 'Leather Surface',
+          prompt: 'jewelry on premium tan or cognac leather surface, rich grain texture, luxury goods aesthetic, warm sophisticated backdrop'
+        },
+        {
+          name: 'Eucalyptus Branch',
+          prompt: 'jewelry placed near dried eucalyptus branches, organic minimalism, sage green and cream tones, botanical editorial, natural elegance'
+        },
+        {
+          name: 'Water Droplets',
+          prompt: 'jewelry on clear glass surface with water droplets, fresh morning dew aesthetic, crystal clarity, light refraction, pure luxury'
+        },
+        {
+          name: 'Pebble Beach',
+          prompt: 'jewelry on smooth river pebbles, natural stone collection, earth tones, zen minimalism, organic shapes and textures'
+        },
+        {
+          name: 'Woven Rattan',
+          prompt: 'jewelry on natural woven rattan or wicker surface, artisanal craft texture, warm organic material, bohemian luxury'
+        },
+        {
+          name: 'Ice Block',
+          prompt: 'jewelry on or near clear ice block, frozen luxury aesthetic, cool blues and whites, crystalline clarity, dramatic cold beauty'
+        },
+        {
+          name: 'Raw Quartz Crystal',
+          prompt: 'jewelry arranged with raw quartz crystal clusters, natural gemstone setting, prismatic light, mineral beauty, geological luxury'
+        },
       ];
 
+      // Randomly select one unique editorial background for this generation
       const randomCatalogBg = catalogBackgrounds[Math.floor(Math.random() * catalogBackgrounds.length)];
       console.log(`Selected random catalog background: ${randomCatalogBg.name}`);
 
-      // ─── IMAGE 1: Editorial Luxury Scene ───
-      await updateJobProgress({
-        progress: 20,
-        current_step: 'Lüks katalog görseli oluşturuluyor (1/3)...',
-        completed_images: 0,
-      });
-
+      // Image 1 (PRIORITY): Editorial Luxury Scene - REFERENCE ANCHOR
+      // This is generated first because it produces the most consistent results
+      // and will be used as additional reference for subsequent generations
       const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${productExtractionBlock}
@@ -910,128 +1001,269 @@ STRICT RULES:
 
 SCENE CONCEPT (UNIQUE EDITORIAL ENVIRONMENT):
 - SELECTED SCENE: ${randomCatalogBg.name}
-- ENVIRONMENT: ${randomCatalogBg.prompt}
-- Editorial luxury photography style
-- Soft directional lighting from upper-left
-- Natural shadows and depth
-- Premium catalog quality
+- SCENE DESCRIPTION: ${randomCatalogBg.prompt}
+- The product must feel NATURALLY INTEGRATED into the scene — resting on, draped against, or nestled within the environment
+- FORBIDDEN: Jewelry floating in air, staged/artificial placement, product hovering without physical contact, green fabric
 
-COMPOSITION:
-- Product dominant in frame (70-80%)
-- Elegant negative space
-- Natural integration with surface
-- Premium e-commerce aesthetic
+CAMERA & COMPOSITION:
+- Lens feel: Cinematic 85–100mm
+- Perspective: Slightly low or side-angled, creating depth and drama
+- Composition: Asymmetrical but balanced, editorial negative space allowed
+- Focus: Razor-sharp on jewelry with natural depth of field falloff
+
+LIGHTING (CHARACTER-DRIVEN):
+- Directional, character-driven light source
+- Shadows add depth and dimension without heaviness
+- Facets and metal surfaces shaped naturally, not exaggerated
+- Avoid: HDR glow, rim lights that shift color, artificial sparkle
+
+MOOD & STYLE:
+- Luxury fashion editorial aesthetic
+- Calm, sophisticated, timeless atmosphere
+- Artistic vision yet commercially viable
+- Premium catalog/magazine quality
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      const catalogResult = await generateSingleImageWithTimeout(
-        base64Images,
-        catalogPrompt,
-        userId,
-        imageRecordId,
-        1,
-        supabase,
-        'Master Catalog'
-      );
-
-      if (catalogResult.success && catalogResult.url) {
-        generatedUrls.push(catalogResult.url);
-        await supabase
-          .from('images')
-          .update({ generated_image_urls: [...generatedUrls] })
-          .eq('id', imageRecordId);
+      console.log('Step 1/3: Generating Editorial image (reference anchor)...');
+      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecord.id, 1, supabase);
+      
+      // Track editorial base64 for use as reference in subsequent generations
+      let editorialReferenceBase64: string | null = null;
+      
+      if (catalogUrl) {
+        generatedUrls.push(catalogUrl);
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
         
-        await updateJobProgress({
-          progress: 40,
-          current_step: 'E-ticaret görseli oluşturuluyor (2/3)...',
-          completed_images: 1,
-          result_urls: [...generatedUrls],
-        });
-      } else {
-        failedImageIndices.push(0);
-        await updateJobProgress({
-          progress: 40,
-          current_step: 'Katalog görseli başarısız, e-ticaret görseline geçiliyor (2/3)...',
-          completed_images: 0,
-        });
+        // Fetch the editorial image to use as additional reference
+        try {
+          const editorialResponse = await fetch(catalogUrl);
+          if (editorialResponse.ok) {
+            const editorialBuffer = await editorialResponse.arrayBuffer();
+            if (editorialBuffer.byteLength <= MAX_IMAGE_SIZE) {
+              editorialReferenceBase64 = arrayBufferToBase64(editorialBuffer);
+              console.log('Editorial image captured as reference for consistency');
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch editorial as reference, continuing without:', err);
+        }
       }
 
-      // ─── IMAGE 2: Clean E-Commerce ───
-      const ecomPrompt = `Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // Build enhanced reference array: original + editorial (if available)
+      const enhancedBase64Images = editorialReferenceBase64 
+        ? [editorialReferenceBase64, ...base64Images] 
+        : base64Images;
+      
+      console.log(`Using ${enhancedBase64Images.length} reference images for remaining generations`);
+
+      // Image 2: E-commerce clean background (STRICT INPAINTING MODE)
+      const ecommercePrompt = `[STRICT INPAINTING MODE - BACKGROUND REPLACEMENT ONLY]
+
+This is NOT a regeneration task. This is a BACKGROUND REPLACEMENT task.
+The jewelry object is FROZEN. Do NOT regenerate, reinterpret, or modify it in any way.
+
+Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
 
 ${productExtractionBlock}
 
 ${fidelityBlock}
 
-TASK TYPE (CRITICAL): CLEAN E-COMMERCE PRODUCT SHOT
-- This is a PURE PRODUCT IMAGE for online retail
+═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ ABSOLUTE LOCK - PRODUCT FROZEN ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
+
+WHAT IS FROZEN (DO NOT TOUCH):
+- ✔ Exact jewelry geometry and proportions
+- ✔ Every stone position and count
+- ✔ Every metal link/chain segment
+- ✔ Pendant shape and drop angle
+- ✔ Setting structure and prong positions
+- ✔ Metal color, finish, and reflective properties
+- ✔ All design elements exactly as reference
+
+WHAT TO CHANGE (BACKGROUND ONLY):
 - Background: ${selectedColor.prompt}
-- NO lifestyle elements, NO props, NO contextual styling
+- Surface: matte, non-reflective
+- Lighting: soft, diffused, neutral (no warm/cool bias affecting product)
 
 ⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
 - Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
 - Original Color Category: ${metalColorCategory.toUpperCase()}
 ${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
 
-[STRICT INPAINTING] PRODUCT ISOLATION PROTOCOL:
-1. Extract ONLY the jewelry from reference
-2. FREEZE all jewelry pixels - no modification allowed
-3. Place on clean, solid-color paper backdrop
-4. Soft diffused studio lighting
-5. Minimal natural shadow for depth
+STRICT INPAINTING RULES:
+- Treat this as BACKGROUND INPAINTING, not image generation
+- The jewelry pixels are SACRED - copy them exactly
+- Only the background/environment pixels change
+- NO metal recoloring (yellow↔white↔rose) under any circumstances
+- NO whitewashing gold, NO gray neutralization, NO warm/cool shifting
+- Background must be NON-METALLIC and MATTE to avoid color casts
 
-BACKGROUND REQUIREMENTS:
-- Color: ${selectedColor.name} (${selectedColor.prompt})
-- MATTE paper texture - NO metallic or reflective surfaces
-- Seamless, even lighting
-- NO gradients, patterns or textures that could contaminate metal color
-
-COMPOSITION:
-- Product centered, hero framing
-- Clean negative space
-- Professional e-commerce standard
-- Ready for web/catalog use
+SCENE: Clean, minimal e-commerce product shot
+- The jewelry should be the absolute focal point
+- Clean, uncluttered, listing-quality product photo
+- Product centered, well-lit, commercially ready
 
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
 Ultra high resolution output.`;
 
-      const ecomResult = await generateSingleImageWithTimeout(
-        base64Images,
-        ecomPrompt,
-        userId,
-        imageRecordId,
-        2,
-        supabase,
-        'Master E-commerce'
-      );
-
-      if (ecomResult.success && ecomResult.url) {
-        generatedUrls.push(ecomResult.url);
-        await supabase
-          .from('images')
-          .update({ generated_image_urls: [...generatedUrls] })
-          .eq('id', imageRecordId);
-        
-        await updateJobProgress({
-          progress: 65,
-          current_step: 'Model çekimi oluşturuluyor (3/3)...',
-          completed_images: generatedUrls.length,
-          result_urls: [...generatedUrls],
-        });
-      } else {
-        failedImageIndices.push(1);
-        await updateJobProgress({
-          progress: 65,
-          current_step: 'E-ticaret görseli başarısız, model çekimine geçiliyor (3/3)...',
-          completed_images: generatedUrls.length,
-        });
+      console.log('Step 2/3: Generating E-commerce image...');
+      const ecomUrl = await generateSingleImage(enhancedBase64Images, ecommercePrompt, userId, imageRecord.id, 2, supabase);
+      if (ecomUrl) {
+        generatedUrls.push(ecomUrl);
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
       }
 
-      // ─── IMAGE 3: Model Shot ───
-      // Get model if selected
-      let modelPromptAddition = '';
-      if (modelId) {
+      // Image 3: PRODUCT-FOCUSED LUXURY CLOSE-UP
+      // Tight crop focused on jewelry worn on model, product occupies majority of frame
+      
+      // ═══════════════════════════════════════════════════════════════
+      // DYNAMIC BACKGROUND VARIETY SYSTEM
+      // Each generation selects a RANDOM editorial background to ensure uniqueness
+      // ═══════════════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════════════
+      // REALISTIC EDITORIAL BACKGROUNDS - NO FANTASY/CGI/ARTIFICIAL SCENES
+      // Only natural stone, luxury interiors, and simple elegant environments
+      // ═══════════════════════════════════════════════════════════════
+      const editorialBackgrounds = [
+        // NATURAL STONE SURFACES (Primary - Most Realistic)
+        {
+          name: 'Carrara Marble',
+          prompt: 'Polished Carrara marble surface with natural gray veining, soft neutral daylight, clean luxury backdrop, premium product photography'
+        },
+        {
+          name: 'Travertine Stone',
+          prompt: 'Warm travertine stone surface with natural cream and beige tones, soft shadows, Mediterranean elegance, refined understated backdrop'
+        },
+        {
+          name: 'Black Volcanic Stone',
+          prompt: 'Matte black volcanic stone surface, subtle natural texture, dramatic contrast backdrop for precious metals, bold editorial setting'
+        },
+        {
+          name: 'White Onyx',
+          prompt: 'Polished white onyx stone with subtle translucent veining, soft diffused light, minimal luxury aesthetic, premium product photography'
+        },
+        {
+          name: 'Gray Slate',
+          prompt: 'Natural gray slate surface with subtle layered texture, cool neutral tones, sophisticated minimal backdrop, editorial product photography'
+        },
+        {
+          name: 'Concrete Smooth',
+          prompt: 'Smooth polished concrete surface in soft gray, minimal industrial elegance, diffused natural light, modern luxury backdrop'
+        },
+        // LUXURY FABRIC SURFACES (Simple & Elegant)
+        {
+          name: 'Ivory Silk',
+          prompt: 'Flowing ivory silk fabric with soft sculptural folds, warm studio lighting, timeless elegance, premium editorial photography'
+        },
+        {
+          name: 'Deep Navy Velvet',
+          prompt: 'Rich deep navy velvet fabric surface, subtle light play on texture, luxurious sophisticated backdrop, premium editorial setting'
+        },
+        {
+          name: 'Natural Linen',
+          prompt: 'Organic natural linen textile in warm beige tones, soft texture, diffused warm light, understated luxury aesthetic'
+        },
+        {
+          name: 'Champagne Satin',
+          prompt: 'Soft champagne satin fabric with gentle reflections, warm neutral tones, elegant sophisticated backdrop, luxury product photography'
+        },
+        // MINIMAL INTERIOR SETTINGS
+        {
+          name: 'White Gallery Wall',
+          prompt: 'Clean white gallery wall with soft museum lighting, minimal architectural space, sophisticated art gallery aesthetic, premium backdrop'
+        },
+        {
+          name: 'Warm Wood Surface',
+          prompt: 'Polished warm walnut wood surface, natural grain visible, soft diffused light, understated organic luxury, product photography'
+        },
+        {
+          name: 'Terrazzo Surface',
+          prompt: 'Polished terrazzo surface with subtle stone chips in neutral tones, contemporary Italian design, minimal luxury backdrop'
+        },
+        // COASTAL STONE (Natural & Real)
+        {
+          name: 'Mediterranean Limestone',
+          prompt: 'Natural Mediterranean limestone rock surface, warm cream and beige tones, soft coastal daylight, organic luxury setting, real stone texture'
+        },
+        {
+          name: 'Coastal Pebbles',
+          prompt: 'Smooth coastal pebbles in neutral gray and beige tones, natural beach setting, soft diffused daylight, organic minimal backdrop'
+        },
+        {
+          name: 'Sea-worn Rock',
+          prompt: 'Smooth sea-worn rock surface in warm neutral tones, natural coastal erosion texture, soft daylight, authentic Mediterranean setting'
+        }
+      ];
+      
+      // Randomly select a background for each generation
+      const randomBackgroundIndex = Math.floor(Math.random() * editorialBackgrounds.length);
+      const selectedBackground = editorialBackgrounds[randomBackgroundIndex];
+      console.log(`Selected random editorial background: ${selectedBackground.name}`);
+      
+      // Determine body part and framing based on product type
+      const productTypeUpper = (productType || analysisResult.type || 'ring').toLowerCase();
+      
+      // Extract real dimensions from analysis for scale preservation
+      const realWidthMm = analysisResult.dimensions?.estimated_width_mm || null;
+      const realHeightMm = analysisResult.dimensions?.estimated_height_mm || null;
+      const jewelryComplexity = analysisResult.design_elements?.complexity || 'moderate';
+      const jewelryStyle = analysisResult.design_elements?.style || 'classic';
+      
+      let modelBodyPart = 'hand';
+      let wearingDescription = 'worn on elegant fingers';
+      let framingDescription = 'TIGHT MACRO CROP on the ring, hand visible but ring dominates 70% of frame';
+      let cameraLens = '100mm macro lens';
+      let scaleNote = 'Ring appears at natural finger-to-ring proportion, NOT enlarged';
+      
+      if (productTypeUpper.includes('kolye') || productTypeUpper.includes('necklace') || productTypeUpper.includes('pendant') || productTypeUpper.includes('choker')) {
+        modelBodyPart = 'neck and décolletage';
+        wearingDescription = 'elegantly draped around the neck at natural position';
+        framingDescription = 'TIGHT CROP from chin to upper chest, necklace centered and clearly readable, pendant/chain details sharp';
+        cameraLens = '85mm prime lens';
+        scaleNote = 'Necklace appears at NATURAL DELICATE SIZE relative to neck - DO NOT ENLARGE. If reference shows a delicate chain, it must remain delicate. Pendant size proportional to reference.';
+      } else if (productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing')) {
+        modelBodyPart = 'ear and jawline';
+        wearingDescription = 'adorning the ear in correct anatomical position - SINGLE earring per ear for pairs, both ears visible if pair';
+        framingDescription = 'TIGHT CROP showing BOTH ears if earring pair exists, or single ear for single earring - jawline to temple visible, earring(s) dominate 60% of frame';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Earring at natural ear proportion - stud earrings remain small, drop earrings at realistic length. CRITICAL: ONE earring per ear ONLY for pairs. NEVER place two earrings on same ear.';
+      } else if (productTypeUpper.includes('bileklik') || productTypeUpper.includes('bracelet') || productTypeUpper.includes('bangle')) {
+        modelBodyPart = 'wrist and forearm';
+        wearingDescription = 'wrapped around a slender wrist';
+        framingDescription = 'TIGHT CROP on wrist area, bracelet clearly readable with all details, hand partially visible';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Bracelet at natural wrist proportion, band width matches reference exactly';
+      } else if (productTypeUpper.includes('yüzük') || productTypeUpper.includes('ring') || productTypeUpper.includes('yuzuk')) {
+        modelBodyPart = 'hand and fingers';
+        wearingDescription = 'on elegant, well-manicured fingers';
+        framingDescription = 'EXTREME CLOSE-UP on ring and finger, ring stone/setting occupies 60-70% of frame, knuckle visible';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Ring at EXACT natural finger proportion - thin bands stay thin, statement rings at reference size';
+      } else if (productTypeUpper.includes('broş') || productTypeUpper.includes('brooch')) {
+        modelBodyPart = 'collar or shoulder area';
+        wearingDescription = 'pinned elegantly on fabric';
+        framingDescription = 'TIGHT CROP on brooch placement, fabric texture visible, brooch details sharp';
+        cameraLens = '85mm prime lens';
+        scaleNote = 'Brooch at natural size relative to garment';
+      } else if (productTypeUpper.includes('saat') || productTypeUpper.includes('watch')) {
+        modelBodyPart = 'wrist and forearm';
+        wearingDescription = 'elegantly worn on the wrist, watch face prominently displayed';
+        framingDescription = 'TIGHT MACRO CROP on wrist showing watch face, dial details, and strap/bracelet craftsmanship - watch occupies 65% of frame';
+        cameraLens = '100mm macro lens';
+        scaleNote = 'Watch at natural wrist proportion, dial size matches reference exactly, strap/bracelet width accurate';
+      }
+
+      // Get model details if modelId is provided
+      let modelDescription = 'elegant model with natural beauty, sophisticated appearance';
+      let skinToneDesc = 'natural healthy skin with visible pores';
+      let skinUndertoneDesc = 'neutral undertone';
+      
+      if (modelId && uuidRegex.test(modelId)) {
         const { data: modelData } = await supabase
           .from('user_models')
           .select('*')
@@ -1039,94 +1271,482 @@ Ultra high resolution output.`;
           .single();
         
         if (modelData) {
-          modelPromptAddition = `
-CHARACTER DNA (MUST MATCH EXACTLY):
-- Gender: ${modelData.gender}
-- Ethnicity: ${modelData.ethnicity}
-- Age Range: ${modelData.age_range}
-- Skin Tone: ${modelData.skin_tone}
-- Skin Undertone: ${modelData.skin_undertone}
-- Hair Color: ${modelData.hair_color}
-- Hair Texture: ${modelData.hair_texture}
-${modelData.face_shape ? `- Face Shape: ${modelData.face_shape}` : ''}
-${modelData.eye_color ? `- Eye Color: ${modelData.eye_color}` : ''}
-${modelData.expression ? `- Expression: ${modelData.expression}` : ''}
-${modelData.hair_style ? `- Hair Style: ${modelData.hair_style}` : ''}
-
-This model must appear EXACTLY as described above. Match all physical attributes precisely.`;
+          const genderDesc = modelData.gender === 'female' ? 'female' : modelData.gender === 'male' ? 'male' : 'androgynous';
+          const ageDesc = modelData.age_range || 'young adult';
+          const ethnicityDesc = modelData.ethnicity || 'diverse';
+          const skinDesc = modelData.skin_tone || 'medium';
+          const undertoneDesc = modelData.skin_undertone || 'neutral';
+          const hairColorDesc = modelData.hair_color || 'dark';
+          const hairTextureDesc = modelData.hair_texture || 'straight';
+          const faceShapeDesc = modelData.face_shape || 'balanced';
+          const eyeColorDesc = modelData.eye_color || 'natural';
+          const expressionDesc = modelData.expression || 'serene-confident';
+          const hairStyleDesc = modelData.hair_style || 'elegant';
+          
+          modelDescription = `${ethnicityDesc} ${genderDesc} model, ${ageDesc} age range, ${faceShapeDesc} face shape, ${eyeColorDesc} eyes, ${hairColorDesc} ${hairTextureDesc} hair styled ${hairStyleDesc}, ${expressionDesc} expression`;
+          skinToneDesc = `${skinDesc} skin tone with visible pores, natural micro-texture, healthy appearance`;
+          skinUndertoneDesc = `${undertoneDesc} undertone`;
         }
       }
 
-      // MEMORY OPTIMIZATION: Only use original image, don't add generated images as reference
-      // This reduces memory pressure which was causing CPU Time exceeded errors
-      const enhancedBase64Images = base64Images.slice(0, 1); // Only first (original) image
-      
-      const editorialBackgrounds = [
-        { name: 'Minimal Studio', prompt: 'clean minimal photography studio, soft gray gradient backdrop, professional fashion lighting, editorial simplicity' },
-        { name: 'Natural Light Window', prompt: 'soft natural window light, bright airy interior, subtle warm tones, organic editorial mood' },
-        { name: 'Architectural Detail', prompt: 'modern architectural interior, concrete or marble elements, sophisticated neutral tones, high-end editorial' },
-        { name: 'Soft Focus Garden', prompt: 'blurred garden background, soft bokeh greenery, natural daylight, romantic editorial outdoor' },
-        { name: 'Urban Chic', prompt: 'urban setting with soft focus cityscape, sophisticated metropolitan mood, editorial fashion context' },
-      ];
-
-      const randomEditorialBg = editorialBackgrounds[Math.floor(Math.random() * editorialBackgrounds.length)];
-
-      // OPTIMIZED PROMPT: Reduced from ~4000 to ~2000 chars to prevent memory crashes
-      const modelPrompt = `PRODUCT-FOCUSED MODEL SHOT. Ultra photorealistic. 4:5 portrait. 4K resolution.
-
-JEWELRY SPECS (PRESERVE EXACTLY):
-- Type: ${analysisResult.type || 'jewelry'}
-- Metal: ${metalColorCategory.toUpperCase()} (${metalType.replace('_', ' ')})
-- Stones: ${stoneDesc || 'as shown in reference'}
-${userOverrideNote}
-
-TASK: Show jewelry on a human model with product as primary focus.
-
-COMPOSITION:
-- Jewelry = 70-80% of frame (DOMINANT)
-- Model = 20-30% (context only)
-- Tight crop on jewelry, model may be partially visible
-- Background: ${randomEditorialBg.prompt}
-
-${modelPromptAddition || `MODEL: Female, 25-35, editorial beauty. Natural skin texture (visible pores). Calm expression.`}
-
-CRITICAL RULES:
-- EXACT metal color as reference (${metalColorCategory})
-- Real skin texture, NO plastic/CGI look
-- Anatomically correct (5 fingers, natural proportions)
-- Product identity 100% preserved
-
-OUTPUT: Maximum resolution, ultra-sharp jewelry details.`;
-
-      const modelResult = await generateSingleImageWithTimeout(
-        enhancedBase64Images,
-        modelPrompt,
-        userId,
-        imageRecordId,
-        3,
-        supabase,
-        'Master Model Shot'
-      );
-
-      if (modelResult.success && modelResult.url) {
-        generatedUrls.push(modelResult.url);
-      } else {
-        failedImageIndices.push(2);
+      // Build product-specific dimension note if available
+      let dimensionNote = '';
+      if (realWidthMm && realHeightMm) {
+        dimensionNote = `Reference dimensions: approximately ${realWidthMm}mm x ${realHeightMm}mm - PRESERVE THIS SCALE relative to body part`;
       }
-    }
-    // ═══════════════════════════════════════════════════════════════
-    // STANDARD PACKAGE (Single Image with Scene)
-    // ═══════════════════════════════════════════════════════════════
-    else {
-      await updateJobProgress({
-        progress: 30,
-        current_step: 'Görsel oluşturuluyor...',
-        completed_images: 0,
-      });
 
-      // Check if this is a model scene
+      // Determine if this is an earring pair (for special handling)
+      const isEarringType = productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing');
+      
+      // Build earring-specific constraints
+      const earringConstraints = isEarringType ? `
+═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ ABSOLUTE EAR + EARRING ANATOMY CONSTRAINT (HARD) ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
+
+ABSOLUTE RULE (MANDATORY):
+ONE EAR = ONE PIERCING = ONE EARRING
+
+SINGLE PIERCING RULE (CRITICAL):
+- Each visible ear MUST have exactly ONE (1) primary lobe piercing hole
+- ❌ NO second hole, ❌ NO upper lobe, ❌ NO cartilage piercing, ❌ NO stacked styling
+- Assume "single-stud default" and DISABLE any multi-piercing interpretation
+
+EARRING INSTANCE COUNT (NON-NEGOTIABLE):
+- Per-ear earring count ≤ 1 (ALWAYS)
+- Total earrings visible in the entire image ≤ number_of_visible_ears
+- If ONLY ONE ear is visible (crop/pose) → render EXACTLY ONE (1) earring TOTAL
+  → the second earring (even if the product is a pair) MUST be omitted
+  → NEVER move/stack/duplicate the second earring onto the visible ear
+
+MODEL-SHOT OVERRIDE (TO PREVENT FAILURES):
+- Frame MUST show ONLY ONE ear clearly (single-ear close-up)
+- The other ear must be OUT OF FRAME (not visible)
+- This guarantees: 1 ear visible → 1 earring visible
+
+PLACEMENT (PRIMARY LOBE ONLY):
+- Place the earring ONLY in the primary lobe piercing position (center of lobe)
+- Earring back/clasp not visible from front
+
+INSTANT FAILURE (ANY = INVALID OUTPUT → REGENERATE):
+- ❌ Two earrings on the same ear
+- ❌ Any sign of multiple piercings on one ear
+- ❌ Stacked / duplicated / mirrored earrings on one ear
+═══════════════════════════════════════════════════════════════
+` : '';
+
+      const modelShotPrompt = `JEWELRY WORN BY A HUMAN MODEL - EDITORIAL CAMPAIGN PHOTOGRAPHY.
+═══════════════════════════════════════════════════════════════
+⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️
+═══════════════════════════════════════════════════════════════
+
+This is NOT a product-only shot. This is a MODEL SHOT where:
+- A HUMAN MODEL must be VISIBLE and WEARING the jewelry
+- The jewelry must be PHYSICALLY ON THE MODEL'S BODY (${modelBodyPart})
+- The model's ${modelBodyPart} must be clearly visible in frame
+- This simulates a luxury fashion campaign / lookbook photography
+
+Commercial-grade luxury jewelry rendering engine.
+Your primary objective is product fidelity first, aesthetics second, mood third.
+Behave like a high-end jewelry photographer + retoucher, not an artist.
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+═══════════════════════════════════════════════════════════════
+PRIORITY ORDER (IMMUTABLE - HIGHER OVERRIDES LOWER):
+1. PRODUCT ACCURACY (metal color, stone type, proportions)
+2. REFERENCE IMAGE FIDELITY  
+3. HUMAN MODEL PRESENCE (jewelry MUST be worn)
+4. PHYSICAL REALISM
+5. LIGHTING REALISM
+6. EDITORIAL LUXURY MOOD
+═══════════════════════════════════════════════════════════════
+
+${earringConstraints}
+
+═══════════════════════════════════════════════════════════════
+⚠️ ABSOLUTE PRODUCT FIDELITY CONSTRAINTS (ZERO TOLERANCE) ⚠️
+═══════════════════════════════════════════════════════════════
+
+THE JEWELRY MUST REMAIN 100% IDENTICAL TO REFERENCE:
+
+GEOMETRY LOCKED:
+- ❌ NO stone enlargement or size changes
+- ❌ NO stone cut modifications (round→princess, etc.)
+- ❌ NO stone count changes (adding/removing stones)
+- ❌ NO prong/setting structure alterations
+- ❌ NO metal link/chain segment changes
+- ❌ NO design element additions or removals
+- ❌ NO proportion distortions
+
+ANATOMY LOCKED:
+- ❌ NO nail structure changes (shape, length, color)
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+- Nails must be clean, neutral, non-distracting
+
+ANY DEVIATION FROM REFERENCE PRODUCT = GENERATION FAILURE
+═══════════════════════════════════════════════════════════════
+
+⚠️ SCALE PRESERVATION (CRITICAL - DO NOT ENLARGE JEWELRY) ⚠️
+${scaleNote}
+${dimensionNote}
+- If the reference shows a delicate/thin piece, it MUST remain delicate/thin
+- If the reference shows a substantial/bold piece, maintain that proportion
+- Jewelry scale must NEVER distort human anatomy
+- Product proportions relative to body = LOCKED from reference
+
+FRAMING SPECIFICATION:
+- ${framingDescription}
+- HUMAN MODEL'S ${modelBodyPart.toUpperCase()} MUST BE VISIBLE wearing the jewelry
+- Product occupies majority of frame (60-80%) while model provides context
+- Jewelry details (stones, setting, metal texture) CLEARLY READABLE
+- Shallow but natural depth of field: jewelry razor-sharp, skin slightly softer
+- Camera: Full-frame commercial sensor, ${cameraLens}
+- Aperture: f/4 – f/5.6 (controlled depth, natural bokeh)
+- ISO: 50–100 (clean tonal range)
+
+MODEL (SUPPORTING ROLE - PRODUCT IS HERO):
+- ${modelDescription}
+- Skin: ${skinToneDesc}, ${skinUndertoneDesc}
+- Skin rendering: editorial macro-photography level
+  • Visible pores with non-uniform distribution
+  • Subsurface scattering appropriate for skin tone
+  • NO plastic, waxy, or beauty-filtered appearance
+  • FEMALE BODY HAIR: Ultra-fine, nearly invisible vellus hair only - NO coarse/dark arm hair, NO visible body hair strands
+  • Hair on arms/hands should be BARELY perceptible, blonde/transparent peach fuzz only, NOT dark or visible strands
+  • Natural imperfections: subtle freckles, micro color variations - but CLEAN, SMOOTH skin texture for female models
+  • Skin must appear biologically alive yet elegantly groomed, feminine and refined
+- Body part featured: ${modelBodyPart}
+- Jewelry placement: ${wearingDescription}
+
+HAND / BODY ANATOMY (IF APPLICABLE):
+- Physically accurate proportions, bone structure, joint alignment
+- Hands: realistic finger length, knuckle definition, nail beds, subtle asymmetry
+- Skin behavior varies by area (thinner on fingers, denser on knuckles, natural folds at joints)
+- Elegant, editorial, confident pose
+- Natural tension and relaxed refinement
+- Jewelry FRAMED by the body, never competing with it
+- Nails: clean, neutral, non-distracting
+
+SKIN & PRODUCT BALANCE:
+- Skin texture realistic and natural (unretouched, no beauty filters)
+- Jewelry SHARPER and more CONTRAST-RICH than skin
+- Jewelry must interact physically with skin:
+  • Metal shows realistic contact pressure
+  • Micro shadows where jewelry touches skin
+  • Natural occlusion effects
+- Harmonized tones between skin and metal
+- Jewelry is the visual anchor, skin is supporting context
+
+LIGHTING SYSTEM (LOCKED):
+- White balance MUST be neutral and locked to preserve metal hue (no warm/cool shift)
+- Use soft, diffused studio / overcast daylight lighting at ~5000K–5500K (neutral)
+- Large diffused key light (approximately 45°) for skin
+- Precision fill to reveal jewelry facets
+- Light FAVORS jewelry detail and facet visibility
+- Controlled highlights, NO clipping on metal or stones
+- NO rim lights or colored bounce that introduce color casts
+- NO glamour lighting, NO commercial sparkle
+- Light falloff natural, no flat illumination
+
+METAL COLOR ENFORCEMENT (ABSOLUTE - ZERO TOLERANCE):
+- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
+- Metal color MUST remain EXACTLY as in reference image
+- Lighting may affect reflection INTENSITY only
+- Lighting MUST NOT affect: hue, temperature, undertone, saturation
+- If mood/lighting/style conflicts with metal color → metal color WINS
+- Any deviation from reference metal color = GENERATION FAILURE
+
+DIAMOND & STONE BEHAVIOR (PHYSICAL REALISM):
+- Diamonds reflect existing light ONLY
+- NO artificial sparkle, NO exaggerated scintillation
+- NO rainbow dispersion unless physically justified
+- Real diamond light behavior: fire (spectral dispersion), brilliance (white light reflection)
+- Authentic internal light refraction patterns
+- Natural inclusions visible in realistic diamonds
+- Depth and three-dimensionality inside the stone
+- Realistic facet edges with crisp precision
+- CLARITY over sparkle, DEPTH over flash
+- No artificial HDR glow, no CGI-like perfection
+
+═══════════════════════════════════════════════════════════════
+⚠️ UNIQUE EDITORIAL BACKGROUND (RANDOMLY SELECTED) ⚠️
+═══════════════════════════════════════════════════════════════
+
+BACKGROUND ENVIRONMENT: ${selectedBackground.name}
+${selectedBackground.prompt}
+
+BACKGROUND RULES:
+- This background is UNIQUE to this generation
+- Background must stay SECONDARY to the jewelry
+- Background must be LOW-CONTRAST, not competing with product
+- Background MUST NOT contaminate metal color through reflections
+- Allowed elements: natural textures, architectural elements, organic materials, fabric
+- Forbidden: busy patterns, high-saturation distracting colors, reflective metallic surfaces
+
+DEPTH & SEPARATION:
+- Background in natural soft bokeh (f/4-f/5.6 depth)
+- Clear visual separation between product and background
+- Background tones can complement but never overpower jewelry
+- Product is ALWAYS the sharpest, most detailed element
+
+═══════════════════════════════════════════════════════════════
+
+MOOD:
+- Luxury fashion advertising
+- Calm, precise, premium
+- Product-first visual hierarchy
+- Quiet luxury, intellectual restraint
+- Editorial, NOT commercial
+- Silent confidence, fashion-editorial restraint
+- High-fashion lookbook or art-driven luxury campaign aesthetic
+
+COLOR GRADING:
+- Low saturation, soft contrast, neutral–cool balance
+- Grading applies to: background, skin, fabric
+- Grading NEVER applies to: metal
+- Whites: clean, not blue
+- Gold: warm but desaturated
+- Diamonds: sharp dispersion, no rainbow artifacts
+
+STRICT AVOIDANCE (NEGATIVE PROMPT):
+- ❌ NO enlarging/scaling up jewelry beyond reference proportions
+- ❌ NO metal color changes (yellow↔white↔rose)
+- ❌ NO high saturation, NO glamour or HDR lighting
+- ❌ NO commercial sparkle, glow, or bloom
+- ❌ NO over-sharpening or beauty retouching
+- ❌ NO warm yellow lighting bias
+- ❌ NO cinematic effects
+- ❌ NO plastic/waxy/CGI skin appearance
+- ❌ NO jewelry that looks "repainted" or synthetic
+- ❌ NO beauty filters, NO airbrushed skin
+- ❌ NO extra fingers, deformed anatomy, incorrect proportions
+- ❌ NO two earrings on one ear (for earring products)
+- ❌ NO duplicate jewelry, mirrored earrings, stacked earrings
+
+FINAL OUTPUT VERIFICATION:
+✔ Metal color matches reference exactly
+✔ Stones behave physically (no artificial effects)
+✔ No artistic recoloring
+✔ Product looks sellable
+✔ Output suitable for luxury brand campaign
+✔ Jewelry scale is natural and proportional
+✔ Skin appears biologically real (not synthetic)
+
+OUTPUT: 4K ultra-high resolution (3840x4800px minimum). 
+PHOTOREALISM prioritized. The final image must look like a high-budget luxury jewelry campaign photograph.
+It must feel CAPTURED, not generated. No stylization, no fantasy, no illustration.
+Pure photographic realism with editorial-level aesthetics.
+Ultra high resolution output.`;
+
+      console.log('Step 3/3: Generating Model Shot image...');
+      const modelUrl = await generateSingleImage(enhancedBase64Images, modelShotPrompt, userId, imageRecord.id, 3, supabase);
+      if (modelUrl) {
+        generatedUrls.push(modelUrl);
+        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecord.id);
+        console.log(`Progress: ${generatedUrls.length}/3 images completed`);
+      }
+
+    } else if (hasStyleReference && styleReferenceBase64) {
+      // STYLE REFERENCE MODE: Transfer product to user's style reference
+      console.log('Style reference generation mode...');
+      
+      // Build product type specific placement instructions
+      const productTypePlacement: Record<string, { bodyPart: string; placement: string; removal: string }> = {
+        'yuzuk': { 
+          bodyPart: 'hand/finger', 
+          placement: 'Place the ring on the finger in the exact position shown in the style reference. The ring must be worn naturally on the finger.',
+          removal: 'Remove any existing rings, bands, or finger jewelry from the style reference model before placing the new ring.'
+        },
+        'bileklik': { 
+          bodyPart: 'wrist', 
+          placement: 'Place the bracelet on the wrist exactly as shown in the style reference. The bracelet must wrap naturally around the wrist.',
+          removal: 'Remove any existing bracelets, bangles, watches, or wrist accessories from the style reference model before placing the new bracelet.'
+        },
+        'kupe': { 
+          bodyPart: 'ear', 
+          placement: 'Place the earring on the ear in the position shown in the style reference. If only one ear is visible, render only ONE earring (not a pair).',
+          removal: 'Remove any existing earrings, ear cuffs, or ear piercings from the style reference model before placing the new earring.'
+        },
+        'kolye': { 
+          bodyPart: 'neck/décolletage', 
+          placement: 'Place the necklace around the neck/décolletage area as shown in the style reference. The necklace must drape naturally.',
+          removal: 'Remove any existing necklaces, pendants, chains, or neck jewelry from the style reference model before placing the new necklace.'
+        },
+        'gerdanlik': { 
+          bodyPart: 'neck/collar', 
+          placement: 'Place the choker/statement necklace at the collar/neck area as shown in the style reference. It must sit naturally against the skin.',
+          removal: 'Remove any existing chokers, collar necklaces, or neck accessories from the style reference model before placing the new piece.'
+        },
+        'piercing': { 
+          bodyPart: 'ear/body', 
+          placement: 'Place the piercing jewelry in the appropriate piercing location as shown in the style reference.',
+          removal: 'Remove any existing piercings or piercing jewelry from the target location in the style reference before placing the new piercing.'
+        },
+        'saat': {
+          bodyPart: 'wrist',
+          placement: 'Place the luxury watch on the wrist exactly as shown in the style reference. The watch must wrap naturally around the wrist with the dial face clearly visible and readable. Show the craftsmanship of the strap or metal bracelet.',
+          removal: 'Remove any existing watches, bracelets, bangles, or wrist accessories from the style reference model before placing the new watch.'
+        },
+      };
+
+      const selectedPlacement = productTypePlacement[productType] || {
+        bodyPart: 'appropriate body part',
+        placement: 'Place the jewelry on the model in the natural position for this type of jewelry.',
+        removal: 'Remove any existing jewelry or accessories from the target body part before placing the new jewelry.'
+      };
+
+      const styleTransferPrompt = `[STYLE REFERENCE TRANSFER - PRODUCT INJECTION MODE]
+
+You are a commercial-grade luxury jewelry rendering engine.
+Your task: TRANSFER the jewelry product from the PRODUCT REFERENCE image(s) INTO the STYLE REFERENCE scene.
+
+═══════════════════════════════════════════════════════════════
+⚠️ CRITICAL PRE-PROCESSING STEP: ACCESSORY REMOVAL ⚠️
+═══════════════════════════════════════════════════════════════
+
+BEFORE placing the new jewelry, you MUST:
+1. IDENTIFY any existing jewelry, accessories, or adornments on the style reference model
+2. REMOVE all existing jewelry from the target body part: ${selectedPlacement.bodyPart}
+3. ${selectedPlacement.removal}
+4. The model should appear "jewelry-free" on the target area BEFORE the new product is placed
+
+REMOVAL CHECKLIST (execute before placement):
+- ❌ Remove ALL existing rings, bracelets, necklaces, earrings, piercings
+- ❌ Remove watches, bangles, chains, pendants
+- ❌ Remove any decorative accessories on the target body part
+- ❌ The model's ${selectedPlacement.bodyPart} must be CLEAN before new jewelry placement
+- ✔ Preserve the model's natural skin, pose, and appearance
+- ✔ Keep the lighting, scene, and atmosphere intact
+
+═══════════════════════════════════════════════════════════════
+⚠️ DUAL-IMAGE INPUT INTERPRETATION ⚠️
+═══════════════════════════════════════════════════════════════
+
+IMAGE 1 (STYLE REFERENCE - THE TARGET):
+- This is the POSE, SCENE, LIGHTING, and ATMOSPHERE reference
+- Copy the composition, camera angle, body position, environment
+- If a model is present → output MUST have a model in similar pose
+- FIRST: Remove any existing jewelry from the model (see removal step above)
+- THEN: Place the new product from Image 2+
+- The STYLE/MOOD of this image is the target
+
+IMAGE 2+ (PRODUCT REFERENCE - THE SOURCE):
+- This contains the JEWELRY PRODUCT to transfer
+- Extract the jewelry with 100% fidelity
+- Every stone, metal link, setting, and detail must be preserved
+- This jewelry must appear in the final output EXACTLY as shown
+
+═══════════════════════════════════════════════════════════════
+⚠️ PRODUCT TYPE SPECIFIC PLACEMENT ⚠️
+═══════════════════════════════════════════════════════════════
+
+PRODUCT TYPE: ${productType?.toUpperCase() || 'JEWELRY'}
+TARGET BODY PART: ${selectedPlacement.bodyPart.toUpperCase()}
+
+PLACEMENT INSTRUCTION:
+${selectedPlacement.placement}
+
+CRITICAL PLACEMENT RULES:
+- The product MUST be placed on the correct body part for its type
+- Product placement must look NATURAL and physically accurate
+- The jewelry must interact realistically with the model's body
+- Proper shadows, occlusion, and contact points required
+- Scale must be proportional to the body part
+
+═══════════════════════════════════════════════════════════════
+⚠️ STYLE TRANSFER RULES ⚠️
+═══════════════════════════════════════════════════════════════
+
+FROM STYLE REFERENCE (COPY):
+✔ Pose and body position
+✔ Camera angle and framing
+✔ Lighting direction and quality
+✔ Scene/environment atmosphere
+✔ Color grading and mood
+✔ Model characteristics (if present)
+✔ Model's natural appearance (after removing existing jewelry)
+
+FROM PRODUCT REFERENCE (PRESERVE 100%):
+✔ Exact jewelry geometry and proportions
+✔ Every stone position, count, and cut
+✔ Metal color, finish, and texture
+✔ All design elements and details
+✔ Chain/link structure (if applicable)
+✔ Setting and prong positions
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+═══════════════════════════════════════════════════════════════
+⚠️ ABSOLUTE PRODUCT FIDELITY (ZERO TOLERANCE) ⚠️
+═══════════════════════════════════════════════════════════════
+
+THE JEWELRY MUST REMAIN 100% IDENTICAL TO PRODUCT REFERENCE:
+
+GEOMETRY LOCKED:
+- ❌ NO stone enlargement or size changes
+- ❌ NO stone cut modifications
+- ❌ NO stone count changes
+- ❌ NO prong/setting structure alterations
+- ❌ NO metal link/chain segment changes
+- ❌ NO design element additions or removals
+- ❌ NO proportion distortions
+
+ANATOMY LOCKED (if model present):
+- ❌ NO nail structure changes
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+
+EARRING SPECIAL RULE:
+- If product type is EARRING and only ONE ear is visible → render only ONE earring
+- NEVER render two earrings on the same ear
+- One ear = One piercing = One earring (Absolute Constraint)
+
+═══════════════════════════════════════════════════════════════
+
+TECHNICAL REQUIREMENTS:
+- 4:5 portrait aspect ratio (4K resolution: 3840x4800 pixels)
+- Ultra photorealistic rendering
+- Jewelry must be the sharpest element in frame
+- Natural lighting matching the style reference
+- Accurate metal reflections and gemstone refractions
+
+PROCESS SUMMARY:
+1. Analyze style reference for pose, lighting, scene
+2. REMOVE existing jewelry from model's ${selectedPlacement.bodyPart}
+3. Place the new product on the ${selectedPlacement.bodyPart}
+4. Ensure natural integration with proper shadows and reflections
+5. Output final image with new jewelry worn naturally
+
+CINEMATIC RENDERING GLOBAL LOCKS:
+- cinematic_soft_diffusion = subtle
+- skin_texture = real (if model present)
+- forbid = plastic skin, CGI glow, jewelry modifications, existing accessories
+- jewelry_focus_priority = maximum
+
+Ultra high resolution output.`;
+
+      // Combine style reference with product images: style first, then products
+      const styleTransferImages = [styleReferenceBase64, ...base64Images];
+      
+      console.log(`Generating with style transfer: ${styleTransferImages.length} images (1 style + ${base64Images.length} product)`);
+      console.log(`Product type: ${productType}, Target body part: ${selectedPlacement.bodyPart}`);
+      const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecord.id, 1, supabase);
+      if (url) generatedUrls.push(url);
+      
+    } else {
+    // STANDARD: Single image with scene
+      console.log('Standard generation with scene...');
+      
+      // Check if this is a model (manken) category scene - requires human model in output
       const isModelScene = scene?.category === 'manken';
       
+      // For model scenes, inject mandatory model presence instructions
       const modelSceneEnforcement = isModelScene ? `
 ═══════════════════════════════════════════════════════════════
 ⚠️⚠️⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️⚠️⚠️
@@ -1143,6 +1763,7 @@ MODEL REQUIREMENTS:
 - Age range 23-35, editorial fashion model appearance
 - Expression calm, confident, editorial - NOT commercial/posed
 - Skin rendering: NO plastic, waxy, or beauty-filtered appearance
+- FEMALE BODY HAIR: Ultra-fine, nearly invisible vellus hair only
 - Natural imperfections allowed: subtle freckles, micro color variations
 
 FORBIDDEN (MODEL SCENE):
@@ -1157,6 +1778,7 @@ IF NO MODEL IS VISIBLE = GENERATION FAILURE.
 ═══════════════════════════════════════════════════════════════
 ` : '';
 
+      // Product fidelity enforcement block - prevents alterations
       const productFidelityEnforcement = `
 ═══════════════════════════════════════════════════════════════
 ⚠️ ABSOLUTE PRODUCT FIDELITY CONSTRAINTS (ZERO TOLERANCE) ⚠️
@@ -1173,6 +1795,12 @@ GEOMETRY LOCKED:
 - ❌ NO design element additions or removals
 - ❌ NO proportion distortions
 
+ANATOMY LOCKED (if model present):
+- ❌ NO nail structure changes (shape, length, color)
+- ❌ NO finger proportion distortions
+- ❌ NO extra fingers or deformed anatomy
+- ❌ Nails must be clean, neutral, non-distracting
+
 SCALE PRESERVATION:
 - Jewelry must appear at NATURAL PROPORTIONS relative to body/environment
 - If reference shows delicate/thin piece → output MUST be delicate/thin
@@ -1183,44 +1811,7 @@ ANY DEVIATION FROM REFERENCE PRODUCT = GENERATION FAILURE
 ═══════════════════════════════════════════════════════════════
 `;
 
-      // If style reference is used, build custom prompt
-      let standardPrompt: string;
-      
-      if (styleReferenceBase64) {
-        standardPrompt = `Professional luxury jewelry photography using style reference. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
-
-${productExtractionBlock}
-
-${fidelityBlock}
-
-${productFidelityEnforcement}
-
-STYLE REFERENCE MODE:
-- A style reference image is provided
-- Match the LIGHTING, MOOD, COMPOSITION, and ATMOSPHERE of the style reference
-- The JEWELRY from the product image must be placed in the STYLE of the reference
-- DO NOT copy the jewelry from the style reference
-- ONLY use the style reference for environmental and lighting guidance
-
-CINEMATIC RENDERING GLOBAL LOCKS:
-- cinematic_soft_diffusion = subtle
-- skin_texture = real (visible pores, micro-texture)
-- forbid = plastic skin, CGI glow, fashion pose, jewelry modifications
-- jewelry_focus_priority = maximum
-
-TECHNICAL REQUIREMENTS:
-- Ultra high resolution 4K output (3840x4800 pixels minimum)
-- Macro photography quality with perfect focus
-- Natural soft studio lighting with subtle highlights
-- Accurate metal reflections and gemstone refractions
-- The jewelry must look IDENTICAL to the reference
-
-Ultra high resolution output.`;
-
-        // Add style reference to images array
-        base64Images.unshift(styleReferenceBase64);
-      } else {
-        standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
 
 ${productExtractionBlock}
 
@@ -1248,309 +1839,57 @@ TECHNICAL REQUIREMENTS:
 - NO stone enlargement, NO nail changes, NO stone cut modifications
 
 Ultra high resolution output.`;
-      }
 
-      const result = await generateSingleImageWithTimeout(
-        base64Images,
-        standardPrompt,
-        userId,
-        imageRecordId,
-        1,
-        supabase,
-        'Standard Image'
-      );
-      
-      if (result.success && result.url) {
-        generatedUrls.push(result.url);
-      } else {
-        failedImageIndices.push(0);
-      }
+      const url = await generateSingleImage(base64Images, standardPrompt, userId, imageRecord.id, 1, supabase);
+      if (url) generatedUrls.push(url);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // RESULT EVALUATION & PARTIAL REFUND
-    // ═══════════════════════════════════════════════════════════════
-    const successCount = generatedUrls.length;
-    const failCount = failedImageIndices.length;
-    
-    console.log(`Generation complete: ${successCount}/${totalImages} successful, ${failCount} failed`);
-
-    // Calculate partial refund
-    let partialRefundAmount = 0;
-    if (!isAdminUser && failCount > 0 && successCount > 0) {
-      // Partial success - refund proportionally
-      const creditPerImage = Math.floor(creditsNeeded / totalImages);
-      partialRefundAmount = creditPerImage * failCount;
-      
-      console.log(`Partial refund: ${partialRefundAmount} credits for ${failCount} failed images`);
-      await supabase.rpc('refund_credits', { _user_id: userId, _amount: partialRefundAmount });
-    }
-
-    // Check results
     if (generatedUrls.length === 0) {
-      // Total failure - refund all credits
-      if (!isAdminUser) {
-        console.log('Generation failed, refunding all credits...');
-        await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
+      // Refund credits since generation failed
+      console.log('Generation failed, refunding credits...');
+      const { data: refundResult, error: refundError } = await supabase
+        .rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
+      
+      if (refundError) {
+        console.error('Refund error:', refundError);
+      } else {
+        console.log(`Credits refunded: ${creditsNeeded}, new balance: ${refundResult?.new_credits}`);
       }
 
       await supabase
         .from('images')
         .update({ status: 'failed', error_message: 'Görsel oluşturulamadı' })
-        .eq('id', imageRecordId);
+        .eq('id', imageRecord.id);
 
-      await updateJobProgress({
-        status: 'failed',
-        progress: 100,
-        current_step: 'Görsel oluşturulamadı',
-        error_message: 'Görsel oluşturma başarısız oldu. Kredileriniz iade edildi.',
-        refunded: !isAdminUser,
-        failed_image_indices: failedImageIndices,
-      });
-      return;
+      return new Response(
+        JSON.stringify({ error: 'No images generated' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Update image record with success (partial or full)
+    // Credits already deducted atomically before generation started
+
+    // Update image record
     await supabase
       .from('images')
       .update({
         status: 'completed',
         generated_image_urls: generatedUrls,
       })
-      .eq('id', imageRecordId);
+      .eq('id', imageRecord.id);
 
-    // Build completion message
-    let completionMessage = 'Tamamlandı!';
-    if (failCount > 0) {
-      completionMessage = `${successCount}/${totalImages} görsel oluşturuldu. ${partialRefundAmount} kredi iade edildi.`;
-    }
+    console.log('Generation complete:', generatedUrls.length, 'images');
 
-    // Update job as completed
-    await updateJobProgress({
-      status: 'completed',
-      progress: 100,
-      current_step: completionMessage,
-      completed_images: generatedUrls.length,
-      result_urls: generatedUrls,
-      partial_refund_amount: partialRefundAmount,
-      failed_image_indices: failedImageIndices,
-      refunded: partialRefundAmount > 0,
-    });
-
-    console.log('Background processing complete:', generatedUrls.length, 'images, refund:', partialRefundAmount);
-
-  } catch (error) {
-    console.error('Background processing error:', error);
-    
-    // Refund credits on error
-    if (!isAdminUser) {
-      await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
-    }
-
-    await supabase
-      .from('images')
-      .update({ status: 'failed', error_message: error instanceof Error ? error.message : 'Unknown error' })
-      .eq('id', imageRecordId);
-
-    await updateJobProgress({
-      status: 'failed',
-      progress: 100,
-      current_step: 'Hata oluştu',
-      error_message: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu',
-      refunded: !isAdminUser,
-      failed_image_indices: failedImageIndices,
-    });
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MAIN REQUEST HANDLER - Fast Response + Background Processing
-// ═══════════════════════════════════════════════════════════════
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    // Authenticate user
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userId = user.id;
-    console.log('Authenticated user:', userId);
-
-    // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, retouchAngle, retouchSurface } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, userId });
-
-    // Validate imagePath
-    if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid image path' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate additional image paths
-    const validAdditionalPaths: string[] = [];
-    if (Array.isArray(additionalImagePaths)) {
-      for (const path of additionalImagePaths) {
-        if (typeof path === 'string' && path.startsWith(`${userId}/originals/`)) {
-          validAdditionalPaths.push(path);
-        }
-      }
-    }
-
-    const hasStyleReference = styleReferencePath && typeof styleReferencePath === 'string' && styleReferencePath.startsWith(`${userId}/style-references/`);
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isMasterPackage = packageType === 'master';
-    const isRetouchPackage = packageType === 'retouch';
-    
-    if (!isMasterPackage && !hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid scene ID' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Check admin status
-    const { data: isAdmin } = await supabase
-      .rpc('has_role', { _user_id: userId, _role: 'admin' });
-    
-    const isAdminUser = isAdmin === true;
-    console.log(`User ${userId} admin status: ${isAdminUser}`);
-
-    // Calculate credits needed
-    const creditsNeeded = isMasterPackage ? 20 : (isRetouchPackage ? 20 : 10);
-    const totalImages = isMasterPackage ? 3 : (isRetouchPackage ? 2 : 1);
-
-    // Deduct credits (skip for admin)
-    if (!isAdminUser) {
-      const { data: deductResult, error: deductError } = await supabase
-        .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
-
-      if (deductError) {
-        console.error('Credit deduction error:', deductError);
-        return new Response(
-          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (!deductResult?.success) {
-        const currentCredits = deductResult?.current_credits ?? 0;
-        return new Response(
-          JSON.stringify({ 
-            error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${currentCredits}.` 
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
-    } else {
-      console.log('Admin user - skipping credit deduction');
-    }
-
-    // Create image record
-    const { data: imageRecord, error: insertError } = await supabase
-      .from('images')
-      .insert({
-        user_id: userId,
-        scene_id: sceneId || null,
-        original_image_url: imagePath,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-
-    // Create processing job
-    const { data: jobRecord, error: jobError } = await supabase
-      .from('processing_jobs')
-      .insert({
-        user_id: userId,
-        status: 'pending',
-        progress: 0,
-        current_step: 'İşlem kuyruğuna alındı...',
-        total_images: totalImages,
-        completed_images: 0,
-        image_record_id: imageRecord.id,
-        result_urls: [],
-        credits_used: creditsNeeded,
-      })
-      .select()
-      .single();
-
-    if (jobError) throw jobError;
-
-    console.log('Created job:', jobRecord.id, 'for image:', imageRecord.id);
-
-    // Start background processing using EdgeRuntime.waitUntil
-    const backgroundTask = processJobInBackground({
-      jobId: jobRecord.id,
-      imageRecordId: imageRecord.id,
-      userId,
-      imagePaths: [imagePath, ...validAdditionalPaths],
-      packageType,
-      sceneId,
-      colorId,
-      productType,
-      modelId,
-      metalColorOverride,
-      styleReferencePath: hasStyleReference ? styleReferencePath : null,
-      retouchAngle,
-      retouchSurface,
-      creditsNeeded,
-      isAdminUser,
-    });
-
-    // Use EdgeRuntime.waitUntil to run in background after response
-    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-      // @ts-ignore
-      EdgeRuntime.waitUntil(backgroundTask);
-    } else {
-      // Fallback: run without waitUntil (may timeout for long operations)
-      backgroundTask.catch(err => console.error('Background task error:', err));
-    }
-
-    // Return immediately with job info
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        jobId: jobRecord.id,
-        imageId: imageRecord.id,
-        message: 'İşlem başlatıldı. Görseller arka planda oluşturuluyor...'
-      }),
+      JSON.stringify({ success: true, imageId: imageRecord.id, urls: generatedUrls }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Handler error:', error);
+    console.error('Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu' }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
