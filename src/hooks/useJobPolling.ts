@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export type JobStatus = 'pending' | 'analyzing' | 'generating' | 'completed' | 'failed';
+export type JobStatus = 'pending' | 'analyzing' | 'generating' | 'completed' | 'failed' | 'timeout';
 
 export interface ProcessingJob {
   id: string;
@@ -18,16 +18,21 @@ export interface ProcessingJob {
   credits_used: number;
   created_at: string;
   updated_at: string;
+  started_at: string | null;
   // New fields for partial success
   partial_refund_amount: number;
   failed_image_indices: number[];
 }
+
+// Timeout threshold: 10 minutes
+const STUCK_JOB_THRESHOLD_MS = 10 * 60 * 1000;
 
 interface UseJobPollingOptions {
   pollingInterval?: number;
   onComplete?: (job: ProcessingJob) => void;
   onError?: (job: ProcessingJob) => void;
   onProgress?: (job: ProcessingJob) => void;
+  onTimeout?: (job: ProcessingJob) => void;
 }
 
 export function useJobPolling(
@@ -39,22 +44,37 @@ export function useJobPolling(
     onComplete,
     onError,
     onProgress,
+    onTimeout,
   } = options;
 
   const [job, setJob] = useState<ProcessingJob | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isStuck, setIsStuck] = useState(false);
   
   // Use refs to avoid stale closures in callbacks
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
   const onProgressRef = useRef(onProgress);
+  const onTimeoutRef = useRef(onTimeout);
   
   useEffect(() => {
     onCompleteRef.current = onComplete;
     onErrorRef.current = onError;
     onProgressRef.current = onProgress;
-  }, [onComplete, onError, onProgress]);
+    onTimeoutRef.current = onTimeout;
+  }, [onComplete, onError, onProgress, onTimeout]);
+
+  // Check if job is stuck (generating for more than 10 minutes)
+  const checkIfStuck = useCallback((jobData: ProcessingJob): boolean => {
+    if (jobData.status !== 'generating') return false;
+    
+    const updatedAt = new Date(jobData.updated_at).getTime();
+    const now = Date.now();
+    const timeSinceUpdate = now - updatedAt;
+    
+    return timeSinceUpdate > STUCK_JOB_THRESHOLD_MS;
+  }, []);
 
   const fetchJob = useCallback(async () => {
     if (!jobId) return null;
@@ -98,6 +118,14 @@ export function useJobPolling(
           const updatedJob = payload.new as unknown as ProcessingJob;
           setJob(updatedJob);
           
+          // Check if stuck
+          if (checkIfStuck(updatedJob)) {
+            setIsStuck(true);
+            onTimeoutRef.current?.(updatedJob);
+            stopPolling();
+            return;
+          }
+          
           // Trigger callbacks
           onProgressRef.current?.(updatedJob);
           
@@ -126,6 +154,15 @@ export function useJobPolling(
       if (!fetchedJob) return;
       
       setJob(fetchedJob);
+      
+      // Check if stuck
+      if (checkIfStuck(fetchedJob)) {
+        setIsStuck(true);
+        onTimeoutRef.current?.(fetchedJob);
+        stopPolling();
+        return;
+      }
+      
       onProgressRef.current?.(fetchedJob);
       
       if (fetchedJob.status === 'completed') {
@@ -143,28 +180,37 @@ export function useJobPolling(
     poll();
 
     return () => clearInterval(intervalId);
-  }, [jobId, isPolling, pollingInterval, fetchJob, stopPolling]);
+  // Polling dependency update
+  }, [jobId, isPolling, pollingInterval, fetchJob, stopPolling, checkIfStuck]);
 
   // Start polling when jobId changes
   useEffect(() => {
     if (jobId) {
       setIsPolling(true);
+      setIsStuck(false);
       setError(null);
       // Initial fetch
       fetchJob().then((fetchedJob) => {
         if (fetchedJob) {
           setJob(fetchedJob);
+          // Check if already stuck on initial load
+          if (checkIfStuck(fetchedJob)) {
+            setIsStuck(true);
+            onTimeoutRef.current?.(fetchedJob);
+          }
         }
       });
     } else {
       setJob(null);
       setIsPolling(false);
+      setIsStuck(false);
     }
-  }, [jobId, fetchJob]);
+  }, [jobId, fetchJob, checkIfStuck]);
 
   return {
     job,
     isPolling,
+    isStuck,
     error,
     stopPolling,
     refetch: fetchJob,

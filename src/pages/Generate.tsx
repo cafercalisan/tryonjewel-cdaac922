@@ -105,7 +105,7 @@ export default function Generate() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   
   // Job polling with callbacks
-  const { job } = useJobPolling(activeJobId, {
+  const { job, isStuck } = useJobPolling(activeJobId, {
     onComplete: (completedJob) => {
       console.log('Job completed:', completedJob);
       setGenerationStep('finalizing');
@@ -155,6 +155,25 @@ export default function Generate() {
       
       setCompletedImages(progressJob.completed_images);
       setCurrentImageIndex(progressJob.completed_images + 1);
+    },
+    onTimeout: (stuckJob) => {
+      console.warn('Job timeout detected:', stuckJob);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      
+      // If there are partial results, navigate to results with warning
+      const resultUrls = Array.isArray(stuckJob.result_urls) ? stuckJob.result_urls : [];
+      
+      if (resultUrls.length > 0 && stuckJob.image_record_id) {
+        toast.warning(`İşlem zaman aşımına uğradı. ${resultUrls.length}/${totalImages} görsel oluşturuldu.`);
+        navigate(`/sonuclar?id=${stuckJob.image_record_id}`);
+      } else {
+        toast.error("İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.");
+      }
+      
+      setIsGenerating(false);
+      setActiveJobId(null);
+      setGenerationStep("idle");
+      setCompletedImages(0);
     },
   });
 
@@ -409,6 +428,7 @@ export default function Generate() {
             resultUrls={jobResultUrls}
             failedImageIndices={jobFailedIndices}
             partialRefundAmount={job?.partial_refund_amount || 0}
+            isStuck={isStuck}
           />
         </div>
       </AppLayout>

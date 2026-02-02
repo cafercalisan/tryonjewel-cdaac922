@@ -75,6 +75,7 @@ export type Database = {
           progress: number
           refunded: boolean | null
           result_urls: Json | null
+          started_at: string | null
           status: string
           total_images: number
           updated_at: string
@@ -93,6 +94,7 @@ export type Database = {
           progress?: number
           refunded?: boolean | null
           result_urls?: Json | null
+          started_at?: string | null
           status?: string
           total_images?: number
           updated_at?: string
@@ -111,6 +113,7 @@ export type Database = {
           progress?: number
           refunded?: boolean | null
           result_urls?: Json | null
+          started_at?: string | null
           status?: string
           total_images?: number
           updated_at?: string

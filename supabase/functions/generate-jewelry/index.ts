@@ -20,8 +20,8 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 // Max image size in bytes (1.5MB to avoid memory issues)
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
-// Timeout for each image generation (4 minutes = 240000ms)
-const IMAGE_GENERATION_TIMEOUT = 240000;
+// Timeout for each image generation (3 minutes = 180000ms - reduced from 4 to avoid memory crashes)
+const IMAGE_GENERATION_TIMEOUT = 180000;
 
 // Helper: Convert ArrayBuffer to base64 in chunks
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -1057,8 +1057,9 @@ This model must appear EXACTLY as described above. Match all physical attributes
         }
       }
 
-      // Use previous successful images as reference for consistency
-      const enhancedBase64Images = [...base64Images];
+      // MEMORY OPTIMIZATION: Only use original image, don't add generated images as reference
+      // This reduces memory pressure which was causing CPU Time exceeded errors
+      const enhancedBase64Images = base64Images.slice(0, 1); // Only first (original) image
       
       const editorialBackgrounds = [
         { name: 'Minimal Studio', prompt: 'clean minimal photography studio, soft gray gradient backdrop, professional fashion lighting, editorial simplicity' },
@@ -1070,54 +1071,32 @@ This model must appear EXACTLY as described above. Match all physical attributes
 
       const randomEditorialBg = editorialBackgrounds[Math.floor(Math.random() * editorialBackgrounds.length)];
 
-      const modelPrompt = `PRODUCT-FOCUSED LUXURY CLOSE-UP WITH MODEL. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      // OPTIMIZED PROMPT: Reduced from ~4000 to ~2000 chars to prevent memory crashes
+      const modelPrompt = `PRODUCT-FOCUSED MODEL SHOT. Ultra photorealistic. 4:5 portrait. 4K resolution.
 
-${productExtractionBlock}
+JEWELRY SPECS (PRESERVE EXACTLY):
+- Type: ${analysisResult.type || 'jewelry'}
+- Metal: ${metalColorCategory.toUpperCase()} (${metalType.replace('_', ' ')})
+- Stones: ${stoneDesc || 'as shown in reference'}
+${userOverrideNote}
 
-${fidelityBlock}
+TASK: Show jewelry on a human model with product as primary focus.
 
-═══════════════════════════════════════════════════════════════
-COMPOSITION: PRODUCT-DOMINATED TIGHT CROP
-═══════════════════════════════════════════════════════════════
-
-FRAMING PRIORITY:
-- JEWELRY = 70-80% of frame area (DOMINANT)
-- MODEL = 20-30% of frame (supporting context only)
-- This is a PRODUCT SHOT with model, NOT a fashion portrait
-
-CROP GUIDELINES:
-- Macro/close-up distance to jewelry
-- Model's face may be partially cropped or out of focus
-- Only show relevant body part (hand, neck, ear, wrist depending on jewelry type)
+COMPOSITION:
+- Jewelry = 70-80% of frame (DOMINANT)
+- Model = 20-30% (context only)
+- Tight crop on jewelry, model may be partially visible
 - Background: ${randomEditorialBg.prompt}
 
-${modelPromptAddition || `MODEL (if visible):
-- Female, age 25-35, editorial beauty
-- Natural skin with visible texture (pores, micro-details)
-- Neutral or soft expression
-- Hair and makeup minimal, sophisticated
-- NO heavy makeup, NO glossy skin, NO beauty filter look`}
+${modelPromptAddition || `MODEL: Female, 25-35, editorial beauty. Natural skin texture (visible pores). Calm expression.`}
 
-SKIN & ANATOMY REQUIREMENTS:
-- Real human skin texture (visible pores, subtle imperfections)
-- NO plastic, waxy, or CGI skin
-- Natural body proportions
-- Anatomically correct hands (5 fingers, natural proportions)
-- NO distorted or extra limbs
+CRITICAL RULES:
+- EXACT metal color as reference (${metalColorCategory})
+- Real skin texture, NO plastic/CGI look
+- Anatomically correct (5 fingers, natural proportions)
+- Product identity 100% preserved
 
-⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
-- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Original Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
-
-LIGHTING:
-- Soft directional light emphasizing jewelry details
-- Model skin lit naturally but not the focus
-- Jewelry facets catch light realistically
-- No harsh shadows on product
-
-OUTPUT QUALITY: Maximum resolution, ultra-sharp details, no compression artifacts.
-Ultra high resolution output.`;
+OUTPUT: Maximum resolution, ultra-sharp jewelry details.`;
 
       const modelResult = await generateSingleImageWithTimeout(
         enhancedBase64Images,
