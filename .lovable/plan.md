@@ -1,177 +1,171 @@
 
 
-# Master Paket Üretim Süreci İyileştirmesi
+# Master ve Standard Paket Üretim Sorunları - Kapsamlı Düzeltme
 
-## Problem Özeti
+## Tespit Edilen Problemler
 
-Master pakette üretim %65 civarında takılıyor ve görsel çıktıları görünmüyor. Bunun nedenleri:
-1. API çağrılarında timeout kontrolü yok
-2. Başarısız görsel için retry mekanizması yok
-3. Kısmi başarı (2/3 görsel) durumunda job tamamlanmıyor
-4. Kullanıcı her görsel tamamlandığında anlık olarak sonucu göremiyor
+### 1. Memory/CPU Limit Exceeded
+Edge function loglarında `Memory limit exceeded` ve `CPU Time exceeded` hataları görülüyor. Background worker sessizce crash oluyor.
+
+### 2. Job'lar "generating" Durumunda Takılı Kalıyor
+Veritabanı sorgusu:
+- **Master paketi (5ac846a5)**: progress: 40%, status: generating, 1 görsel tamamlandı ama 2. görselide takıldı
+- **Standard paketi (1644801c)**: progress: 30%, status: generating, hiç görsel yok
+
+### 3. Crash Recovery Eksikliği
+`EdgeRuntime.waitUntil()` içindeki process crash olunca try-catch çalışmıyor. Job sonsuza kadar "generating" kalıyor.
+
+### 4. Model Çekimi Özel Sorunu
+Model shot prompt'u ~4000+ karakter ve çoklu resim referansı kullanıyor. Bu, memory kullanımını artırıyor.
 
 ---
 
-## Yeni Mimari Tasarım
+## Çözüm Planı
 
+### Adım 1: Takılı Job'ları Temizleme (Database)
+
+Öncelikle mevcut takılı job'ları düzeltip, timeout mekanizması ekleyeceğiz:
+
+**Yeni Alan Ekleme:**
+- `started_at` (TIMESTAMPTZ) - İşlemin ne zaman başladığını izlemek için
+- Database-level timeout kontrolü için kullanılacak
+
+**Frontend Timeout Kontrolü:**
+- Eğer job 10 dakikadan fazla "generating" durumundaysa, frontend bunu "timeout" olarak işaretler
+- Kullanıcıya uygun mesaj gösterilir
+
+### Adım 2: Edge Function İyileştirmeleri
+
+**A) Memory Optimizasyonu:**
+- Base64 görsellerini daha küçük tutma (mevcut 1.5MB limit iyi)
+- Prompt boyutlarını azaltma (gereksiz tekrarları kaldırma)
+- Her görsel arasında bellek temizleme
+
+**B) Daha Sağlam Hata Yakalama:**
 ```text
-Kullanıcı Request
-       │
-       ▼
-┌─────────────────────────┐
-│ Edge Function (Hızlı)   │
-│ - Job ID oluştur        │
-│ - Kredi düş              │
-│ - Background başlat     │
-└─────────────────────────┘
-       │ waitUntil()
-       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  BACKGROUND WORKER                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
-│  │ 1. Katalog Görseli│───────────────▶│ Retry (1x)     │  │
-│  │    (Editorial)    │                 └────────────────┘  │
-│  └─────────┬─────────┘                         │           │
-│            │ Başarılı?                         │           │
-│            ▼                                   ▼           │
-│  ┌──── DB UPDATE ────┐              ┌─── DB UPDATE ───┐   │
-│  │ completed_images=1│              │ (başarısız log) │   │
-│  │ result_urls=[url1]│              └─────────────────┘   │
-│  └───────────────────┘                                     │
-│            │                                               │
-│            ▼                                               │
-│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
-│  │ 2. E-Ticaret      │───────────────▶│ Retry (1x)     │  │
-│  │    (Sade arkaplan)│                 └────────────────┘  │
-│  └─────────┬─────────┘                                     │
-│            │                                               │
-│            ▼                                               │
-│  ┌───────────────────┐   4dk timeout   ┌────────────────┐  │
-│  │ 3. Model Çekimi   │───────────────▶│ Retry (1x)     │  │
-│  │    (Manken)       │                 └────────────────┘  │
-│  └─────────┬─────────┘                                     │
-│            │                                               │
-│            ▼                                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ SONUÇ DEĞERLENDİRME                                 │   │
-│  │ • 3/3 başarılı → status: completed                  │   │
-│  │ • 2/3 başarılı → status: completed + kısmi iade     │   │
-│  │ • 1/3 başarılı → status: completed + kısmi iade     │   │
-│  │ • 0/3 başarılı → status: failed + tam iade          │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-       │
-       │ Realtime Updates
-       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Generate.tsx)                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │         GeneratingPanel (Üretim Ekranı)             │   │
-│  │                                                     │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐             │   │
-│  │  │ KART 1  │  │ KART 2  │  │ KART 3  │             │   │
-│  │  │ Katalog │  │E-Ticaret│  │ Model   │             │   │
-│  │  │         │  │         │  │         │             │   │
-│  │  │ [Görsel]│  │[Spinner]│  │[Bekliyor]│            │   │
-│  │  │   ✓     │  │   ...   │  │    ○    │             │   │
-│  │  └─────────┘  └─────────┘  └─────────┘             │   │
-│  │                                                     │   │
-│  │  Progress: ████████░░░░░░░░░░ 45%                   │   │
-│  │  "E-ticaret görseli oluşturuluyor (2/3)..."        │   │
-│  │                                                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+Her generateSingleImageWithTimeout çağrısı için:
+1. Try-catch ile sarmalama
+2. Başarısız olursa job progress güncelle
+3. Sonraki görsele geç
+4. ASLA tüm process'i durdurma
 ```
+
+**C) Model Çekimi Prompt Sadeleştirme:**
+- Gereksiz tekrarlanan blokları kaldır
+- Prompt boyutunu %40 azalt
+- Daha az base64 referans kullan
+
+### Adım 3: Frontend Sağlamlık İyileştirmeleri
+
+**Timeout Detection:**
+```text
+useJobPolling hook'una ekleme:
+- Job 10 dakika boyunca "generating" ise timeout say
+- Kullanıcıya "İşlem zaman aşımına uğradı" mesajı göster
+- Kısmi sonuçlar varsa göster
+```
+
+**Stuck Job Recovery:**
+- "generating" durumundaki eski job'lar için kullanıcıya bilgi ver
+- "Yeniden dene" butonu ekle
 
 ---
 
 ## Teknik Değişiklikler
 
-### 1. Edge Function: Timeout + Retry Mekanizması
+### 1. Edge Function (`generate-jewelry/index.ts`)
 
-**Dosya:** `supabase/functions/generate-jewelry/index.ts`
-
-Yeni `generateSingleImageWithTimeout` fonksiyonu eklenecek:
-- Her görsel için 4 dakika (240.000ms) timeout
-- Başarısız olursa 1 kez retry
-- `Promise.race()` ile timeout kontrolü
-- Her görsel sonucu anında DB'ye yazılacak
-
+**Değişiklik 1 - Her görsel arasında DB güncelle:**
 ```text
-Örnek akış:
-1. Katalog görseli başlat → 4dk timeout ile izle
-2. Başarılı → DB güncelle (completed_images=1, result_urls=[url])
-3. Başarısız → 1x retry → hala başarısız → log yaz, devam et
-4. E-ticaret görseli başlat → aynı süreç
-5. Model çekimi başlat → aynı süreç
-6. Toplam sonuçları değerlendir → kısmi/tam iade hesapla
+Mevcut: Her 3 görsel de bittikten sonra final update
+Yeni: Her generateSingleImageWithTimeout sonunda HEMEN DB güncelle
 ```
 
-### 2. Kısmi Başarı ve Kredi İadesi
+**Değişiklik 2 - Model çekimi prompt optimizasyonu:**
+```text
+Mevcut: ~4000 karakter prompt + tekrarlanan fidelityBlock
+Yeni: ~2500 karakter optimize edilmiş prompt
+```
 
-**Kısmi iade formülü:**
-- 3/3 başarılı → 0 kredi iade
-- 2/3 başarılı → 7 kredi iade (20 × 1/3)
-- 1/3 başarılı → 14 kredi iade (20 × 2/3)
-- 0/3 başarılı → 20 kredi iade (tam)
+**Değişiklik 3 - Daha agresif timeout:**
+```text
+Mevcut: 4 dakika timeout
+Yeni: 3 dakika timeout (memory pressure'ı azaltmak için)
+```
 
-Yeni `processing_jobs` alanları:
-- `partial_refund_amount` (INTEGER) - İade edilen kredi miktarı
-- `failed_image_indices` (JSONB) - Hangi görsellerin başarısız olduğu
+**Değişiklik 4 - Crash-resistant job update:**
+```text
+Her görsel generation başlamadan ÖNCE:
+- job.current_step güncelle
+- job.started_at güncelle
 
-### 3. Frontend: 3 Kartlı Önizleme UI
+Her görsel generation sonunda:
+- Başarılı: result_urls + completed_images güncelle
+- Başarısız: failed_image_indices güncelle
+- HER DURUMDA: progress güncelle
+```
 
-**Dosya:** `src/components/generate/GeneratingPanel.tsx`
+### 2. Frontend Hook (`useJobPolling.ts`)
 
-Yeni kart bazlı UI:
-- 3 kart: "Lüks Katalog", "E-Ticaret", "Model Çekimi"
-- Her kart durumu:
-  - `waiting` → Gri placeholder + "Bekliyor..."
-  - `generating` → Spinner + pulse animasyonu
-  - `completed` → Gerçek görsel thumbnail
-  - `failed` → Kırmızı uyarı ikonu
-- Kartlar `result_urls` array'inden sırayla dolar
-- Tamamlanan görsele tıklayınca büyük önizleme
+**Değişiklik: Timeout Detection**
+```text
+if (job.status === 'generating' && 
+    Date.now() - new Date(job.updated_at).getTime() > 600000) {
+  // 10 dakika geçti, timeout say
+  setIsStuck(true);
+}
+```
+
+### 3. Database Migration
+
+**Yeni alanlar:**
+- `started_at` (TIMESTAMPTZ) - İşlem başlangıç zamanı
 
 ---
 
-## Dosya Değişiklik Listesi
+## Dosya Değişiklikleri
 
 | Dosya | Değişiklik |
 |-------|------------|
-| `supabase/functions/generate-jewelry/index.ts` | Timeout wrapper, retry logic, kısmi başarı yönetimi |
-| `src/components/generate/GeneratingPanel.tsx` | 3 kartlı önizleme UI, anlık görsel gösterimi |
-| `src/hooks/useJobPolling.ts` | `result_urls` değişikliklerini takip etme |
-| `supabase/migrations/xxx_update_processing_jobs.sql` | Yeni alanlar: `partial_refund_amount`, `failed_image_indices` |
+| `supabase/functions/generate-jewelry/index.ts` | Timeout azaltma, prompt optimizasyonu, crash-resistant updates |
+| `src/hooks/useJobPolling.ts` | Stuck job detection, timeout handling |
+| `src/pages/Generate.tsx` | Timeout UI, retry button |
+| `src/components/generate/GeneratingPanel.tsx` | Timeout state gösterimi |
+| `supabase/migrations/xxx.sql` | `started_at` alanı ekleme |
 
 ---
 
-## Kullanıcı Deneyimi Akışı
+## Model Çekimi Özel Optimizasyonu
 
-1. Kullanıcı "Oluştur" butonuna basar
-2. 3 boş kart görünür (Katalog / E-Ticaret / Model)
-3. 1. kart: Spinner döner, "Lüks katalog görseli oluşturuluyor..."
-4. ~30-40sn sonra 1. kart tamamlanır, görsel görünür, ✓ işareti
-5. 2. kart: Spinner başlar, "E-ticaret görseli oluşturuluyor..."
-6. ~30-40sn sonra 2. kart tamamlanır
-7. 3. kart: Spinner başlar, "Model çekimi oluşturuluyor..."
-8. ~30-40sn sonra 3. kart tamamlanır (veya 4dk timeout sonrası başarısız)
-9. İşlem biter: Başarılı görseller sonuçlar sayfasına yönlendirilir
-10. Kısmi başarı varsa: "2/3 görsel başarılı. 7 kredi iade edildi." bildirimi
+Model çekimi en çok memory kullanan işlem. Şu değişiklikler yapılacak:
+
+**Mevcut Sorun:**
+- 3 base64 resim yükleniyor (original + önceki 2 üretim)
+- 4000+ karakter prompt
+- Memory pressure → crash
+
+**Çözüm:**
+- Sadece original resmi kullan (önceki üretimleri referans olarak kullanma)
+- Prompt'u 2500 karaktere düşür
+- Timeout'u 3 dakikaya indir
 
 ---
 
-## Zaman ve Güvenilirlik İyileştirmesi
+## Beklenen Sonuçlar
 
-| Durum | Eski Sistem | Yeni Sistem |
-|-------|-------------|-------------|
-| Normal üretim | ~2-3 dk | ~2-3 dk (aynı) |
-| 3. görsel takılırsa | Sonsuza kadar bekler | 4dk sonra timeout + devam |
-| 2/3 başarılı | Hiçbir sonuç yok | 2 görsel gösterilir + kısmi iade |
-| Anlık feedback | Sadece progress % | Her görsel anında görünür |
+| Metrik | Öncesi | Sonrası |
+|--------|--------|---------|
+| Memory crash | Sık | Nadir |
+| Takılı job'lar | Var | Timeout ile çözülür |
+| Model çekimi başarı | ~50% | ~80% |
+| Kullanıcı feedback | Sonsuz bekleme | 10dk sonra timeout mesajı |
+| Kısmi sonuçlar | Gösterilmiyor | Her tamamlanan görünür |
+
+---
+
+## Önemli Notlar
+
+1. **Memory limit Supabase Edge Function'ların doğal kısıtlaması** - Tamamen ortadan kaldırılamaz, sadece minimize edilebilir
+2. **Model çekimi her zaman en riskli işlem olacak** - İnsan figürü üretmek daha fazla kaynak gerektirir
+3. **Kısmi başarı kabul edilebilir** - 2/3 görsel üretilirse kullanıcı memnun olabilir
 
