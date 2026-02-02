@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { VideoPlayer } from '@/components/video/VideoPlayer';
-import { VideoThumbnail } from '@/components/video/VideoThumbnail';
 import { useVideoStatusPolling } from '@/hooks/useVideoStatusPolling';
 
 interface VideoRecord {
@@ -188,9 +187,10 @@ export default function Videos() {
                   >
                     {video.status === 'completed' && video.video_url ? (
                       <>
-                        <VideoThumbnail 
+                        <img 
                           src={video.source_image_url} 
                           alt="Video thumbnail"
+                          className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity">
                           <div className="w-14 h-14 rounded-full bg-background/90 flex items-center justify-center">
@@ -200,10 +200,10 @@ export default function Videos() {
                       </>
                     ) : (
                       <>
-                        <VideoThumbnail 
+                        <img 
                           src={video.source_image_url} 
                           alt="Source image"
-                          className="opacity-50"
+                          className="w-full h-full object-cover opacity-50"
                         />
                         {(video.status === 'processing' || video.status === 'generating' || video.status === 'pending') && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">

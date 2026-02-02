@@ -64,22 +64,29 @@ export function useDeductCredit() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (amount: number = 10) => {
+    mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
       
-      // Use atomic RPC function to deduct credits
+      // First get current credits
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!profile || profile.credits <= 0) throw new Error('Yetersiz kredi');
+
+      // Deduct one credit
       const { data, error } = await supabase
-        .rpc('deduct_credits', { _user_id: user.id, _amount: amount });
+        .from('profiles')
+        .update({ credits: profile.credits - 1 })
+        .eq('id', user.id)
+        .select()
+        .single();
 
       if (error) throw error;
-      
-      // Type assertion for RPC result
-      const result = data as { success: boolean; error?: string; remaining_credits?: number } | null;
-      
-      if (!result?.success) {
-        throw new Error(result?.error || 'Yetersiz kredi');
-      }
-      return result;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });

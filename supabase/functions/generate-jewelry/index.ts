@@ -228,8 +228,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, retouchAngle, retouchSurface } = await req.json();
-    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, retouchAngle, retouchSurface, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath } = await req.json();
+    console.log('Generate request:', { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -341,8 +341,8 @@ serve(async (req) => {
     const isAdminUser = isAdmin === true;
     console.log(`User ${userId} admin status: ${isAdminUser}`);
 
-    // Calculate credits needed: 10 credits per image output, 20 for master (3 outputs), 20 for retouch (2 outputs)
-    const creditsNeeded = isMasterPackage ? 20 : (isRetouchPackage ? 20 : 10);
+    // Calculate credits needed: 10 credits per image output, 20 for master (2 outputs)
+    const creditsNeeded = isMasterPackage ? 20 : 10;
 
     // Skip credit deduction for admin users - they have unlimited generation rights
     if (!isAdminUser) {
@@ -685,52 +685,16 @@ FORBIDDEN:
     // RETOUCH PACKAGE: Professional photo retouching
     // ═══════════════════════════════════════════════════════════════
     if (isRetouchPackage) {
-      console.log('Retouch Package: Professional photo enhancement with dual output...');
-      console.log(`Retouch settings: angle=${retouchAngle || 15}°, surface=${retouchSurface || 'reflective-white'}`);
+      console.log('Retouch Package: Professional photo enhancement...');
       
-      // Surface type mapping
-      const surfaceMap: Record<string, { name: string; promptBg: string }> = {
-        'reflective-black': {
-          name: 'Lüks Siyah',
-          promptBg: 'pure black background (#000000), luxurious highly reflective black glass surface with realistic jewelry reflections, dramatic product photography, premium e-commerce'
-        },
-        'reflective-white': {
-          name: 'Standart Beyaz',
-          promptBg: 'pure white background (RGB 255,255,255), seamless studio backdrop, clean isolated product, professional e-commerce standard'
-        },
-        'marble': {
-          name: 'Mermer',
-          promptBg: 'luxurious white Carrara marble surface with subtle gray veining, polished reflective marble with product reflection, Italian marble countertop, premium product photography'
-        },
-        'velvet': {
-          name: 'Kadife',
-          promptBg: 'deep dark purple velvet fabric surface, luxurious jewelry presentation, soft fabric texture with subtle folds, premium jewelry display'
-        }
-      };
-
-      const selectedSurface = surfaceMap[retouchSurface] || surfaceMap['reflective-white'];
-      const cameraAngle = retouchAngle || 15;
-      
-      const buildRetouchPrompt = (bgType: 'black' | 'white') => {
-        const bgPrompt = bgType === 'black' 
-          ? surfaceMap['reflective-black'].promptBg
-          : selectedSurface.promptBg;
-          
-        return `
+      const retouchPrompt = `
 ═══════════════════════════════════════════════════════════════
-PROFESSIONAL JEWELRY PHOTO RETOUCH - ${bgType.toUpperCase()} BACKGROUND VERSION
+PROFESSIONAL JEWELRY PHOTO RETOUCH
 ═══════════════════════════════════════════════════════════════
 
 You are operating as a professional high-end jewelry photo retoucher.
 This is a PRECISION IMAGE ENHANCEMENT task, NOT creative generation.
 The uploaded image is a real product photograph. Your task is to enhance it.
-
-CAMERA ANGLE SPECIFICATION:
-- Apply a ${cameraAngle}° camera angle view
-- 0° = directly from above (bird's eye view)
-- 45° = diagonal side view
-- 90° = straight front view
-- Maintain product proportions while adjusting perspective
 
 CORE RETOUCH PHILOSOPHY:
 - Work like an experienced jewelry retoucher using Photoshop/Capture One workflows
@@ -746,14 +710,14 @@ ABSOLUTE PRODUCT INTEGRITY RULES (CRITICAL):
 - Do NOT stylize, redesign or reinterpret the product
 - The final output must be the EXACT SAME jewelry piece, only professionally retouched
 
-BACKGROUND & SURFACE:
-${bgPrompt}
+BACKGROUND & MASKING:
 - Isolate the jewelry using precision masking techniques
 - Preserve all fine contours, curves and micro details
 - Maintain inner cutouts (ring holes, chain gaps, openwork areas)
 - Apply subtle anti-aliasing to avoid jagged edges or halos
-${bgType === 'black' ? '- The jewelry should have realistic reflections on the glossy black surface' : '- Remove all shadows, reflections, stands, wires or supports'}
-- The jewelry must appear clean and presented professionally
+- Apply a pure white background (RGB 255,255,255)
+- Remove all shadows, reflections, stands, wires or supports
+- The jewelry must appear fully isolated, clean and floating naturally
 
 LIGHTING & COLOR CORRECTION:
 - Correct white balance to reflect true material properties
@@ -790,9 +754,16 @@ EDGE & DETAIL CONTROL:
 - Increase micro-contrast on fine details (+30–40)
 - Prevent halos, ringing or oversharpening artifacts
 
+TECHNICAL OUTPUT:
+- Process in high-quality color depth
+- Color profile: sRGB
+- Maximum resolution from source
+- No compression artifacts
+
 FORBIDDEN:
 - ❌ Redesign or artistic interpretation
 - ❌ Cinematic or lifestyle styling
+- ❌ Background scenes or environments
 - ❌ Model hands/neck/ears
 - ❌ CGI or 3D rendered look
 - ❌ Changing any physical product attributes
@@ -800,56 +771,30 @@ FORBIDDEN:
 FINAL QUALITY CHECK:
 ✓ Product identity fully preserved
 ✓ No geometry or design changes
-✓ ${bgType === 'black' ? 'Luxurious black reflective background' : 'Clean professional background'}
+✓ Clean white background
 ✓ Stones look premium but realistic
 ✓ Metal finish natural and detailed
 ✓ Suitable for e-commerce zoom
 ✓ No AI artifacts or plastic look
 
-OUTPUT: Single professionally retouched jewelry image on ${bgType} background.
+OUTPUT: Single professionally retouched jewelry image on pure white background.
 `.trim();
-      };
 
-      // Generate BLACK background version first
-      console.log('Generating retouch version 1: Black background...');
-      const blackBgUrl = await generateSingleImage(
+      // Generate single retouched image
+      const retouchUrl = await generateSingleImage(
         base64Images,
-        buildRetouchPrompt('black'),
+        retouchPrompt,
         userId,
         imageRecord.id,
         0,
         supabase
       );
       
-      if (blackBgUrl) {
-        generatedUrls.push(blackBgUrl);
-        console.log('Retouch black background complete');
-        
-        // Update progress
-        await supabase
-          .from('images')
-          .update({ generated_image_urls: [...generatedUrls] })
-          .eq('id', imageRecord.id);
-      }
-      
-      // Generate WHITE/CUSTOM background version
-      console.log('Generating retouch version 2: White/Custom background...');
-      const whiteBgUrl = await generateSingleImage(
-        base64Images,
-        buildRetouchPrompt('white'),
-        userId,
-        imageRecord.id,
-        1,
-        supabase
-      );
-      
-      if (whiteBgUrl) {
-        generatedUrls.push(whiteBgUrl);
-        console.log('Retouch white background complete');
-      }
-      
-      if (generatedUrls.length === 0) {
-        console.error('Both retouch generations failed');
+      if (retouchUrl) {
+        generatedUrls.push(retouchUrl);
+        console.log('Retouch complete');
+      } else {
+        console.error('Retouch generation failed');
       }
     } else if (isMasterPackage) {
       // MASTER PACKAGE: 3 images sequentially

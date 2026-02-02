@@ -8,42 +8,34 @@ import { Loader2 } from 'lucide-react';
 import mooreLogo from '@/assets/moore-logo.png';
 import { toast } from 'sonner';
 import { loginSchema, type LoginFormData } from '@/lib/validation';
+
 export default function Login() {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
-    password: ''
+    password: '',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [loading, setLoading] = useState(false);
-  const {
-    signIn
-  } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
     // Clear error when user starts typing
     if (errors[name as keyof LoginFormData]) {
-      setErrors({
-        ...errors,
-        [name]: undefined
-      });
+      setErrors({ ...errors, [name]: undefined });
     }
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     // Validate form data
     const result = loginSchema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof LoginFormData, string>> = {};
-      result.error.errors.forEach(err => {
+      result.error.errors.forEach((err) => {
         if (err.path[0]) {
           fieldErrors[err.path[0] as keyof LoginFormData] = err.message;
         }
@@ -51,25 +43,29 @@ export default function Login() {
       setErrors(fieldErrors);
       return;
     }
+
     setLoading(true);
     setErrors({});
-    const {
-      error
-    } = await signIn(formData.email, formData.password);
+
+    const { error } = await signIn(formData.email, formData.password);
+
     if (error) {
       toast.error('Giriş başarısız. E-posta veya şifrenizi kontrol edin.');
       setLoading(false);
       return;
     }
+
     toast.success('Hoş geldiniz!');
     navigate('/panel');
   };
-  return <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          
-          <span className="text-2xl font-semibold tracking-tight">Moore Studio</span>
+          <img src={mooreLogo} alt="MooreLabs" className="h-10 w-auto" />
+          <span className="text-2xl font-semibold tracking-tight">MooreLabs</span>
         </Link>
 
         {/* Card */}
@@ -82,21 +78,47 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-posta</Label>
-              <Input id="email" name="email" type="email" placeholder="ornek@email.com" value={formData.email} onChange={handleChange} className={errors.email ? 'border-destructive' : ''} maxLength={255} />
-              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="ornek@email.com"
+                value={formData.email}
+                onChange={handleChange}
+                className={errors.email ? 'border-destructive' : ''}
+                maxLength={255}
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Şifre</Label>
-              <Input id="password" name="password" type="password" placeholder="Şifreniz" value={formData.password} onChange={handleChange} className={errors.password ? 'border-destructive' : ''} maxLength={72} />
-              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Şifreniz"
+                value={formData.password}
+                onChange={handleChange}
+                className={errors.password ? 'border-destructive' : ''}
+                maxLength={72}
+              />
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? <>
+              {loading ? (
+                <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Giriş yapılıyor...
-                </> : 'Giriş Yap'}
+                </>
+              ) : (
+                'Giriş Yap'
+              )}
             </Button>
           </form>
 
@@ -108,5 +130,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 }
