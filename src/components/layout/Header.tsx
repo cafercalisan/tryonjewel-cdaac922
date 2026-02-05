@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
-import { User, LogOut, Menu, X } from 'lucide-react';
+import { User, LogOut, Menu, X, Shield } from 'lucide-react';
 import { useState } from 'react';
 import mooreLogo from '@/assets/moore-logo.png';
 import {
@@ -16,6 +17,7 @@ import {
 export function Header() {
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
+  const { data: isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -90,6 +92,15 @@ export function Header() {
                   <User className="mr-2 h-4 w-4" />
                   Hesap Ayarları
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/admin')}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin Paneli
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
