@@ -41,7 +41,15 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const credits = Number(body?.credits);
+    const { userId, credits: rawCredits } = body;
+    const credits = Number(rawCredits);
+
+    if (!userId || typeof userId !== "string") {
+      return new Response(JSON.stringify({ error: "userId is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!Number.isFinite(credits) || credits < 0 || credits > 1_000_000) {
       return new Response(JSON.stringify({ error: "Invalid credits" }), {
@@ -72,13 +80,11 @@ serve(async (req) => {
       });
     }
 
-    // Set credits for THIS admin user
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update({ credits, updated_at: new Date().toISOString() })
-      .eq("id", user.id)
-      .select("credits")
-      .single();
+    // Use the admin_set_credits database function to set credits for target user
+    const { data: result, error: updateError } = await supabase.rpc("admin_set_credits", {
+      _user_id: userId,
+      _credits: credits,
+    });
 
     if (updateError) {
       console.error("Update credits error:", updateError);
@@ -88,7 +94,9 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, credits: updated?.credits ?? credits }), {
+    console.log(`Admin ${user.email} set credits for user ${userId} to ${credits}`);
+
+    return new Response(JSON.stringify({ success: true, ...result }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

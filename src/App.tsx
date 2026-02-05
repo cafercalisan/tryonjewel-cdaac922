@@ -20,6 +20,7 @@ import ModelGallery from "./pages/ModelGallery";
 import Videos from "./pages/Videos";
 import Scenes from "./pages/Scenes";
 import Account from "./pages/Account";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/modellerim" element={<ProtectedRoute><ModelGallery /></ProtectedRoute>} />
             <Route path="/videolarim" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
             <Route path="/hesap" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
