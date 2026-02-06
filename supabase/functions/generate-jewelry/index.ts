@@ -55,6 +55,12 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.15,
+        // Docs: https://ai.google.dev/gemini-api/docs/image-generation
+        // Lock output framing: always 3:4 portrait; request highest available (4K)
+        imageConfig: {
+          aspectRatio: '3:4',
+          imageSize: '4K',
+        },
       },
     }),
   });
@@ -923,7 +929,7 @@ OUTPUT: Single professionally retouched jewelry image on pure white background.
       // Image 1 (PRIORITY): Editorial Luxury Scene - REFERENCE ANCHOR
       // This is generated first because it produces the most consistent results
       // and will be used as additional reference for subsequent generations
-      const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+      const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 3:4 portrait aspect ratio. 4K ultra-high resolution quality (3584x4800 pixels).
 
 ${productExtractionBlock}
 
@@ -1010,7 +1016,7 @@ Ultra high resolution output.`;
 This is NOT a regeneration task. This is a BACKGROUND REPLACEMENT task.
 The jewelry object is FROZEN. Do NOT regenerate, reinterpret, or modify it in any way.
 
-Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality (3840x4800 pixels).
+Professional e-commerce product photography. Ultra photorealistic. 3:4 portrait aspect ratio. 4K ultra-high resolution quality (3584x4800 pixels).
 
 ${productExtractionBlock}
 
@@ -1756,7 +1762,7 @@ ANY DEVIATION FROM REFERENCE PRODUCT = GENERATION FAILURE
 ═══════════════════════════════════════════════════════════════
 `;
 
-      const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 3:4 portrait aspect ratio. 4K ultra-high resolution quality (3584x4800 pixels).
 
 ${productExtractionBlock}
 
@@ -1776,7 +1782,7 @@ CINEMATIC RENDERING GLOBAL LOCKS:
 - jewelry_focus_priority = maximum
 
 TECHNICAL REQUIREMENTS:
-- Ultra high resolution 4K output (3840x4800 pixels minimum)
+- Ultra high resolution output (3584x4800 pixels)
 - Macro photography quality with perfect focus
 - Natural soft studio lighting with subtle highlights
 - Accurate metal reflections and gemstone refractions
