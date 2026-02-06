@@ -9,7 +9,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
@@ -66,7 +66,6 @@ interface UploadedImage {
 
 export default function Generate() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -300,15 +299,37 @@ export default function Generate() {
       const imageId = data.imageId;
       currentImageRecordId.current = imageId;
 
-      // Credits are deducted atomically in backend; refresh UI immediately
-      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+      const channel = supabase
+        .channel(`image-progress-${imageId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'images',
+            filter: `id=eq.${imageId}`
+          },
+          (payload) => {
+            const newData = payload.new as { generated_image_urls?: string[]; status?: string };
+            const urlCount = newData.generated_image_urls?.length || 0;
+            setCompletedImages(urlCount);
+            setCurrentImageIndex(urlCount + 1);
+            
+            if (newData.status === 'completed') {
+              setGenerationStep('finalizing');
+              setTimeout(() => {
+                channel.unsubscribe();
+                toast.success("Görselleriniz başarıyla oluşturuldu!");
+                navigate(`/sonuclar?id=${imageId}`);
+              }, 1000);
+            }
+          }
+        )
+        .subscribe();
 
-      toast.success("Üretim başlatıldı", {
-        description: "Sonuç ekranında oluşturma durumunu canlı takip edebilirsiniz."
-      });
-
-      navigate(`/sonuclar?id=${imageId}`);
-      return;
+      toast.success("Görselleriniz başarıyla oluşturuldu!");
+      channel.unsubscribe();
+      navigate(`/sonuclar?id=${data.imageId}`);
     } catch (error) {
       console.error("Generation error:", error);
       toast.error("Görsel oluşturulurken bir hata oluştu.");

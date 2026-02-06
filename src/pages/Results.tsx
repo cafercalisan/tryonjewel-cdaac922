@@ -47,11 +47,11 @@ export default function Results() {
     if (!imageId) return;
     setIsDownloading(index);
     try {
-      // Download at maximum target quality (3:4)
+      // Download at maximum 4K quality
       await downloadImageAs4kJpeg({
         url,
-        filenameBase: `jewelry-${imageId}-${index + 1}-4K-3x4`,
-        width: 3584,
+        filenameBase: `jewelry-${imageId}-${index + 1}-4K`,
+        width: 3840,
         height: 4800,
         quality: 1.0
       });
@@ -75,7 +75,7 @@ export default function Results() {
         <div className="container py-8 md:py-12">
           <div className="max-w-4xl mx-auto animate-pulse">
             <div className="h-8 w-48 bg-muted rounded mb-8" />
-            <div className="aspect-[3/4] max-w-lg mx-auto bg-muted rounded-2xl" />
+            <div className="aspect-[4/5] max-w-lg mx-auto bg-muted rounded-2xl" />
           </div>
         </div>
       </AppLayout>
@@ -163,7 +163,7 @@ export default function Results() {
             {/* Main Image */}
             <div>
               <div 
-                className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted shadow-luxury-lg mb-4 cursor-zoom-in relative group"
+                className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted shadow-luxury-lg mb-4 cursor-zoom-in relative group"
                 onClick={openLightbox}
               >
                 {selectedUrl && (
@@ -188,7 +188,7 @@ export default function Results() {
                   <button
                     key={index}
                     onClick={() => setSelectedIndex(index)}
-                    className={`relative aspect-[3/4] rounded-xl overflow-hidden transition-all ${
+                    className={`relative aspect-[4/5] rounded-xl overflow-hidden transition-all ${
                       selectedIndex === index 
                         ? 'ring-2 ring-primary ring-offset-2' 
                         : 'opacity-70 hover:opacity-100'
