@@ -55,8 +55,6 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.15,
-        imageSize: '4K',
-        maxOutputTokens: 8192,
       },
     }),
   });
