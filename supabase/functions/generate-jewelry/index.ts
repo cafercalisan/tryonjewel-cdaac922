@@ -109,6 +109,114 @@ async function callLovableImageGeneration({
   return url.slice(commaIndex + 1);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SEEDREAM 4.5 (V2 BETA) - BytePlus ModelArk Image Generation
+// ═══════════════════════════════════════════════════════════════
+const BYTEPLUS_ARK_BASE_URL = 'https://ark.ap-southeast.bytepluses.com/api/v3';
+const SEEDREAM_MODEL = 'seedream-4-5-251128';
+
+async function callSeedreamImageGeneration({
+  imageUrls,
+  prompt,
+  size = '2K',
+}: {
+  imageUrls?: string[];
+  prompt: string;
+  size?: string;
+}): Promise<string | null> {
+  const BYTEPLUS_ARK_API_KEY = Deno.env.get('BYTEPLUS_ARK_API_KEY');
+  if (!BYTEPLUS_ARK_API_KEY) {
+    console.error('Missing BYTEPLUS_ARK_API_KEY');
+    return null;
+  }
+
+  const body: any = {
+    model: SEEDREAM_MODEL,
+    prompt,
+    size,
+    response_format: 'url',
+    watermark: false,
+  };
+
+  // Add image reference(s) for image-to-image
+  if (imageUrls && imageUrls.length > 0) {
+    body.image = imageUrls.length === 1 ? imageUrls[0] : imageUrls;
+    body.sequential_image_generation = 'disabled';
+  }
+
+  const resp = await fetch(`${BYTEPLUS_ARK_BASE_URL}/images/generations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${BYTEPLUS_ARK_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error(`Seedream API error (${resp.status}):`, errText);
+    return null;
+  }
+
+  const data = await resp.json();
+  const resultUrl = data?.data?.[0]?.url;
+  if (!resultUrl) {
+    console.error('Seedream API returned no image URL');
+    return null;
+  }
+
+  return resultUrl;
+}
+
+// Generate single image using Seedream and upload to storage
+async function generateSingleImageSeedream(
+  imageUrls: string[],
+  prompt: string,
+  userId: string,
+  imageRecordId: string,
+  index: number,
+  supabase: any
+): Promise<string | null> {
+  try {
+    const resultUrl = await callSeedreamImageGeneration({ imageUrls, prompt });
+    if (!resultUrl) return null;
+
+    // Download the generated image from Seedream's URL
+    const imgResp = await fetch(resultUrl);
+    if (!imgResp.ok) {
+      console.error(`Failed to download Seedream result: ${imgResp.status}`);
+      return null;
+    }
+
+    const imageBuffer = new Uint8Array(await imgResp.arrayBuffer());
+    const filePath = `${userId}/generated/${imageRecordId}-v2-${index}.png`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('jewelry-images')
+      .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return null;
+    }
+
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('jewelry-images')
+      .createSignedUrl(filePath, 7 * 24 * 60 * 60);
+
+    if (!signedUrlError && signedUrlData?.signedUrl) {
+      console.log(`Seedream image ${index} uploaded successfully`);
+      return signedUrlData.signedUrl;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Seedream generation ${index} error:`, error);
+    return null;
+  }
+}
+
 // Generate single image and return signed URL
 async function generateSingleImage(base64Images: string[], prompt: string, userId: string, imageRecordId: string, index: number, supabase: any): Promise<string | null> {
   try {
@@ -210,18 +318,39 @@ async function processGenerationInBackground(params: {
   styleReferencePath: string | null;
   creditsNeeded: number;
   isAdminUser: boolean;
+  modelVersion: string; // 'v1' (Gemini) or 'v2' (Seedream)
 }) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
     sceneId, packageType, colorId, productType, modelId,
-    metalColorOverride, styleReferencePath, creditsNeeded, isAdminUser
+    metalColorOverride, styleReferencePath, creditsNeeded, isAdminUser,
+    modelVersion
   } = params;
+  
+  const useV2 = modelVersion === 'v2';
+  console.log(`Using model version: ${modelVersion} (${useV2 ? 'Seedream 4.5' : 'Gemini 3 Pro'})`);
 
   const isMasterPackage = packageType === 'master';
   const isRetouchPackage = packageType === 'retouch';
   const totalImages = isMasterPackage ? 3 : 1;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // Helper: generate image using the selected model version
+  // For V2 (Seedream), we pass signed URLs directly (no base64 needed for generation)
+  // For V1 (Gemini), we use base64 images
+  async function generateImage(
+    base64Imgs: string[],
+    signedUrls: string[],
+    prompt: string,
+    idx: number
+  ): Promise<string | null> {
+    if (useV2) {
+      return generateSingleImageSeedream(signedUrls, prompt, userId, imageRecordId, idx, supabase);
+    } else {
+      return generateSingleImage(base64Imgs, prompt, userId, imageRecordId, idx, supabase);
+    }
+  }
 
   try {
     // Update job: started
@@ -588,7 +717,7 @@ METAL SURFACE REFINEMENT:
 OUTPUT: Single professionally retouched jewelry image on pure white background.
 Ultra high resolution output.`.trim();
 
-      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, supabase);
+      const retouchUrl = await generateImage(base64Images, imageUrls, retouchPrompt, 0);
       
       if (retouchUrl) {
         generatedUrls.push(retouchUrl);
@@ -668,7 +797,7 @@ OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
 Ultra high resolution output.`;
 
       console.log('Step 1/3: Generating Editorial image...');
-      const catalogUrl = await generateSingleImage(base64Images, catalogPrompt, userId, imageRecordId, 1, supabase);
+      const catalogUrl = await generateImage(base64Images, imageUrls, catalogPrompt, 1);
       
       let editorialReferenceBase64: string | null = null;
       
@@ -728,7 +857,7 @@ OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
 Ultra high resolution output.`;
 
       console.log('Step 2/3: Generating E-commerce image...');
-      const ecomUrl = await generateSingleImage(enhancedBase64Images, ecommercePrompt, userId, imageRecordId, 2, supabase);
+      const ecomUrl = await generateImage(enhancedBase64Images, imageUrls, ecommercePrompt, 2);
       if (ecomUrl) {
         generatedUrls.push(ecomUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
@@ -863,7 +992,7 @@ OUTPUT: 4K ultra-high resolution. PHOTOREALISM prioritized.
 Ultra high resolution output.`;
 
       console.log('Step 3/3: Generating Model Shot image...');
-      const modelUrl = await generateSingleImage(enhancedBase64Images, modelShotPrompt, userId, imageRecordId, 3, supabase);
+      const modelUrl = await generateImage(enhancedBase64Images, imageUrls, modelShotPrompt, 3);
       if (modelUrl) {
         generatedUrls.push(modelUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
@@ -912,7 +1041,7 @@ TECHNICAL: 4:5 portrait, 4K resolution, ultra photorealistic.
 Ultra high resolution output.`;
 
       const styleTransferImages = [styleReferenceBase64, ...base64Images];
-      const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecordId, 1, supabase);
+      const url = await generateImage(styleTransferImages, imageUrls, styleTransferPrompt, 1);
       if (url) generatedUrls.push(url);
 
       await supabase.from('processing_jobs').update({
@@ -950,7 +1079,7 @@ TECHNICAL REQUIREMENTS:
 
 Ultra high resolution output.`;
 
-      const url = await generateSingleImage(base64Images, standardPrompt, userId, imageRecordId, 1, supabase);
+      const url = await generateImage(base64Images, imageUrls, standardPrompt, 1);
       if (url) generatedUrls.push(url);
 
       await supabase.from('processing_jobs').update({
@@ -1081,8 +1210,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, productType, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, modelVersion } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, packageType, productType, modelVersion, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -1208,6 +1337,7 @@ serve(async (req) => {
       styleReferencePath: styleReferencePath || null,
       creditsNeeded,
       isAdminUser,
+      modelVersion: modelVersion || 'v1',
     });
 
     // Use EdgeRuntime.waitUntil if available (Deno Deploy / Supabase Edge)

@@ -79,6 +79,7 @@ export default function Generate() {
   const [packageType, setPackageType] = useState<PackageType>('master');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
+  const [modelVersion, setModelVersion] = useState<'v1' | 'v2'>('v1');
   
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
@@ -352,6 +353,7 @@ export default function Generate() {
         packageType,
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
+        modelVersion,
       };
 
       if (isRetouchMode) {
@@ -465,6 +467,61 @@ export default function Generate() {
                 selectedPackage={packageType}
                 onSelect={setPackageType}
               />
+            </section>
+
+            {/* Model Version Toggle */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                  AI
+                </div>
+                <h2 className="text-sm font-semibold">Model Sürümü</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <motion.button
+                  onClick={() => setModelVersion('v1')}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={`relative p-3 rounded-xl border-2 transition-all text-left ${
+                    modelVersion === 'v1'
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30 bg-card'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">V1</span>
+                    {modelVersion === 'v1' && (
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                      </motion.div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Gemini 3 Pro</p>
+                </motion.button>
+                <motion.button
+                  onClick={() => setModelVersion('v2')}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={`relative p-3 rounded-xl border-2 transition-all text-left ${
+                    modelVersion === 'v2'
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30 bg-card'
+                  }`}
+                >
+                  <div className="absolute -top-2 right-2 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+                    BETA
+                  </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">V2</span>
+                    {modelVersion === 'v2' && (
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                      </motion.div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Seedream 4.5</p>
+                </motion.button>
+              </div>
             </section>
 
             {/* Retouch Mode Info */}
