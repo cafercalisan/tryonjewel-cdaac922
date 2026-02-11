@@ -55,7 +55,7 @@ interface UserModel {
 }
 
 type PackageType = 'standard' | 'master' | 'retouch';
-type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
+type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing' | 'polling';
 
 interface UploadedImage {
   file: File;
@@ -92,6 +92,11 @@ export default function Generate() {
   const [currentImageIndex, setCurrentImageIndex] = useState(1);
   const [completedImages, setCompletedImages] = useState(0);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [pollingImageId, setPollingImageId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobCurrentStep, setJobCurrentStep] = useState<string>('pending');
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentImageRecordId = useRef<string | null>(null);
 
   const { data: scenes } = useQuery({
@@ -238,6 +243,84 @@ export default function Generate() {
     return true;
   }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
+  // Cleanup polling on unmount
+  const cleanupPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Start polling for job status
+  const startPolling = useCallback((jobId: string, imageId: string) => {
+    cleanupPolling();
+    setPollingJobId(jobId);
+    setPollingImageId(imageId);
+    setGenerationStep('polling');
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data: job, error } = await supabase
+          .from('processing_jobs')
+          .select('*')
+          .eq('id', jobId)
+          .single();
+
+        if (error) {
+          console.error('Polling error:', error);
+          return;
+        }
+
+        if (!job) return;
+
+        // Update UI state from job
+        setJobProgress(job.progress || 0);
+        setJobCurrentStep(job.current_step || 'pending');
+        setCompletedImages(job.completed_images || 0);
+        setCurrentImageIndex((job.completed_images || 0) + 1);
+
+        // Map job step to generation step
+        if (job.current_step === 'analyzing') {
+          setGenerationStep('analyzing');
+        } else if (job.current_step?.startsWith('generating') || job.current_step === 'downloading') {
+          setGenerationStep('generating');
+        }
+
+        if (job.status === 'completed') {
+          cleanupPolling();
+          setGenerationStep('finalizing');
+          toast.success("Görselleriniz başarıyla oluşturuldu!");
+          setTimeout(() => {
+            setIsGenerating(false);
+            setGenerationStep('idle');
+            navigate(`/sonuclar?id=${imageId}`);
+          }, 1500);
+        } else if (job.status === 'failed') {
+          cleanupPolling();
+          toast.error(job.error_message || "Görsel oluşturulurken bir hata oluştu.");
+          setIsGenerating(false);
+          setGenerationStep('idle');
+          setCompletedImages(0);
+        }
+
+        // Stuck job detection: 10 minutes without update
+        if (job.started_at && job.status === 'generating') {
+          const startedAt = new Date(job.started_at).getTime();
+          const now = Date.now();
+          if (now - startedAt > 10 * 60 * 1000) {
+            cleanupPolling();
+            toast.error("İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.");
+            setIsGenerating(false);
+            setGenerationStep('idle');
+            setCompletedImages(0);
+          }
+        }
+      } catch (err) {
+        console.error('Polling exception:', err);
+      }
+    }, 2000);
+  }, [cleanupPolling, navigate]);
+
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
@@ -245,6 +328,8 @@ export default function Generate() {
     setGenerationStep("analyzing");
     setCurrentImageIndex(1);
     setCompletedImages(0);
+    setJobProgress(0);
+    setJobCurrentStep('pending');
 
     try {
       const imagePaths: string[] = [];
@@ -261,8 +346,6 @@ export default function Generate() {
         imagePaths.push(filePath);
       }
 
-      setGenerationStep("generating");
-
       const body: any = {
         imagePath: imagePaths[0],
         additionalImagePaths: imagePaths.slice(1),
@@ -271,11 +354,9 @@ export default function Generate() {
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
       };
 
-      // Retouch mode doesn't need style reference or scene
       if (isRetouchMode) {
-        // No additional configuration needed for retouch
+        // No additional configuration needed
       } else if (styleReference) {
-        // If style reference is used, upload it and pass path instead of scene
         const styleFileExt = styleReference.file.name.split(".").pop();
         const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
         
@@ -296,44 +377,20 @@ export default function Generate() {
 
       if (error) throw error;
 
-      const imageId = data.imageId;
-      currentImageRecordId.current = imageId;
+      if (!data?.jobId || !data?.imageId) {
+        throw new Error('Invalid response from server');
+      }
 
-      const channel = supabase
-        .channel(`image-progress-${imageId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'images',
-            filter: `id=eq.${imageId}`
-          },
-          (payload) => {
-            const newData = payload.new as { generated_image_urls?: string[]; status?: string };
-            const urlCount = newData.generated_image_urls?.length || 0;
-            setCompletedImages(urlCount);
-            setCurrentImageIndex(urlCount + 1);
-            
-            if (newData.status === 'completed') {
-              setGenerationStep('finalizing');
-              setTimeout(() => {
-                channel.unsubscribe();
-                toast.success("Görselleriniz başarıyla oluşturuldu!");
-                navigate(`/sonuclar?id=${imageId}`);
-              }, 1000);
-            }
-          }
-        )
-        .subscribe();
+      currentImageRecordId.current = data.imageId;
 
-      toast.success("Görselleriniz başarıyla oluşturuldu!");
-      channel.unsubscribe();
-      navigate(`/sonuclar?id=${data.imageId}`);
+      // Start polling instead of waiting for synchronous response
+      startPolling(data.jobId, data.imageId);
+      toast.info("Görsel üretimi başlatıldı. İşlem arka planda devam ediyor...");
+
     } catch (error) {
       console.error("Generation error:", error);
       toast.error("Görsel oluşturulurken bir hata oluştu.");
-    } finally {
+      cleanupPolling();
       setIsGenerating(false);
       setGenerationStep("idle");
       setCompletedImages(0);
@@ -354,6 +411,8 @@ export default function Generate() {
             completedImages={completedImages}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
+            jobProgress={jobProgress}
+            jobCurrentStep={jobCurrentStep}
           />
         </div>
       </AppLayout>

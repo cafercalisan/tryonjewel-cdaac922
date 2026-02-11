@@ -4,12 +4,14 @@ import { Lightbulb } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
-  step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
+  step: 'idle' | 'analyzing' | 'generating' | 'finalizing' | 'polling';
   currentImageIndex?: number;
   totalImages?: number;
   completedImages?: number;
   packageType?: 'standard' | 'master' | 'retouch';
   previewImage?: string | null;
+  jobProgress?: number;
+  jobCurrentStep?: string;
 }
 
 export function GeneratingPanel({ 
@@ -18,7 +20,9 @@ export function GeneratingPanel({
   totalImages = 1,
   completedImages = 0,
   packageType = 'standard',
-  previewImage = null
+  previewImage = null,
+  jobProgress = 0,
+  jobCurrentStep = 'pending',
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -38,6 +42,53 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const getStepInfo = () => {
+    // For polling mode, derive info from jobCurrentStep
+    if (step === 'polling') {
+      if (jobCurrentStep === 'pending' || jobCurrentStep === 'downloading') {
+        return {
+          title: 'Hazırlanıyor...',
+          description: 'Görseller indiriliyor ve hazırlanıyor...',
+        };
+      }
+      if (jobCurrentStep === 'analyzing') {
+        return {
+          title: packageType === 'retouch' ? 'Görsel Analiz Ediliyor' : 'Ürün Analiz Ediliyor',
+          description: packageType === 'retouch' 
+            ? 'AI görselinizi profesyonel rötuş için analiz ediyor...'
+            : 'AI mücevherinizin detaylarını analiz ediyor...',
+        };
+      }
+      if (jobCurrentStep === 'generating' || jobCurrentStep === 'generating_ecommerce' || jobCurrentStep === 'generating_model') {
+        const stepLabels: Record<string, string> = {
+          'generating': 'Görsel Oluşturuluyor',
+          'generating_ecommerce': 'E-Ticaret Görseli Oluşturuluyor',
+          'generating_model': 'Manken Çekimi Oluşturuluyor',
+        };
+        return {
+          title: stepLabels[jobCurrentStep] || 'Görsel Oluşturuluyor',
+          description: packageType === 'master' 
+            ? `Master paket: ${completedImages}/${totalImages} görsel tamamlandı...`
+            : 'Profesyonel mücevher görseli render ediliyor...',
+        };
+      }
+      if (jobCurrentStep === 'completed') {
+        return {
+          title: 'Tamamlandı!',
+          description: 'Görselleriniz hazır!',
+        };
+      }
+      if (jobCurrentStep === 'failed') {
+        return {
+          title: 'Hata Oluştu',
+          description: 'Görsel oluşturulurken bir sorun yaşandı.',
+        };
+      }
+      return {
+        title: 'İşleniyor...',
+        description: 'Arka planda işlem devam ediyor...',
+      };
+    }
+
     switch (step) {
       case 'analyzing':
         return {
@@ -196,11 +247,13 @@ export function GeneratingPanel({
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: '0%' }}
               animate={{ 
-                width: step === 'analyzing' 
-                  ? '10%' 
-                  : step === 'finalizing'
-                    ? '100%'
-                    : `${10 + (completedImages / totalImages) * 90}%`
+                width: step === 'polling' 
+                  ? `${jobProgress}%`
+                  : step === 'analyzing' 
+                    ? '10%' 
+                    : step === 'finalizing'
+                      ? '100%'
+                      : `${10 + (completedImages / totalImages) * 90}%`
               }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
