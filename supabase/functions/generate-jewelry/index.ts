@@ -39,7 +39,7 @@ async function callGeminiImageGeneration({
   base64Images: string[];
   prompt: string;
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1alpha/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
   
   const parts: any[] = [{ text: prompt }];
   for (const base64Image of base64Images) {
@@ -54,6 +54,10 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature: 0.15,
+        imageConfig: {
+          aspectRatio: '3:4',
+          imageSize: '4K',
+        },
       },
     }),
   });
