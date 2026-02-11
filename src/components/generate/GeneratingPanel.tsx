@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, CheckCircle2, Loader2, Clock, AlertCircle } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
+
+type CardStatus = 'waiting' | 'generating' | 'completed' | 'failed';
 
 interface GeneratingPanelProps {
   step: 'idle' | 'analyzing' | 'generating' | 'finalizing' | 'polling';
@@ -10,9 +13,8 @@ interface GeneratingPanelProps {
   completedImages?: number;
   packageType?: 'standard' | 'master' | 'retouch';
   previewImage?: string | null;
-  jobProgress?: number;
-  jobCurrentStep?: string;
   resultUrls?: string[];
+  cardStatuses?: CardStatus[];
 }
 
 const MASTER_CARDS = [
@@ -20,40 +22,6 @@ const MASTER_CARDS = [
   { label: 'E-Ticaret', emoji: '🛒', description: 'Temiz arka plan' },
   { label: 'Model', emoji: '👤', description: 'Manken çekimi' },
 ];
-
-type CardStatus = 'waiting' | 'generating' | 'completed' | 'failed';
-
-function getCardStatuses(
-  jobCurrentStep: string,
-  completedImages: number,
-  totalImages: number,
-  jobStatus?: string,
-): CardStatus[] {
-  if (jobStatus === 'failed') {
-    return MASTER_CARDS.map((_, i) => (i < completedImages ? 'completed' : 'failed'));
-  }
-  if (jobStatus === 'completed' || completedImages >= totalImages) {
-    return MASTER_CARDS.map(() => 'completed');
-  }
-
-  const statuses: CardStatus[] = [];
-  for (let i = 0; i < 3; i++) {
-    if (i < completedImages) {
-      statuses.push('completed');
-    } else if (i === completedImages) {
-      // Currently generating this one
-    if (jobCurrentStep === 'analyzing' || jobCurrentStep === 'downloading' || jobCurrentStep === 'pending' || 
-        jobCurrentStep === 'step_0_done' || jobCurrentStep === 'step_1_done') {
-      statuses.push('waiting');
-    } else {
-      statuses.push('generating');
-    }
-    } else {
-      statuses.push('waiting');
-    }
-  }
-  return statuses;
-}
 
 function MasterCard({
   card,
@@ -84,13 +52,12 @@ function MasterCard({
       {/* Image area */}
       <div className="aspect-[3/4] relative bg-muted/30 flex items-center justify-center overflow-hidden">
         {status === 'completed' && resultUrl ? (
-          <motion.img
+          <ImageLightbox
             src={resultUrl}
             alt={card.label}
-            className="w-full h-full object-cover"
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            className="w-full h-full"
+            enableDownload
+            downloadFilename={`jewelry-${card.label.toLowerCase()}`}
           />
         ) : status === 'generating' ? (
           <div className="flex flex-col items-center gap-2">
@@ -100,6 +67,7 @@ function MasterCard({
             >
               <Loader2 className="h-8 w-8 text-primary" />
             </motion.div>
+            <p className="text-xs text-muted-foreground mt-1">Oluşturuluyor...</p>
             <motion.div
               className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent"
               initial={{ x: '-100%' }}
@@ -108,29 +76,29 @@ function MasterCard({
             />
           </div>
         ) : status === 'failed' ? (
-          <AlertCircle className="h-8 w-8 text-destructive/50" />
+          <div className="flex flex-col items-center gap-1">
+            <AlertCircle className="h-8 w-8 text-destructive/50" />
+            <p className="text-xs text-destructive/60">Başarısız</p>
+          </div>
         ) : (
-          <Clock className="h-6 w-6 text-muted-foreground/40" />
+          <div className="flex flex-col items-center gap-1">
+            <Clock className="h-6 w-6 text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground/50">Sırada</p>
+          </div>
         )}
       </div>
 
       {/* Label */}
-      <div className="p-2.5 text-center">
+      <div className="p-3 text-center">
         <div className="flex items-center justify-center gap-1.5">
-          <span className="text-sm">{card.emoji}</span>
-          <span className="text-xs font-medium">{card.label}</span>
+          <span className="text-base">{card.emoji}</span>
+          <span className="text-sm font-medium">{card.label}</span>
           {status === 'completed' && (
-            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+            <CheckCircle2 className="h-4 w-4 text-primary" />
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground mt-0.5">
-          {status === 'completed'
-            ? 'Tamamlandı'
-            : status === 'generating'
-            ? 'Oluşturuluyor...'
-            : status === 'failed'
-            ? 'Başarısız'
-            : 'Bekliyor'}
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {card.description}
         </p>
       </div>
     </motion.div>
@@ -144,9 +112,8 @@ export function GeneratingPanel({
   completedImages = 0,
   packageType = 'standard',
   previewImage = null,
-  jobProgress = 0,
-  jobCurrentStep = 'pending',
   resultUrls = [],
+  cardStatuses = ['waiting', 'waiting', 'waiting'],
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -164,45 +131,37 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const isMaster = packageType === 'master';
+  const progressPercent = isMaster
+    ? Math.round((completedImages / 3) * 100)
+    : completedImages >= totalImages ? 100 : 50;
+
+  const allDone = isMaster
+    ? cardStatuses.every(s => s === 'completed' || s === 'failed')
+    : completedImages >= totalImages;
 
   const getStepInfo = () => {
-    const effectiveStep = step === 'polling' ? jobCurrentStep : step;
-
-    if (effectiveStep === 'pending' || effectiveStep === 'downloading') {
-      return { title: 'Hazırlanıyor...', description: 'Görseller indiriliyor ve hazırlanıyor...' };
-    }
-    if (effectiveStep === 'analyzing') {
-      return {
-        title: packageType === 'retouch' ? 'Görsel Analiz Ediliyor' : 'Ürün Analiz Ediliyor',
-        description: packageType === 'retouch'
-          ? 'AI görselinizi profesyonel rötuş için analiz ediyor...'
-          : 'AI mücevherinizin detaylarını analiz ediyor...',
-      };
-    }
-    if (effectiveStep === 'generating' || effectiveStep === 'generating_ecommerce' || effectiveStep === 'generating_model') {
-      return {
-        title: isMaster
-          ? `${completedImages}/${totalImages} Görsel Hazır`
-          : 'Görsel Oluşturuluyor',
-        description: isMaster
-          ? '4K ultra yüksek çözünürlükte üretim devam ediyor...'
-          : 'Profesyonel mücevher görseli render ediliyor...',
-      };
-    }
-    if (effectiveStep === 'completed') {
+    if (allDone) {
       return { title: 'Tamamlandı!', description: '4K görselleriniz hazır!' };
     }
-    if (effectiveStep === 'failed') {
-      return { title: 'Hata Oluştu', description: 'Görsel oluşturulurken bir sorun yaşandı.' };
+    if (isMaster) {
+      const generating = cardStatuses.findIndex(s => s === 'generating');
+      if (generating >= 0) {
+        return {
+          title: `${completedImages}/${totalImages} Görsel Hazır`,
+          description: `${MASTER_CARDS[generating].label} görseli oluşturuluyor...`,
+        };
+      }
+      return { title: 'Hazırlanıyor...', description: '4K ultra yüksek çözünürlükte üretim...' };
     }
-    if (step === 'finalizing') {
-      return { title: 'Son Rötuşlar', description: '4K kalitede görselleriniz hazırlanıyor...' };
-    }
-    return { title: 'İşleniyor...', description: 'Arka planda işlem devam ediyor...' };
+    return {
+      title: packageType === 'retouch' ? 'Rötuş Yapılıyor' : 'Görsel Oluşturuluyor',
+      description: packageType === 'retouch'
+        ? 'AI profesyonel rötuş uyguluyor...'
+        : 'Profesyonel mücevher görseli render ediliyor...',
+    };
   };
 
   const { title, description } = getStepInfo();
-  const cardStatuses = isMaster ? getCardStatuses(jobCurrentStep, completedImages, totalImages) : [];
 
   return (
     <motion.div
@@ -213,7 +172,7 @@ export function GeneratingPanel({
       {/* Header with spinner */}
       <div className="relative p-6 pb-4">
         <div className="flex items-center gap-4">
-          {step !== 'finalizing' && jobCurrentStep !== 'completed' ? (
+          {!allDone ? (
             <div className="relative w-12 h-12 flex-shrink-0">
               <motion.div
                 className="absolute inset-0 rounded-full border-2 border-primary/20"
@@ -259,7 +218,7 @@ export function GeneratingPanel({
       )}
 
       {/* Non-master: blurred preview */}
-      {!isMaster && previewImage && (
+      {!isMaster && previewImage && !allDone && (
         <div className="relative h-48 mx-6 rounded-xl overflow-hidden">
           <motion.img
             src={previewImage}
@@ -290,7 +249,7 @@ export function GeneratingPanel({
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: '0%' }}
-              animate={{ width: `${jobProgress}%` }}
+              animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
             />
           </div>
@@ -298,35 +257,37 @@ export function GeneratingPanel({
             <span className="text-muted-foreground">
               {isMaster
                 ? `${completedImages}/${totalImages} görsel tamamlandı`
-                : jobProgress < 100
-                ? 'İşleniyor...'
-                : 'Tamamlandı'}
+                : allDone
+                ? 'Tamamlandı'
+                : 'İşleniyor...'}
             </span>
-            <span className="text-primary font-medium">{jobProgress}%</span>
+            <span className="text-primary font-medium">{progressPercent}%</span>
           </div>
         </div>
 
         {/* Jewelry Facts */}
-        <div className="bg-muted/50 rounded-xl p-4 border border-border/50">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wider">
-              Biliyor muydunuz?
-            </span>
+        {!allDone && (
+          <div className="bg-muted/50 rounded-xl p-4 border border-border/50">
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                Biliyor muydunuz?
+              </span>
+            </div>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={currentFactIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.4 }}
+                className="text-sm text-muted-foreground leading-relaxed"
+              >
+                {facts[currentFactIndex] || 'Mücevherler yüzyıllardır insanlığın en değerli hazineleri arasında yer almaktadır.'}
+              </motion.p>
+            </AnimatePresence>
           </div>
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={currentFactIndex}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4 }}
-              className="text-sm text-muted-foreground leading-relaxed"
-            >
-              {facts[currentFactIndex] || 'Mücevherler yüzyıllardır insanlığın en değerli hazineleri arasında yer almaktadır.'}
-            </motion.p>
-          </AnimatePresence>
-        </div>
+        )}
       </div>
     </motion.div>
   );

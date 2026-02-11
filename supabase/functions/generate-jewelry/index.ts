@@ -1367,9 +1367,9 @@ serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // LAUNCH BACKGROUND PROCESSING via EdgeRuntime.waitUntil()
+    // SYNCHRONOUS PROCESSING - await directly, return results
     // ═══════════════════════════════════════════════════════════════
-    const backgroundPromise = processGenerationInBackground({
+    await processGenerationInBackground({
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -1388,20 +1388,24 @@ serve(async (req) => {
       stepIndex,
     });
 
-    if (typeof (globalThis as any).EdgeRuntime !== 'undefined' && (globalThis as any).EdgeRuntime.waitUntil) {
-      (globalThis as any).EdgeRuntime.waitUntil(backgroundPromise);
-    } else {
-      backgroundPromise.catch(err => console.error('Background processing error:', err));
-    }
+    // Fetch final job state after processing
+    const { data: finalJobState } = await supabase.from('processing_jobs')
+      .select('status, result_urls, completed_images, error_message')
+      .eq('id', jobRecordId)
+      .single();
 
-    // Return immediately with jobId and imageId
+    const resultUrls = Array.isArray(finalJobState?.result_urls) ? finalJobState.result_urls : [];
+
     return new Response(
       JSON.stringify({ 
-        success: true, 
+        success: finalJobState?.status !== 'failed', 
         jobId: jobRecordId, 
         imageId: imageRecordId,
+        status: finalJobState?.status || 'completed',
+        resultUrls,
         totalImages,
-        message: 'Generation started. Poll processing_jobs for status.',
+        completedImages: finalJobState?.completed_images || 0,
+        errorMessage: finalJobState?.error_message || null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
