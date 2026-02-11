@@ -327,14 +327,15 @@ async function processGenerationInBackground(params: {
   styleReferencePath: string | null;
   creditsNeeded: number;
   isAdminUser: boolean;
-  modelVersion: string; // 'v1' (Gemini) or 'v2' (Seedream)
+  modelVersion: string;
+  stepIndex: number;
 }) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
     sceneId, packageType, colorId, productType, modelId,
     metalColorOverride, styleReferencePath, creditsNeeded, isAdminUser,
-    modelVersion
+    modelVersion, stepIndex
   } = params;
   
   const useV2 = modelVersion === 'v2';
@@ -740,7 +741,14 @@ Ultra high resolution output.`.trim();
       }).eq('id', jobId);
 
     } else if (isMasterPackage) {
-      console.log('Master Package: Generating 3 images sequentially...');
+      console.log(`Master Package step ${stepIndex}/2: Generating image...`);
+
+      // Read existing URLs for continuation steps
+      let existingUrls: string[] = [];
+      if (stepIndex > 0) {
+        const { data: jd } = await supabase.from('processing_jobs').select('result_urls').eq('id', jobId).single();
+        existingUrls = Array.isArray(jd?.result_urls) ? jd.result_urls as string[] : [];
+      }
 
       const colorMap: Record<string, { name: string; prompt: string }> = {
         'white': { name: 'Beyaz', prompt: 'matte seamless paper backdrop, soft off-white, clean ivory (NON-METALLIC)' },
@@ -806,16 +814,22 @@ CAMERA & COMPOSITION:
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
 Ultra high resolution output.`;
 
-      console.log('Step 1/3: Generating Editorial image...');
-      const catalogUrl = await generateImage(base64Images, imageUrls, catalogPrompt, 1);
-      
-      if (catalogUrl) {
-        generatedUrls.push(catalogUrl);
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
+      if (stepIndex === 0) {
+        console.log('Step 0: Generating Editorial image...');
+        const catalogUrl = await generateImage(base64Images, imageUrls, catalogPrompt, 1);
+        
+        if (catalogUrl) {
+          generatedUrls.push(catalogUrl);
+          existingUrls.push(catalogUrl);
+          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
+        }
         await supabase.from('processing_jobs').update({
-          completed_images: 1,
-          progress: 40,
-          current_step: 'generating_ecommerce',
+          status: generatedUrls.length > 0 ? 'step_0_done' : 'failed',
+          completed_images: existingUrls.length,
+          progress: 90,
+          result_urls: existingUrls,
+          current_step: generatedUrls.length > 0 ? 'step_0_done' : 'failed',
+          ...(generatedUrls.length === 0 ? { error_message: 'Editorial görsel oluşturulamadı' } : {}),
         }).eq('id', jobId);
       }
 
@@ -848,15 +862,21 @@ SCENE: Clean, minimal e-commerce product shot.
 OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
 Ultra high resolution output.`;
 
-      console.log('Step 2/3: Generating E-commerce image...');
-      const ecomUrl = await generateImage(base64Images, imageUrls, ecommercePrompt, 2);
-      if (ecomUrl) {
-        generatedUrls.push(ecomUrl);
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
+      if (stepIndex === 1) {
+        console.log('Step 1: Generating E-commerce image...');
+        const ecomUrl = await generateImage(base64Images, imageUrls, ecommercePrompt, 2);
+        if (ecomUrl) {
+          generatedUrls.push(ecomUrl);
+          existingUrls.push(ecomUrl);
+          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
+        }
         await supabase.from('processing_jobs').update({
-          completed_images: 2,
-          progress: 65,
-          current_step: 'generating_model',
+          status: generatedUrls.length > 0 ? 'step_1_done' : 'failed',
+          completed_images: existingUrls.length,
+          progress: 90,
+          result_urls: existingUrls,
+          current_step: generatedUrls.length > 0 ? 'step_1_done' : 'failed',
+          ...(generatedUrls.length === 0 ? { error_message: 'E-ticaret görsel oluşturulamadı' } : {}),
         }).eq('id', jobId);
       }
 
@@ -983,15 +1003,15 @@ MOOD: Luxury fashion editorial, calm, precise, product-first.
 OUTPUT: 4K ultra-high resolution. PHOTOREALISM prioritized.
 Ultra high resolution output.`;
 
-      console.log('Step 3/3: Generating Model Shot image...');
-      const modelUrl = await generateImage(base64Images, imageUrls, modelShotPrompt, 3);
-      if (modelUrl) {
-        generatedUrls.push(modelUrl);
-        await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
-        await supabase.from('processing_jobs').update({
-          completed_images: 3,
-          progress: 90,
-        }).eq('id', jobId);
+      if (stepIndex === 2) {
+        console.log('Step 2: Generating Model Shot image...');
+        const modelUrl = await generateImage(base64Images, imageUrls, modelShotPrompt, 3);
+        if (modelUrl) {
+          generatedUrls.push(modelUrl);
+          existingUrls.push(modelUrl);
+          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
+        }
+        // Step 2 result handled by finalize section
       }
 
     } else if (hasStyleReference && styleReferenceBase64) {
@@ -1083,6 +1103,29 @@ Ultra high resolution output.`;
     // ═══════════════════════════════════════════════════════════════
     // FINALIZE
     // ═══════════════════════════════════════════════════════════════
+
+    // For master intermediate steps (0, 1), completion is handled above
+    if (isMasterPackage && stepIndex < 2) {
+      console.log(`Master step ${stepIndex} complete. Generated: ${generatedUrls.length}`);
+      // If step failed, handle refund
+      if (generatedUrls.length === 0 && stepIndex === 0 && !isAdminUser) {
+        await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
+        console.log(`Full refund on step 0 failure: ${creditsNeeded}`);
+      }
+      return;
+    }
+
+    // For master step 2, merge all URLs from previous steps
+    if (isMasterPackage && stepIndex === 2) {
+      const { data: finalJob } = await supabase.from('processing_jobs').select('result_urls').eq('id', jobId).single();
+      const allUrls = Array.isArray(finalJob?.result_urls) ? finalJob.result_urls as string[] : [];
+      for (const u of generatedUrls) {
+        if (!allUrls.includes(u)) allUrls.push(u);
+      }
+      generatedUrls.length = 0;
+      allUrls.forEach(u => generatedUrls.push(u));
+    }
+
     if (generatedUrls.length === 0) {
       // Refund credits
       if (!isAdminUser) {
@@ -1143,8 +1186,8 @@ Ultra high resolution output.`;
     console.error('Background processing error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     
-    // Refund credits on error
-    if (!isAdminUser) {
+    // Refund credits on error (only for step 0 or non-master to prevent double refund)
+    if (!isAdminUser && (stepIndex === 0 || !isMasterPackage)) {
       try {
         await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
         console.log(`Credits refunded on error: ${creditsNeeded}`);
@@ -1202,8 +1245,9 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, modelVersion } = await req.json();
-    console.log('Generate request:', { imagePath, sceneId, packageType, productType, modelVersion, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, modelVersion, stepIndex: rawStepIndex, existingJobId, existingImageId } = await req.json();
+    const stepIndex = rawStepIndex || 0;
+    console.log('Generate request:', { imagePath, sceneId, packageType, productType, modelVersion, stepIndex, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -1249,75 +1293,86 @@ serve(async (req) => {
     const creditsNeeded = isMasterPackage ? 20 : 10;
     const totalImages = isMasterPackage ? 3 : 1;
 
-    // Deduct credits (skip for admins)
-    if (!isAdminUser) {
-      const { data: deductResult, error: deductError } = await supabase
-        .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
+    let imageRecordId: string;
+    let jobRecordId: string;
 
-      if (deductError) {
-        console.error('Credit deduction error:', deductError);
-        return new Response(
-          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (!deductResult?.success) {
-        return new Response(
-          JSON.stringify({ 
-            error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` 
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+    if (stepIndex > 0 && existingJobId && existingImageId) {
+      // Continuation step - reuse existing records, no credit deduction
+      imageRecordId = existingImageId;
+      jobRecordId = existingJobId;
+      console.log(`Continuing job ${jobRecordId}, step ${stepIndex}`);
     } else {
-      console.log('Admin user - skipping credit deduction');
+      // Step 0 or non-master: normal flow with credits and record creation
+      if (!isAdminUser) {
+        const { data: deductResult, error: deductError } = await supabase
+          .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
+
+        if (deductError) {
+          console.error('Credit deduction error:', deductError);
+          return new Response(
+            JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!deductResult?.success) {
+          return new Response(
+            JSON.stringify({ 
+              error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` 
+            }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+      } else {
+        console.log('Admin user - skipping credit deduction');
+      }
+
+      // Create image record
+      const { data: imageRecord, error: insertError } = await supabase
+        .from('images')
+        .insert({
+          user_id: userId,
+          scene_id: sceneId || null,
+          original_image_url: imagePath,
+          status: 'analyzing',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      imageRecordId = imageRecord.id;
+
+      // Create processing job
+      const { data: jobRecord, error: jobError } = await supabase
+        .from('processing_jobs')
+        .insert({
+          user_id: userId,
+          image_record_id: imageRecordId,
+          status: 'pending',
+          total_images: totalImages,
+          completed_images: 0,
+          progress: 0,
+          current_step: 'pending',
+          credits_used: isAdminUser ? 0 : creditsNeeded,
+        })
+        .select()
+        .single();
+
+      if (jobError) throw jobError;
+      jobRecordId = jobRecord.id;
+
+      console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
     }
-
-    // Create image record
-    const { data: imageRecord, error: insertError } = await supabase
-      .from('images')
-      .insert({
-        user_id: userId,
-        scene_id: sceneId || null,
-        original_image_url: imagePath,
-        status: 'analyzing',
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-
-    // Create processing job
-    const { data: jobRecord, error: jobError } = await supabase
-      .from('processing_jobs')
-      .insert({
-        user_id: userId,
-        image_record_id: imageRecord.id,
-        status: 'pending',
-        total_images: totalImages,
-        completed_images: 0,
-        progress: 0,
-        current_step: 'pending',
-        credits_used: isAdminUser ? 0 : creditsNeeded,
-      })
-      .select()
-      .single();
-
-    if (jobError) throw jobError;
-
-    console.log(`Job created: ${jobRecord.id}, Image record: ${imageRecord.id}`);
 
     // ═══════════════════════════════════════════════════════════════
     // LAUNCH BACKGROUND PROCESSING via EdgeRuntime.waitUntil()
-    // The response is sent IMMEDIATELY, heavy work runs in background
     // ═══════════════════════════════════════════════════════════════
     const backgroundPromise = processGenerationInBackground({
       userId,
-      imageRecordId: imageRecord.id,
-      jobId: jobRecord.id,
+      imageRecordId,
+      jobId: jobRecordId,
       imagePaths: [imagePath, ...validAdditionalPaths],
       validAdditionalPaths,
       sceneId: sceneId || null,
@@ -1330,14 +1385,12 @@ serve(async (req) => {
       creditsNeeded,
       isAdminUser,
       modelVersion: modelVersion || 'v1',
+      stepIndex,
     });
 
-    // Use EdgeRuntime.waitUntil if available (Deno Deploy / Supabase Edge)
-    // This keeps the function alive after the response is sent
     if (typeof (globalThis as any).EdgeRuntime !== 'undefined' && (globalThis as any).EdgeRuntime.waitUntil) {
       (globalThis as any).EdgeRuntime.waitUntil(backgroundPromise);
     } else {
-      // Fallback: just fire and forget (the promise runs in background)
       backgroundPromise.catch(err => console.error('Background processing error:', err));
     }
 
@@ -1345,8 +1398,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        jobId: jobRecord.id, 
-        imageId: imageRecord.id,
+        jobId: jobRecordId, 
+        imageId: imageRecordId,
         totalImages,
         message: 'Generation started. Poll processing_jobs for status.',
       }),

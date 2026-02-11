@@ -42,11 +42,12 @@ function getCardStatuses(
       statuses.push('completed');
     } else if (i === completedImages) {
       // Currently generating this one
-      if (jobCurrentStep === 'analyzing' || jobCurrentStep === 'downloading' || jobCurrentStep === 'pending') {
-        statuses.push('waiting');
-      } else {
-        statuses.push('generating');
-      }
+    if (jobCurrentStep === 'analyzing' || jobCurrentStep === 'downloading' || jobCurrentStep === 'pending' || 
+        jobCurrentStep === 'step_0_done' || jobCurrentStep === 'step_1_done') {
+      statuses.push('waiting');
+    } else {
+      statuses.push('generating');
+    }
     } else {
       statuses.push('waiting');
     }
@@ -242,8 +243,8 @@ export function GeneratingPanel({
 
       {/* Master Package: 3 Cards */}
       {isMaster && (
-        <div className="px-6 pb-2">
-          <div className="grid grid-cols-3 gap-3">
+        <div className="px-4 sm:px-6 pb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {MASTER_CARDS.map((card, i) => (
               <MasterCard
                 key={card.label}
