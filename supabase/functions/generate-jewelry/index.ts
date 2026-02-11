@@ -1291,8 +1291,17 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ═══ SINGLE-FLIGHT: Block concurrent jobs for this user ═══
+    // ═══ SINGLE-FLIGHT: Block concurrent jobs, auto-clean stuck ones ═══
     if (stepIndex === 0) {
+      // Auto-clean stuck jobs older than 5 minutes
+      await supabase
+        .from('processing_jobs')
+        .update({ status: 'failed', error_message: 'Auto-cleaned: stuck job (timeout)' })
+        .eq('user_id', userId)
+        .in('status', ['pending', 'generating'])
+        .lt('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+      // Now check for truly active jobs
       const { count: activeJobs } = await supabase
         .from('processing_jobs')
         .select('*', { count: 'exact', head: true })
