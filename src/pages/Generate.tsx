@@ -55,7 +55,7 @@ interface UserModel {
 }
 
 type PackageType = 'standard' | 'master' | 'retouch';
-type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing' | 'polling';
+type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
 interface UploadedImage {
   file: File;
@@ -96,6 +96,10 @@ export default function Generate() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [cardStatuses, setCardStatuses] = useState<('waiting' | 'generating' | 'completed' | 'failed')[]>(['waiting', 'waiting', 'waiting']);
   const generationParamsRef = useRef<any>(null);
+  const [masterJobId, setMasterJobId] = useState<string | null>(null);
+  const [masterImageId, setMasterImageId] = useState<string | null>(null);
+  const [masterCurrentStep, setMasterCurrentStep] = useState(0);
+  const [masterWaitingForUser, setMasterWaitingForUser] = useState(false);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -241,6 +245,81 @@ export default function Generate() {
     return true;
   }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
+  // Run a single master step
+  const runMasterStep = async (stepIndex: number, jobId?: string, imageId?: string) => {
+    const params = generationParamsRef.current;
+    if (!params) return;
+
+    const stepLabels = ['Editorial', 'E-Ticaret', 'Model'];
+    setMasterWaitingForUser(false);
+    setCardStatuses(prev => {
+      const next = [...prev] as typeof prev;
+      next[stepIndex] = 'generating';
+      return next;
+    });
+    toast.info(`Adım ${stepIndex + 1}/3: ${stepLabels[stepIndex]} görseli oluşturuluyor...`);
+
+    const body: any = {
+      ...params,
+      stepIndex,
+      ...(stepIndex > 0 && jobId ? { existingJobId: jobId, existingImageId: imageId } : {}),
+    };
+
+    const { data: result, error } = await supabase.functions.invoke("generate-jewelry", { body });
+
+    if (error || !result?.success) {
+      console.error(`Step ${stepIndex} failed:`, result?.errorMessage || error);
+      setCardStatuses(prev => {
+        const next = [...prev] as typeof prev;
+        next[stepIndex] = 'failed';
+        return next;
+      });
+      toast.error(`${stepLabels[stepIndex]} görseli oluşturulamadı.`);
+      
+      if (stepIndex === 0) {
+        // First step failed - stop entirely
+        setIsGenerating(false);
+        setGenerationStep('idle');
+        return;
+      }
+    } else {
+      const urls = Array.isArray(result.resultUrls) ? result.resultUrls as string[] : [];
+      setResultUrls([...urls]);
+      setCardStatuses(prev => {
+        const next = [...prev] as typeof prev;
+        next[stepIndex] = 'completed';
+        return next;
+      });
+      setCompletedImages(prev => prev + 1);
+      toast.success(`${stepLabels[stepIndex]} görseli hazır!`);
+    }
+
+    // Store job/image IDs from step 0
+    if (stepIndex === 0 && result?.success) {
+      setMasterJobId(result.jobId);
+      setMasterImageId(result.imageId);
+    }
+
+    setMasterCurrentStep(stepIndex + 1);
+
+    // If last step, navigate to results
+    if (stepIndex === 2) {
+      const finalImageId = imageId || result?.imageId;
+      setTimeout(() => {
+        setIsGenerating(false);
+        setGenerationStep('idle');
+        navigate(`/sonuclar?id=${finalImageId}`);
+      }, 1500);
+    } else {
+      // Wait for user to trigger next step
+      setMasterWaitingForUser(true);
+    }
+  };
+
+  const handleContinueMasterStep = () => {
+    runMasterStep(masterCurrentStep, masterJobId!, masterImageId!);
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
@@ -250,6 +329,10 @@ export default function Generate() {
     setCompletedImages(0);
     setResultUrls([]);
     setCardStatuses(['waiting', 'waiting', 'waiting']);
+    setMasterJobId(null);
+    setMasterImageId(null);
+    setMasterCurrentStep(0);
+    setMasterWaitingForUser(false);
 
     try {
       const imagePaths: string[] = [];
@@ -299,79 +382,8 @@ export default function Generate() {
       generationParamsRef.current = { ...body };
 
       if (packageType === 'master') {
-        // ═══ MASTER: Sequential 3-step synchronous calls ═══
-        
-        // Step 0: Editorial
-        setCardStatuses(['generating', 'waiting', 'waiting']);
-        toast.info("Adım 1/3: Editorial görsel oluşturuluyor...");
-        
-        const { data: result0, error: error0 } = await supabase.functions.invoke("generate-jewelry", { body });
-        
-        if (error0 || !result0?.success) {
-          throw new Error(result0?.errorMessage || 'Editorial görsel oluşturulamadı');
-        }
-
-        const jobId = result0.jobId;
-        const imageId = result0.imageId;
-        const urls0 = Array.isArray(result0.resultUrls) ? result0.resultUrls as string[] : [];
-        setResultUrls([...urls0]);
-        setCardStatuses(['completed', 'generating', 'waiting']);
-        setCompletedImages(1);
-        setCurrentImageIndex(2);
-
-        // Step 1: E-Commerce
-        toast.info("Adım 2/3: E-Ticaret görseli oluşturuluyor...");
-        
-        const { data: result1, error: error1 } = await supabase.functions.invoke("generate-jewelry", {
-          body: {
-            ...generationParamsRef.current,
-            stepIndex: 1,
-            existingJobId: jobId,
-            existingImageId: imageId,
-          }
-        });
-
-        if (error1 || !result1?.success) {
-          // Step 1 failed but step 0 succeeded - continue to step 2
-          console.error('Step 1 failed:', result1?.errorMessage);
-          setCardStatuses(['completed', 'failed', 'generating']);
-        } else {
-          const urls1 = Array.isArray(result1.resultUrls) ? result1.resultUrls as string[] : [];
-          setResultUrls([...urls1]);
-          setCardStatuses(['completed', 'completed', 'generating']);
-          setCompletedImages(2);
-        }
-        setCurrentImageIndex(3);
-
-        // Step 2: Model Shot
-        toast.info("Adım 3/3: Model görseli oluşturuluyor...");
-        
-        const { data: result2, error: error2 } = await supabase.functions.invoke("generate-jewelry", {
-          body: {
-            ...generationParamsRef.current,
-            stepIndex: 2,
-            existingJobId: jobId,
-            existingImageId: imageId,
-          }
-        });
-
-        if (error2 || !result2?.success) {
-          console.error('Step 2 failed:', result2?.errorMessage);
-          setCardStatuses(prev => [prev[0], prev[1], 'failed']);
-        } else {
-          const urls2 = Array.isArray(result2.resultUrls) ? result2.resultUrls as string[] : [];
-          setResultUrls([...urls2]);
-          setCardStatuses(prev => [prev[0], prev[1], 'completed']);
-          setCompletedImages(3);
-        }
-
-        toast.success("Görselleriniz başarıyla oluşturuldu!");
-        setTimeout(() => {
-          setIsGenerating(false);
-          setGenerationStep('idle');
-          navigate(`/sonuclar?id=${imageId}`);
-        }, 1500);
-
+        // Master: Run only step 0, user will trigger rest
+        await runMasterStep(0);
       } else {
         // ═══ STANDARD / RETOUCH: Single synchronous call ═══
         toast.info("Görsel oluşturuluyor...");
@@ -418,6 +430,9 @@ export default function Generate() {
             previewImage={uploadedImages[0]?.preview || null}
             resultUrls={resultUrls}
             cardStatuses={cardStatuses}
+            waitingForUser={masterWaitingForUser}
+            onContinue={handleContinueMasterStep}
+            currentMasterStep={masterCurrentStep}
           />
         </div>
       </AppLayout>

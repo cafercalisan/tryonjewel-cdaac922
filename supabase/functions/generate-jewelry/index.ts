@@ -338,6 +338,7 @@ async function processGenerationInBackground(params: {
     modelVersion, stepIndex
   } = params;
   
+  const isMasterPackage = packageType === 'master';
   // Master package ALWAYS uses Seedream (V2) for generation to stay within memory limits
   // Gemini 4K response base64 uses ~80MB peak, causing crashes. Seedream uses URLs (~20MB peak).
   const useV2ForGeneration = isMasterPackage ? true : (modelVersion === 'v2');
