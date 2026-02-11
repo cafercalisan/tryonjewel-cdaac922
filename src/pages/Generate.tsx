@@ -99,6 +99,7 @@ export default function Generate() {
   const [jobCurrentStep, setJobCurrentStep] = useState<string>('pending');
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const generationParamsRef = useRef<any>(null);
   const currentImageRecordId = useRef<string | null>(null);
 
   const { data: scenes } = useQuery({
@@ -253,6 +254,29 @@ export default function Generate() {
     }
   }, []);
 
+  // Trigger next master step
+  const triggerNextMasterStep = useCallback(async (nextStep: number, jobId: string, imageId: string) => {
+    try {
+      console.log(`Triggering master step ${nextStep}...`);
+      const body = {
+        ...generationParamsRef.current,
+        stepIndex: nextStep,
+        existingJobId: jobId,
+        existingImageId: imageId,
+      };
+      const { error } = await supabase.functions.invoke("generate-jewelry", { body });
+      if (error) throw error;
+      toast.info(`Adım ${nextStep + 1}/3 başlatıldı...`);
+    } catch (err) {
+      console.error('Failed to trigger next step:', err);
+      toast.error("Sonraki adım başlatılamadı.");
+      setIsGenerating(false);
+      setGenerationStep('idle');
+      setCompletedImages(0);
+      setResultUrls([]);
+    }
+  }, []);
+
   // Start polling for job status
   const startPolling = useCallback((jobId: string, imageId: string) => {
     cleanupPolling();
@@ -304,10 +328,24 @@ export default function Generate() {
           setGenerationStep('generating');
         }
 
+        // Master package step completion - trigger next step
+        if (job.status === 'step_0_done') {
+          cleanupPolling();
+          await triggerNextMasterStep(1, jobId, imageId);
+          // Restart polling for next step after a brief delay
+          setTimeout(() => startPolling(jobId, imageId), 1000);
+          return;
+        }
+        if (job.status === 'step_1_done') {
+          cleanupPolling();
+          await triggerNextMasterStep(2, jobId, imageId);
+          setTimeout(() => startPolling(jobId, imageId), 1000);
+          return;
+        }
+
         if (job.status === 'completed') {
           cleanupPolling();
           setGenerationStep('finalizing');
-          // Final fetch of result URLs
           if (urls.length > 0) setResultUrls(urls);
           toast.success("Görselleriniz başarıyla oluşturuldu!");
           setTimeout(() => {
@@ -324,8 +362,8 @@ export default function Generate() {
           setResultUrls([]);
         }
 
-        // Stuck job detection: check if updated_at is stale (3 min without progress update)
-        if (job.status === 'generating' && job.updated_at) {
+        // Stuck job detection: check if updated_at is stale (3 min without progress)
+        if ((job.status === 'generating' || job.status === 'pending') && job.updated_at) {
           const lastUpdate = new Date(job.updated_at).getTime();
           const now = Date.now();
           if (now - lastUpdate > 3 * 60 * 1000) {
@@ -341,7 +379,7 @@ export default function Generate() {
         console.error('Polling exception:', err);
       }
     }, 2000);
-  }, [cleanupPolling, navigate]);
+  }, [cleanupPolling, navigate, triggerNextMasterStep]);
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -376,6 +414,7 @@ export default function Generate() {
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
         modelVersion,
+        stepIndex: 0,
       };
 
       if (isRetouchMode) {
@@ -396,6 +435,9 @@ export default function Generate() {
       } else {
         body.sceneId = selectedSceneId;
       }
+
+      // Store params for master package continuation steps
+      generationParamsRef.current = { ...body };
 
       const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
 
