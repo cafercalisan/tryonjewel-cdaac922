@@ -93,14 +93,9 @@ export default function Generate() {
   const [currentImageIndex, setCurrentImageIndex] = useState(1);
   const [completedImages, setCompletedImages] = useState(0);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
-  const [pollingImageId, setPollingImageId] = useState<string | null>(null);
-  const [jobProgress, setJobProgress] = useState(0);
-  const [jobCurrentStep, setJobCurrentStep] = useState<string>('pending');
   const [resultUrls, setResultUrls] = useState<string[]>([]);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [cardStatuses, setCardStatuses] = useState<('waiting' | 'generating' | 'completed' | 'failed')[]>(['waiting', 'waiting', 'waiting']);
   const generationParamsRef = useRef<any>(null);
-  const currentImageRecordId = useRef<string | null>(null);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -246,151 +241,15 @@ export default function Generate() {
     return true;
   }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
-  // Cleanup polling on unmount
-  const cleanupPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
-
-  // Trigger next master step
-  const triggerNextMasterStep = useCallback(async (nextStep: number, jobId: string, imageId: string) => {
-    try {
-      console.log(`Triggering master step ${nextStep}...`);
-      const body = {
-        ...generationParamsRef.current,
-        stepIndex: nextStep,
-        existingJobId: jobId,
-        existingImageId: imageId,
-      };
-      const { error } = await supabase.functions.invoke("generate-jewelry", { body });
-      if (error) throw error;
-      toast.info(`Adım ${nextStep + 1}/3 başlatıldı...`);
-    } catch (err) {
-      console.error('Failed to trigger next step:', err);
-      toast.error("Sonraki adım başlatılamadı.");
-      setIsGenerating(false);
-      setGenerationStep('idle');
-      setCompletedImages(0);
-      setResultUrls([]);
-    }
-  }, []);
-
-  // Start polling for job status
-  const startPolling = useCallback((jobId: string, imageId: string) => {
-    cleanupPolling();
-    setPollingJobId(jobId);
-    setPollingImageId(imageId);
-    setGenerationStep('polling');
-
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data: job, error } = await supabase
-          .from('processing_jobs')
-          .select('*')
-          .eq('id', jobId)
-          .single();
-
-        if (error) {
-          console.error('Polling error:', error);
-          return;
-        }
-
-        if (!job) return;
-
-        // Update UI state from job
-        setJobProgress(job.progress || 0);
-        setJobCurrentStep(job.current_step || 'pending');
-        setCompletedImages(job.completed_images || 0);
-        setCurrentImageIndex((job.completed_images || 0) + 1);
-
-        // Update result URLs for card previews
-        const urls = Array.isArray(job.result_urls) ? job.result_urls as string[] : [];
-        if (urls.length > 0) setResultUrls(urls);
-
-        // Also check images table for partial results
-        if (urls.length === 0 && (job.completed_images || 0) > 0) {
-          const { data: imgData } = await supabase
-            .from('images')
-            .select('generated_image_urls')
-            .eq('id', imageId)
-            .single();
-          if (imgData?.generated_image_urls?.length) {
-            setResultUrls(imgData.generated_image_urls);
-          }
-        }
-
-        // Map job step to generation step
-        if (job.current_step === 'analyzing') {
-          setGenerationStep('analyzing');
-        } else if (job.current_step?.startsWith('generating') || job.current_step === 'downloading') {
-          setGenerationStep('generating');
-        }
-
-        // Master package step completion - trigger next step
-        if (job.status === 'step_0_done') {
-          cleanupPolling();
-          await triggerNextMasterStep(1, jobId, imageId);
-          // Restart polling for next step after a brief delay
-          setTimeout(() => startPolling(jobId, imageId), 1000);
-          return;
-        }
-        if (job.status === 'step_1_done') {
-          cleanupPolling();
-          await triggerNextMasterStep(2, jobId, imageId);
-          setTimeout(() => startPolling(jobId, imageId), 1000);
-          return;
-        }
-
-        if (job.status === 'completed') {
-          cleanupPolling();
-          setGenerationStep('finalizing');
-          if (urls.length > 0) setResultUrls(urls);
-          toast.success("Görselleriniz başarıyla oluşturuldu!");
-          setTimeout(() => {
-            setIsGenerating(false);
-            setGenerationStep('idle');
-            navigate(`/sonuclar?id=${imageId}`);
-          }, 1500);
-        } else if (job.status === 'failed') {
-          cleanupPolling();
-          toast.error(job.error_message || "Görsel oluşturulurken bir hata oluştu.");
-          setIsGenerating(false);
-          setGenerationStep('idle');
-          setCompletedImages(0);
-          setResultUrls([]);
-        }
-
-        // Stuck job detection: check if updated_at is stale (3 min without progress)
-        if ((job.status === 'generating' || job.status === 'pending') && job.updated_at) {
-          const lastUpdate = new Date(job.updated_at).getTime();
-          const now = Date.now();
-          if (now - lastUpdate > 3 * 60 * 1000) {
-            cleanupPolling();
-            toast.error("İşlem yanıt vermiyor. Lütfen tekrar deneyin.");
-            setIsGenerating(false);
-            setGenerationStep('idle');
-            setCompletedImages(0);
-            setResultUrls([]);
-          }
-        }
-      } catch (err) {
-        console.error('Polling exception:', err);
-      }
-    }, 2000);
-  }, [cleanupPolling, navigate, triggerNextMasterStep]);
-
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
     setIsGenerating(true);
-    setGenerationStep("analyzing");
+    setGenerationStep("generating");
     setCurrentImageIndex(1);
     setCompletedImages(0);
-    setJobProgress(0);
-    setJobCurrentStep('pending');
     setResultUrls([]);
+    setCardStatuses(['waiting', 'waiting', 'waiting']);
 
     try {
       const imagePaths: string[] = [];
@@ -439,27 +298,107 @@ export default function Generate() {
       // Store params for master package continuation steps
       generationParamsRef.current = { ...body };
 
-      const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
+      if (packageType === 'master') {
+        // ═══ MASTER: Sequential 3-step synchronous calls ═══
+        
+        // Step 0: Editorial
+        setCardStatuses(['generating', 'waiting', 'waiting']);
+        toast.info("Adım 1/3: Editorial görsel oluşturuluyor...");
+        
+        const { data: result0, error: error0 } = await supabase.functions.invoke("generate-jewelry", { body });
+        
+        if (error0 || !result0?.success) {
+          throw new Error(result0?.errorMessage || 'Editorial görsel oluşturulamadı');
+        }
 
-      if (error) throw error;
+        const jobId = result0.jobId;
+        const imageId = result0.imageId;
+        const urls0 = Array.isArray(result0.resultUrls) ? result0.resultUrls as string[] : [];
+        setResultUrls([...urls0]);
+        setCardStatuses(['completed', 'generating', 'waiting']);
+        setCompletedImages(1);
+        setCurrentImageIndex(2);
 
-      if (!data?.jobId || !data?.imageId) {
-        throw new Error('Invalid response from server');
+        // Step 1: E-Commerce
+        toast.info("Adım 2/3: E-Ticaret görseli oluşturuluyor...");
+        
+        const { data: result1, error: error1 } = await supabase.functions.invoke("generate-jewelry", {
+          body: {
+            ...generationParamsRef.current,
+            stepIndex: 1,
+            existingJobId: jobId,
+            existingImageId: imageId,
+          }
+        });
+
+        if (error1 || !result1?.success) {
+          // Step 1 failed but step 0 succeeded - continue to step 2
+          console.error('Step 1 failed:', result1?.errorMessage);
+          setCardStatuses(['completed', 'failed', 'generating']);
+        } else {
+          const urls1 = Array.isArray(result1.resultUrls) ? result1.resultUrls as string[] : [];
+          setResultUrls([...urls1]);
+          setCardStatuses(['completed', 'completed', 'generating']);
+          setCompletedImages(2);
+        }
+        setCurrentImageIndex(3);
+
+        // Step 2: Model Shot
+        toast.info("Adım 3/3: Model görseli oluşturuluyor...");
+        
+        const { data: result2, error: error2 } = await supabase.functions.invoke("generate-jewelry", {
+          body: {
+            ...generationParamsRef.current,
+            stepIndex: 2,
+            existingJobId: jobId,
+            existingImageId: imageId,
+          }
+        });
+
+        if (error2 || !result2?.success) {
+          console.error('Step 2 failed:', result2?.errorMessage);
+          setCardStatuses(prev => [prev[0], prev[1], 'failed']);
+        } else {
+          const urls2 = Array.isArray(result2.resultUrls) ? result2.resultUrls as string[] : [];
+          setResultUrls([...urls2]);
+          setCardStatuses(prev => [prev[0], prev[1], 'completed']);
+          setCompletedImages(3);
+        }
+
+        toast.success("Görselleriniz başarıyla oluşturuldu!");
+        setTimeout(() => {
+          setIsGenerating(false);
+          setGenerationStep('idle');
+          navigate(`/sonuclar?id=${imageId}`);
+        }, 1500);
+
+      } else {
+        // ═══ STANDARD / RETOUCH: Single synchronous call ═══
+        toast.info("Görsel oluşturuluyor...");
+        
+        const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
+
+        if (error) throw error;
+
+        if (!data?.success) {
+          throw new Error(data?.errorMessage || 'Görsel oluşturulamadı');
+        }
+
+        toast.success("Görseliniz başarıyla oluşturuldu!");
+        setTimeout(() => {
+          setIsGenerating(false);
+          setGenerationStep('idle');
+          navigate(`/sonuclar?id=${data.imageId}`);
+        }, 1500);
       }
-
-      currentImageRecordId.current = data.imageId;
-
-      // Start polling instead of waiting for synchronous response
-      startPolling(data.jobId, data.imageId);
-      toast.info("Görsel üretimi başlatıldı. İşlem arka planda devam ediyor...");
 
     } catch (error) {
       console.error("Generation error:", error);
-      toast.error("Görsel oluşturulurken bir hata oluştu.");
-      cleanupPolling();
+      toast.error(error instanceof Error ? error.message : "Görsel oluşturulurken bir hata oluştu.");
       setIsGenerating(false);
       setGenerationStep("idle");
       setCompletedImages(0);
+      setCardStatuses(['waiting', 'waiting', 'waiting']);
     }
   };
 
@@ -477,9 +416,8 @@ export default function Generate() {
             completedImages={completedImages}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
-            jobProgress={jobProgress}
-            jobCurrentStep={jobCurrentStep}
             resultUrls={resultUrls}
+            cardStatuses={cardStatuses}
           />
         </div>
       </AppLayout>
