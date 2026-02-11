@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, CheckCircle2, Loader2, Clock, AlertCircle } from 'lucide-react';
+import { Lightbulb, CheckCircle2, Loader2, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { Button } from '@/components/ui/button';
 
 type CardStatus = 'waiting' | 'generating' | 'completed' | 'failed';
 
 interface GeneratingPanelProps {
-  step: 'idle' | 'analyzing' | 'generating' | 'finalizing' | 'polling';
+  step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
   currentImageIndex?: number;
   totalImages?: number;
   completedImages?: number;
@@ -15,6 +16,9 @@ interface GeneratingPanelProps {
   previewImage?: string | null;
   resultUrls?: string[];
   cardStatuses?: CardStatus[];
+  waitingForUser?: boolean;
+  onContinue?: () => void;
+  currentMasterStep?: number;
 }
 
 const MASTER_CARDS = [
@@ -114,6 +118,9 @@ export function GeneratingPanel({
   previewImage = null,
   resultUrls = [],
   cardStatuses = ['waiting', 'waiting', 'waiting'],
+  waitingForUser = false,
+  onContinue,
+  currentMasterStep = 0,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -144,6 +151,12 @@ export function GeneratingPanel({
       return { title: 'Tamamlandı!', description: '4K görselleriniz hazır!' };
     }
     if (isMaster) {
+      if (waitingForUser) {
+        return {
+          title: `${completedImages}/${totalImages} Görsel Hazır`,
+          description: 'Görseli inceleyin, hazır olduğunuzda devam edin.',
+        };
+      }
       const generating = cardStatuses.findIndex(s => s === 'generating');
       if (generating >= 0) {
         return {
@@ -202,7 +215,7 @@ export function GeneratingPanel({
 
       {/* Master Package: 3 Cards */}
       {isMaster && (
-        <div className="px-4 sm:px-6 pb-2">
+        <div className="px-4 sm:px-6 pb-2 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {MASTER_CARDS.map((card, i) => (
               <MasterCard
@@ -214,6 +227,24 @@ export function GeneratingPanel({
               />
             ))}
           </div>
+          
+          {/* Continue button - shown when waiting for user */}
+          {waitingForUser && currentMasterStep < 3 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center pt-2"
+            >
+              <Button
+                size="lg"
+                onClick={onContinue}
+                className="gap-2 px-8"
+              >
+                {currentMasterStep === 1 ? 'E-Ticaret Görseli Oluştur' : 'Model Görseli Oluştur'}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          )}
         </div>
       )}
 
