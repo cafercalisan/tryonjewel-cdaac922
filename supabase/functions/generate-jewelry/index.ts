@@ -1291,6 +1291,23 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // ═══ SINGLE-FLIGHT: Block concurrent jobs for this user ═══
+    if (stepIndex === 0) {
+      const { count: activeJobs } = await supabase
+        .from('processing_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('status', ['pending', 'generating']);
+
+      if (activeJobs && activeJobs > 0) {
+        console.log(`Blocked: user ${userId} already has ${activeJobs} active job(s)`);
+        return new Response(
+          JSON.stringify({ error: 'Zaten devam eden bir üretim var. Lütfen bekleyin.', code: 'ACTIVE_JOB_EXISTS' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Check admin status
     const { data: isAdmin } = await supabase
       .rpc('has_role', { _user_id: userId, _role: 'admin' });
