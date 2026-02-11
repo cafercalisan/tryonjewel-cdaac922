@@ -97,6 +97,7 @@ export default function Generate() {
   const [pollingImageId, setPollingImageId] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState(0);
   const [jobCurrentStep, setJobCurrentStep] = useState<string>('pending');
+  const [resultUrls, setResultUrls] = useState<string[]>([]);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentImageRecordId = useRef<string | null>(null);
 
@@ -280,6 +281,22 @@ export default function Generate() {
         setCompletedImages(job.completed_images || 0);
         setCurrentImageIndex((job.completed_images || 0) + 1);
 
+        // Update result URLs for card previews
+        const urls = Array.isArray(job.result_urls) ? job.result_urls as string[] : [];
+        if (urls.length > 0) setResultUrls(urls);
+
+        // Also check images table for partial results
+        if (urls.length === 0 && (job.completed_images || 0) > 0) {
+          const { data: imgData } = await supabase
+            .from('images')
+            .select('generated_image_urls')
+            .eq('id', imageId)
+            .single();
+          if (imgData?.generated_image_urls?.length) {
+            setResultUrls(imgData.generated_image_urls);
+          }
+        }
+
         // Map job step to generation step
         if (job.current_step === 'analyzing') {
           setGenerationStep('analyzing');
@@ -290,6 +307,8 @@ export default function Generate() {
         if (job.status === 'completed') {
           cleanupPolling();
           setGenerationStep('finalizing');
+          // Final fetch of result URLs
+          if (urls.length > 0) setResultUrls(urls);
           toast.success("Görselleriniz başarıyla oluşturuldu!");
           setTimeout(() => {
             setIsGenerating(false);
@@ -302,18 +321,20 @@ export default function Generate() {
           setIsGenerating(false);
           setGenerationStep('idle');
           setCompletedImages(0);
+          setResultUrls([]);
         }
 
-        // Stuck job detection: 10 minutes without update
-        if (job.started_at && job.status === 'generating') {
-          const startedAt = new Date(job.started_at).getTime();
+        // Stuck job detection: check if updated_at is stale (3 min without progress update)
+        if (job.status === 'generating' && job.updated_at) {
+          const lastUpdate = new Date(job.updated_at).getTime();
           const now = Date.now();
-          if (now - startedAt > 10 * 60 * 1000) {
+          if (now - lastUpdate > 3 * 60 * 1000) {
             cleanupPolling();
-            toast.error("İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.");
+            toast.error("İşlem yanıt vermiyor. Lütfen tekrar deneyin.");
             setIsGenerating(false);
             setGenerationStep('idle');
             setCompletedImages(0);
+            setResultUrls([]);
           }
         }
       } catch (err) {
@@ -331,6 +352,7 @@ export default function Generate() {
     setCompletedImages(0);
     setJobProgress(0);
     setJobCurrentStep('pending');
+    setResultUrls([]);
 
     try {
       const imagePaths: string[] = [];
@@ -415,6 +437,7 @@ export default function Generate() {
             previewImage={uploadedImages[0]?.preview || null}
             jobProgress={jobProgress}
             jobCurrentStep={jobCurrentStep}
+            resultUrls={resultUrls}
           />
         </div>
       </AppLayout>
