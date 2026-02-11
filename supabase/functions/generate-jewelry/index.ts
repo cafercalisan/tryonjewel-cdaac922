@@ -270,6 +270,8 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         generatedImage = part.inlineData.data;
+        // Clear part data to free memory
+        part.inlineData.data = null;
         break;
       }
     }
@@ -279,7 +281,10 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
       return null;
     }
 
+    // Convert and upload, then immediately free the base64 string
     const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+    generatedImage = null; // Free ~20MB+ of base64 string memory
+    
     const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
     const { error: uploadError } = await supabase.storage
       .from('jewelry-images')
@@ -424,16 +429,17 @@ async function processGenerationInBackground(params: {
     }).eq('id', jobId);
 
     const base64Images: string[] = [];
-    for (const url of imageUrls) {
-      const imageResponse = await fetch(url);
-      const imageBuffer = await imageResponse.arrayBuffer();
-      if (imageBuffer.byteLength <= MAX_IMAGE_SIZE) {
-        base64Images.push(arrayBufferToBase64(imageBuffer));
-      }
+    // Only convert the FIRST image to base64 to minimize memory usage
+    // Additional images are only used via signed URLs for V2
+    const firstUrl = imageUrls[0];
+    const imageResponse = await fetch(firstUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    if (imageBuffer.byteLength <= MAX_IMAGE_SIZE) {
+      base64Images.push(arrayBufferToBase64(imageBuffer));
     }
 
     if (base64Images.length === 0) {
-      throw new Error('All images too large. Max 1.5MB each.');
+      throw new Error('Image too large. Max 1.5MB.');
     }
 
     const base64Image = base64Images[0];
@@ -803,8 +809,6 @@ Ultra high resolution output.`;
       console.log('Step 1/3: Generating Editorial image...');
       const catalogUrl = await generateImage(base64Images, imageUrls, catalogPrompt, 1);
       
-      let editorialReferenceBase64: string | null = null;
-      
       if (catalogUrl) {
         generatedUrls.push(catalogUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
@@ -813,23 +817,7 @@ Ultra high resolution output.`;
           progress: 40,
           current_step: 'generating_ecommerce',
         }).eq('id', jobId);
-        
-        try {
-          const editorialResponse = await fetch(catalogUrl);
-          if (editorialResponse.ok) {
-            const editorialBuffer = await editorialResponse.arrayBuffer();
-            if (editorialBuffer.byteLength <= MAX_IMAGE_SIZE) {
-              editorialReferenceBase64 = arrayBufferToBase64(editorialBuffer);
-            }
-          }
-        } catch (err) {
-          console.warn('Could not fetch editorial as reference:', err);
-        }
       }
-
-      const enhancedBase64Images = editorialReferenceBase64 
-        ? [editorialReferenceBase64, ...base64Images] 
-        : base64Images;
 
       // ═══════════════════════════════════════════════════════════
       // IMAGE 2: E-commerce clean background
@@ -861,7 +849,7 @@ OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
 Ultra high resolution output.`;
 
       console.log('Step 2/3: Generating E-commerce image...');
-      const ecomUrl = await generateImage(enhancedBase64Images, imageUrls, ecommercePrompt, 2);
+      const ecomUrl = await generateImage(base64Images, imageUrls, ecommercePrompt, 2);
       if (ecomUrl) {
         generatedUrls.push(ecomUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
@@ -996,7 +984,7 @@ OUTPUT: 4K ultra-high resolution. PHOTOREALISM prioritized.
 Ultra high resolution output.`;
 
       console.log('Step 3/3: Generating Model Shot image...');
-      const modelUrl = await generateImage(enhancedBase64Images, imageUrls, modelShotPrompt, 3);
+      const modelUrl = await generateImage(base64Images, imageUrls, modelShotPrompt, 3);
       if (modelUrl) {
         generatedUrls.push(modelUrl);
         await supabase.from('images').update({ generated_image_urls: [...generatedUrls] }).eq('id', imageRecordId);
