@@ -245,6 +245,32 @@ export default function Generate() {
     return true;
   }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
+  // Retry wrapper for WORKER_LIMIT (546) errors
+  const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
+    let lastError: any = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
+      
+      // Check for WORKER_LIMIT / 546 errors
+      const errMsg = String(error?.message || data?.error || '');
+      const is546 = errMsg.includes('WORKER_LIMIT') || errMsg.includes('546') || errMsg.includes('worker') || error?.status === 546;
+      
+      if (is546 && attempt < maxRetries - 1) {
+        const baseMs = 800 * Math.pow(2, attempt); // 800ms, 1600ms, 3200ms
+        const jitter = Math.floor(Math.random() * 300);
+        const waitMs = baseMs + jitter;
+        console.log(`WORKER_LIMIT hit, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
+        toast.info(`Sunucu yoğun, ${Math.ceil(waitMs / 1000)}sn sonra tekrar denenecek... (${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, waitMs));
+        lastError = error;
+        continue;
+      }
+      
+      return { data, error };
+    }
+    return { data: null, error: lastError };
+  };
+
   // Run a single master step
   const runMasterStep = async (stepIndex: number, jobId?: string, imageId?: string) => {
     const params = generationParamsRef.current;
@@ -265,7 +291,7 @@ export default function Generate() {
       ...(stepIndex > 0 && jobId ? { existingJobId: jobId, existingImageId: imageId } : {}),
     };
 
-    const { data: result, error } = await supabase.functions.invoke("generate-jewelry", { body });
+    const { data: result, error } = await invokeWithRetry(body);
 
     if (error || !result?.success) {
       console.error(`Step ${stepIndex} failed:`, result?.errorMessage || error);
@@ -277,7 +303,6 @@ export default function Generate() {
       toast.error(`${stepLabels[stepIndex]} görseli oluşturulamadı.`);
       
       if (stepIndex === 0) {
-        // First step failed - stop entirely
         setIsGenerating(false);
         setGenerationStep('idle');
         return;
@@ -294,7 +319,6 @@ export default function Generate() {
       toast.success(`${stepLabels[stepIndex]} görseli hazır!`);
     }
 
-    // Store job/image IDs from step 0
     if (stepIndex === 0 && result?.success) {
       setMasterJobId(result.jobId);
       setMasterImageId(result.imageId);
@@ -302,7 +326,6 @@ export default function Generate() {
 
     setMasterCurrentStep(stepIndex + 1);
 
-    // If last step, navigate to results
     if (stepIndex === 2) {
       const finalImageId = imageId || result?.imageId;
       setTimeout(() => {
@@ -311,7 +334,6 @@ export default function Generate() {
         navigate(`/sonuclar?id=${finalImageId}`);
       }, 1500);
     } else {
-      // Wait for user to trigger next step
       setMasterWaitingForUser(true);
     }
   };
@@ -388,7 +410,7 @@ export default function Generate() {
         // ═══ STANDARD / RETOUCH: Single synchronous call ═══
         toast.info("Görsel oluşturuluyor...");
         
-        const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
+        const { data, error } = await invokeWithRetry(body);
 
         if (error) throw error;
 
