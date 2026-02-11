@@ -338,24 +338,26 @@ async function processGenerationInBackground(params: {
     modelVersion, stepIndex
   } = params;
   
-  const useV2 = modelVersion === 'v2';
-  console.log(`Using model version: ${modelVersion} (${useV2 ? 'Seedream 4.5' : 'Gemini 3 Pro'})`);
+  // Master package ALWAYS uses Seedream (V2) for generation to stay within memory limits
+  // Gemini 4K response base64 uses ~80MB peak, causing crashes. Seedream uses URLs (~20MB peak).
+  const useV2ForGeneration = isMasterPackage ? true : (modelVersion === 'v2');
+  const useV2ForAnalysis = false; // Analysis always uses Gemini (text-only, low memory)
+  console.log(`Using model: Analysis=Gemini, Generation=${useV2ForGeneration ? 'Seedream 4.5' : 'Gemini 3 Pro'} (Master forced Seedream: ${isMasterPackage})`);
 
-  const isMasterPackage = packageType === 'master';
   const isRetouchPackage = packageType === 'retouch';
   const totalImages = isMasterPackage ? 3 : 1;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  // Helper: generate image using the selected model version
-  // For V2 (Seedream), we pass signed URLs directly (no base64 needed for generation)
-  // For V1 (Gemini), we use base64 images
+  // Helper: generate image using the appropriate model
+  // Master always uses Seedream (URL-based, memory efficient)
+  // Standard/Retouch respects user's V1/V2 choice
   async function generateImage(
     base64Imgs: string[],
     signedUrls: string[],
     prompt: string,
     idx: number
   ): Promise<string | null> {
-    if (useV2) {
+    if (useV2ForGeneration) {
       return generateSingleImageSeedream(signedUrls, prompt, userId, imageRecordId, idx, supabase);
     } else {
       return generateSingleImage(base64Imgs, prompt, userId, imageRecordId, idx, supabase);
@@ -539,6 +541,12 @@ ONLY valid JSON.`
       current_step: 'generating',
       progress: 20,
     }).eq('id', jobId);
+
+    // Free base64 input memory if using Seedream (URL-based generation doesn't need it)
+    if (useV2ForGeneration) {
+      base64Images.length = 0;
+      console.log('Freed base64 input memory (Seedream uses URLs)');
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // BUILD FIDELITY BLOCK
