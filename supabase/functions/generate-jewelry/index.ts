@@ -339,11 +339,9 @@ async function processGenerationInBackground(params: {
   } = params;
   
   const isMasterPackage = packageType === 'master';
-  // Master package ALWAYS uses Seedream (V2) for generation to stay within memory limits
-  // Gemini 4K response base64 uses ~80MB peak, causing crashes. Seedream uses URLs (~20MB peak).
-  const useV2ForGeneration = isMasterPackage ? true : (modelVersion === 'v2');
-  const useV2ForAnalysis = false; // Analysis always uses Gemini (text-only, low memory)
-  console.log(`Using model: Analysis=Gemini, Generation=${useV2ForGeneration ? 'Seedream 4.5' : 'Gemini 3 Pro'} (Master forced Seedream: ${isMasterPackage})`);
+  // Use the model version selected by the user: V1=Gemini, V2=Seedream
+  const useV2ForGeneration = modelVersion === 'v2';
+  console.log(`Using model: Analysis=Gemini, Generation=${useV2ForGeneration ? 'Seedream 4.5' : 'Gemini 3 Pro'}, Package=${packageType}`);
 
   const isRetouchPackage = packageType === 'retouch';
   const totalImages = isMasterPackage ? 3 : 1;
