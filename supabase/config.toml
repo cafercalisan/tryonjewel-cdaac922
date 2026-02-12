@@ -1,4 +1,4 @@
-project_id = "kstzqtybcejzepbozzzy"
+project_id = "iblikaitbglswgfdksoh"
 
 [functions.generate-jewelry]
 verify_jwt = false

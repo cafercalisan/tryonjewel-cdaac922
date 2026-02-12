@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getServiceClient } from './_lib/supabase';
-import { corsHeaders, sendCorsResponse } from './_lib/cors';
+import { getServiceClient } from './_lib/supabase.js';
+import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 
 export const config = {
   maxDuration: 60,

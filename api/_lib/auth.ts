@@ -1,5 +1,5 @@
 import type { VercelRequest } from '@vercel/node';
-import { getAuthClient } from './supabase';
+import { getAuthClient } from './supabase.js';
 
 export async function authenticateUser(req: VercelRequest): Promise<{ userId: string } | { error: string; status: number }> {
   const authHeader = req.headers.authorization;
