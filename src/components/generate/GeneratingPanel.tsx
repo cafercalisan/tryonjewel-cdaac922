@@ -48,6 +48,9 @@ export function GeneratingPanel({
     'generating_1': 'Görsel 1/3 oluşturuluyor...',
     'generating_2': 'Görsel 2/3 oluşturuluyor...',
     'generating_3': 'Görsel 3/3 oluşturuluyor...',
+    'generating_editorial': 'Editorial görsel oluşturuluyor...',
+    'generating_ecommerce': 'E-Ticaret görseli oluşturuluyor...',
+    'generating_model': 'Model görseli oluşturuluyor...',
     'saving': 'Sonuçlar kaydediliyor...',
     'completed': 'Tamamlandı!',
     'failed': 'Hata oluştu',
@@ -61,9 +64,17 @@ export function GeneratingPanel({
 
   const displayProgress = progress > 0 ? progress : (step === 'analyzing' ? 15 : step === 'generating' ? 40 : 5);
 
+  // Master Paket image type labels
+  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model'];
+
   // Determine which image is currently being generated
-  const currentImageIndex = currentStep?.startsWith('generating_')
-    ? parseInt(currentStep.split('_')[1]) - 1
+  const masterStepMap: Record<string, number> = {
+    'generating_editorial': 0,
+    'generating_ecommerce': 1,
+    'generating_model': 2,
+  };
+  const currentImageIndex = currentStep
+    ? masterStepMap[currentStep] ?? (currentStep.startsWith('generating_') ? parseInt(currentStep.split('_')[1]) - 1 : completedImages)
     : completedImages;
 
   return (
@@ -120,7 +131,7 @@ export function GeneratingPanel({
                     <Circle className="h-5 w-5 text-muted-foreground/40" />
                   )}
                   <span className={`text-xs font-medium ${isDone ? 'text-green-500' : isActive ? 'text-primary' : 'text-muted-foreground/40'}`}>
-                    Görsel {i + 1}
+                    {imageTypeLabels[i] || `Görsel ${i + 1}`}
                   </span>
                 </div>
               );

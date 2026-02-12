@@ -268,7 +268,7 @@ export default function Generate() {
 
   const canGenerate = useMemo(() => {
     if (uploadedImages.length === 0 || !user) return false;
-    
+
     // Retouch mode only needs image upload
     if (isRetouchMode) {
       if (!isAdminUser) {
@@ -276,18 +276,21 @@ export default function Generate() {
       }
       return true;
     }
-    
+
     if (!selectedProductType) return false;
 
     if (!isAdminUser) {
       if (!profile || profile.credits < creditsNeeded) return false;
     }
 
+    // Standard (Master) package: no scene needed
+    if (packageType === 'standard') return true;
+
     // If style reference is used, no scene needed
     if (hasStyleReference) return true;
 
     return !!selectedSceneId;
-  }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode, packageType]);
 
   // Retry wrapper for transient errors
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
@@ -349,15 +352,16 @@ export default function Generate() {
       } else if (styleReference) {
         const styleFileExt = styleReference.file.name.split(".").pop();
         const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
-        
+
         const { error: styleUploadError } = await supabase.storage
           .from("jewelry-images")
           .upload(styleFilePath, styleReference.file);
-        
+
         if (styleUploadError) throw styleUploadError;
-        
+
         body.styleReferencePath = styleFilePath;
-      } else {
+      } else if (packageType !== 'standard') {
+        // Only non-standard packages need sceneId
         body.sceneId = selectedSceneId;
       }
 
@@ -605,10 +609,53 @@ export default function Generate() {
               )}
             </AnimatePresence>
 
-            {/* Step 5: Style Reference OR Scene Selection */}
+            {/* Step 5: Master Paket Info OR Style Reference + Scene Selection */}
             <AnimatePresence>
-              {!isRetouchMode && (
+              {!isRetouchMode && packageType === 'standard' && (
                 <motion.section
+                  key="master-info"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                      5
+                    </div>
+                    <h2 className="text-sm font-semibold">Master Paket</h2>
+                  </div>
+                  <div className="bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-2xl border border-primary/20 p-5">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 rounded-xl bg-primary/10 shrink-0">
+                        <Wand2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm mb-1">3 Profesyonel Gorsel</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Her uretim benzersiz sahneler icerir
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      {[
+                        { icon: '📸', label: 'Editorial', desc: 'Luks yaratici sahne' },
+                        { icon: '🛍️', label: 'E-Ticaret', desc: 'Temiz urun cekimi' },
+                        { icon: '👤', label: 'Model', desc: 'Lifestyle giydirilmis' },
+                      ].map((item) => (
+                        <div key={item.label} className="flex flex-col items-center gap-1.5 bg-background/50 rounded-xl px-2.5 py-3 text-center">
+                          <span className="text-lg">{item.icon}</span>
+                          <span className="font-medium">{item.label}</span>
+                          <span className="text-muted-foreground text-[10px] leading-tight">{item.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.section>
+              )}
+              {!isRetouchMode && packageType !== 'standard' && (
+                <motion.section
+                  key="style-scene"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -619,9 +666,9 @@ export default function Generate() {
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
                       5
                     </div>
-                    <h2 className="text-sm font-semibold">Stil Referansı veya Sahne</h2>
+                    <h2 className="text-sm font-semibold">Stil Referansi veya Sahne</h2>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4">
                     {/* Style Reference */}
                     <div>
@@ -641,11 +688,11 @@ export default function Generate() {
                     <div className={hasStyleReference ? 'opacity-40 pointer-events-none' : ''}>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-medium text-muted-foreground">
-                          veya sahne seçin
+                          veya sahne secin
                         </p>
                         {hasStyleReference && (
                           <span className="text-[10px] px-2 py-0.5 rounded bg-accent text-accent-foreground">
-                            Devre dışı
+                            Devre disi
                           </span>
                         )}
                       </div>

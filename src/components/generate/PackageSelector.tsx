@@ -12,13 +12,13 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
   const packages = [
     {
       id: 'standard' as PackageType,
-      name: 'Standart',
-      description: 'Profesyonel sahne görseli',
+      name: 'Master Paket',
+      description: '3 farklı profesyonel görsel',
       credits: 10,
-      images: 1,
+      images: 3,
       icon: ImageIcon,
       recommended: true,
-      features: ['1 profesyonel görsel', 'Sahne seçimi', 'En yüksek kalite'],
+      features: ['Editorial + E-Ticaret + Model Görseli'],
     },
     {
       id: 'retouch' as PackageType,

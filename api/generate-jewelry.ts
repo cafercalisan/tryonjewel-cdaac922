@@ -16,6 +16,260 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
+// ═══════════════════════════════════════════════════
+// EDITORIAL SCENE POOL (~25 scenes)
+// ═══════════════════════════════════════════════════
+const EDITORIAL_SCENE_POOL = [
+  // Fabric
+  { name: 'Black Velvet', prompt: 'Placed on rich black velvet fabric with deep texture folds, creating luxurious depth. Soft overhead lighting reveals velvet fiber texture. Dark, moody atmosphere with subtle warm highlights on the jewelry.' },
+  { name: 'Champagne Silk', prompt: 'Resting on flowing champagne silk fabric with elegant draping and soft luminous sheen. Gentle side lighting creates silky highlights and delicate shadows. Warm, romantic atmosphere.' },
+  { name: 'Burgundy Velvet', prompt: 'Displayed on deep burgundy velvet with rich wine-colored tones. Dramatic directional lighting creates contrast between velvet pile and jewelry brilliance. Opulent, regal mood.' },
+  { name: 'Ivory Satin', prompt: 'Placed on smooth ivory satin fabric with subtle pearl-like sheen. Even soft lighting enhances the pristine, bridal quality. Clean elegance with warm undertones.' },
+  { name: 'Dark Leather', prompt: 'Resting on premium dark leather surface with visible grain texture. Warm amber side lighting creates masculine, sophisticated atmosphere. Raw luxury aesthetic.' },
+  // Stone surfaces
+  { name: 'White Carrara Marble', prompt: 'Placed on polished white Carrara marble surface with subtle grey veining. Clean overhead lighting with soft reflections on marble. Bright, airy, gallery-like presentation.' },
+  { name: 'Black Marble Gold Veins', prompt: 'Displayed on polished black marble with dramatic gold veining. Targeted spotlight creates striking contrast. Ultra-premium, exclusive atmosphere.' },
+  { name: 'Travertine', prompt: 'Resting on warm travertine stone surface with natural pits and warm cream tones. Soft golden hour lighting creates organic warmth. Mediterranean luxury feel.' },
+  { name: 'Dark Granite', prompt: 'Placed on polished dark granite surface with subtle crystalline sparkle. Cool-toned lighting with sharp reflections. Modern, architectural luxury.' },
+  // Natural elements
+  { name: 'Rose Petals Dew', prompt: 'Nestled among fresh rose petals with morning dew droplets catching light. Soft diffused natural lighting. Romantic, delicate, and feminine atmosphere with organic beauty.' },
+  { name: 'Wet River Stones', prompt: 'Placed on smooth wet river stones with water droplets and subtle reflections. Cool natural lighting creating zen-like tranquility. Spa-luxury aesthetic.' },
+  { name: 'Desert Sand', prompt: 'Resting on fine golden desert sand with gentle wind-sculpted ripples. Warm sunset lighting creates long dramatic shadows. Exotic, adventurous luxury mood.' },
+  { name: 'Ice Crystal', prompt: 'Displayed on crystalline ice surface with frost patterns and cool blue refractions. Crisp cold lighting with prismatic highlights. Ethereal, winter wonderland luxury.' },
+  { name: 'Autumn Leaves', prompt: 'Placed among dried autumn leaves in warm amber, rust, and gold tones. Soft dappled golden light filtering through. Cozy seasonal warmth with organic texture.' },
+  { name: 'Seashell Sand', prompt: 'Resting on fine white sand with delicate seashells and coral fragments. Bright natural coastal lighting. Beach luxury, vacation elegance aesthetic.' },
+  // Artificial surfaces
+  { name: 'Brushed Concrete', prompt: 'Placed on smooth brushed concrete surface with subtle industrial texture. Cool directional lighting with architectural shadows. Modern minimalist luxury, urban sophistication.' },
+  { name: 'Reflective Black Glass', prompt: 'Displayed on polished black glass surface creating mirror-like reflections of the jewelry. Dramatic rim lighting. Ultra-modern, sleek, high-tech luxury presentation.' },
+  { name: 'Aged Bronze', prompt: 'Resting on aged bronze surface with beautiful green-blue patina. Warm side lighting reveals metallic texture contrasts. Heritage luxury, timeless craftsmanship feel.' },
+  { name: 'Kintsugi Ceramic', prompt: 'Placed on a white ceramic surface with golden kintsugi repair lines. Soft warm lighting emphasizes gold-filled cracks. Japanese-inspired luxury, wabi-sabi beauty.' },
+  { name: 'Dark Walnut Wood', prompt: 'Displayed on rich dark walnut wood surface with visible grain patterns. Warm ambient lighting creates cozy atmosphere. Classic, refined luxury with natural warmth.' },
+  // Artistic
+  { name: 'Water Surface Ripples', prompt: 'Floating on a still water surface with gentle concentric ripples. Overhead lighting creates sparkling water reflections on the jewelry. Dreamy, ethereal, meditative luxury.' },
+  { name: 'Smoke', prompt: 'Suspended in wispy smoke tendrils with dramatic backlighting. Dark background with atmospheric haze. Mysterious, avant-garde, fashion-forward presentation.' },
+  { name: 'Dried Botanicals', prompt: 'Arranged among dried botanical elements: lavender sprigs, eucalyptus leaves, dried flowers. Soft natural overhead lighting. Artisanal, organic luxury aesthetic.' },
+  { name: 'Liquid Gold Drops', prompt: 'Placed near artful drops of liquid gold on a dark matte surface. Warm spotlight creates molten metallic reflections. Opulent, artistic, haute-couture presentation.' },
+  { name: 'Crystal Cluster', prompt: 'Nestled among natural clear quartz crystal clusters with prismatic light refractions. Cool ethereal lighting with rainbow highlights. Mystical, high-fashion editorial aesthetic.' },
+];
+
+const LIGHTING_ANGLES = [
+  'Golden hour warm directional light from upper-left (10 o\'clock), soft diffused fill',
+  'Dramatic rim lighting from behind with subtle front fill, creating luminous edge glow',
+  'Overhead butterfly lighting with subtle shadow beneath, classic beauty light setup',
+  'Soft 45-degree key light from right with reflector fill, studio portrait style',
+  'Cool-toned window light from left side, natural and editorial atmosphere',
+  'Low-angle warm light creating long shadows and dramatic depth',
+  'Split lighting: half illuminated, half in shadow, high-fashion editorial contrast',
+  'Broad soft lighting from both sides with subtle top accent, even luxury illumination',
+];
+
+const CAMERA_PERSPECTIVES = [
+  'Flat-lay, perfectly top-down 90° overhead view',
+  '45-degree macro angle, shallow depth of field with creamy bokeh',
+  'Eye-level straight-on view, product centered in frame',
+  'Low-angle looking slightly upward, making the piece appear grand and monumental',
+];
+
+// ═══════════════════════════════════════════════════
+// MODEL POSE CONFIG BY PRODUCT TYPE
+// ═══════════════════════════════════════════════════
+const PRODUCT_TYPE_MODEL_CONFIG: Record<string, { bodyRegion: string; poses: string[] }> = {
+  yuzuk: {
+    bodyRegion: 'hand and fingers',
+    poses: [
+      'Model\'s hand gracefully touching collarbone, ring prominently visible on finger, soft natural pose',
+      'Hand gently touching face near jawline, ring in sharp focus, dreamy expression',
+      'Hand running through hair, ring catching light beautifully, candid editorial moment',
+      'Both hands together near chin in contemplative pose, ring as centerpiece',
+      'Hand resting on shoulder, ring visible against skin, elegant three-quarter profile',
+    ],
+  },
+  bileklik: {
+    bodyRegion: 'wrist',
+    poses: [
+      'Wrist resting elegantly on a surface, bracelet draped naturally, relaxed confidence',
+      'Hand reaching for coffee cup, bracelet sliding on wrist, lifestyle moment',
+      'Arm raised with hand in hair, bracelet catching light on exposed wrist',
+      'Both wrists crossed casually, bracelet as focal point, editorial pose',
+      'Hand touching neckline, wrist and bracelet naturally framed in composition',
+    ],
+  },
+  kupe: {
+    bodyRegion: 'ear and profile',
+    poses: [
+      'Side profile with hair tucked behind ear, earring fully visible and catching light',
+      'Three-quarter view looking over shoulder, earring prominent against neck line',
+      'Head tilted slightly, earring swaying, natural movement captured mid-moment',
+      'Profile with chin slightly raised, earring creating elegant silhouette line',
+      'Hair swept up in loose style, both earrings visible from slight angle',
+    ],
+  },
+  kolye: {
+    bodyRegion: 'neck and décolletage',
+    poses: [
+      'Straight décolletage view, necklace centered on chest, clean neckline with minimal clothing',
+      'Slight head tilt with soft smile, necklace draping naturally, warm portrait',
+      'Profile view showing necklace chain line along neck, artistic composition',
+      'Looking down slightly, necklace pendant as focal point, intimate editorial moment',
+      'Three-quarter view with one hand near collarbone, necklace framing the pose',
+    ],
+  },
+  saat: {
+    bodyRegion: 'wrist',
+    poses: [
+      'Wrist check pose, looking at watch face with confident expression, business editorial',
+      'Arm resting on table or surface, watch dial clearly visible, relaxed luxury',
+      'Hand adjusting jacket cuff revealing watch, sophisticated lifestyle moment',
+      'Wrist resting on knee in seated pose, watch prominently displayed',
+      'Crossed arms with watch visible, power pose, executive editorial style',
+    ],
+  },
+  genel: {
+    bodyRegion: 'full portrait',
+    poses: [
+      'Elegant full portrait with jewelry as natural complement to outfit',
+      'Three-quarter profile with soft natural expression, jewelry catching light',
+      'Editorial fashion pose with strong posture, jewelry as statement piece',
+    ],
+  },
+};
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ═══════════════════════════════════════════════════
+// THREE PROMPT BUILDER FUNCTIONS
+// ═══════════════════════════════════════════════════
+
+function buildEditorialPrompt(
+  analysisResult: any,
+  fidelityBlock: string,
+  productExtractionBlock: string,
+): string {
+  const scene = pickRandom(EDITORIAL_SCENE_POOL);
+  const lighting = pickRandom(LIGHTING_ANGLES);
+  const camera = pickRandom(CAMERA_PERSPECTIVES);
+
+  console.log(`Editorial scene: ${scene.name}, Lighting: ${lighting.substring(0, 40)}..., Camera: ${camera.substring(0, 30)}...`);
+
+  return `EDITORIAL / CREATIVE LUXURY JEWELRY PHOTOGRAPHY — Magazine campaign quality, high-fashion editorial.
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+SCENE: ${scene.name}
+${scene.prompt}
+
+LIGHTING: ${lighting}
+
+CAMERA: ${camera}
+
+CREATIVE DIRECTION:
+- Magazine cover / double-page spread quality
+- Dramatic depth of field with cinematic bokeh
+- Rich texture realism on both the jewelry and the scene surface
+- Hyper-detailed macro-level rendering of every facet, prong, and metal grain
+- The jewelry must be the hero element — scene supports but never competes
+- Color grading: rich, moody, luxury fashion editorial palette
+
+TECHNICAL:
+- 4:5 portrait aspect ratio
+- 4K ultra-high resolution output
+- Ultra photorealistic — no CGI look
+- Macro photography quality with perfect focus on the jewelry`;
+}
+
+function buildEcommercePrompt(
+  analysisResult: any,
+  fidelityBlock: string,
+  productExtractionBlock: string,
+): string {
+  return `E-COMMERCE PROFESSIONAL PRODUCT PHOTOGRAPHY — Clean, commercial, marketplace-ready.
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+BACKGROUND:
+- Pure white to very light grey gradient background (RGB 248-255)
+- Absolutely NO props, NO environment elements, NO decorations
+- NO model, NO hands, NO skin — product only
+- Clean infinity curve / seamless white backdrop
+
+LIGHTING:
+- Soft omnidirectional studio lighting from all sides
+- Minimal shadows — just enough for depth/grounding
+- No harsh highlights, no dramatic shadows
+- Even, balanced illumination revealing all product details
+
+COMPOSITION:
+- Product centered in frame, occupying 60-70% of the frame
+- Straight-on or very slight angle for maximum detail visibility
+- Sharp focus across entire product (deep depth of field)
+- No artistic blur or bokeh
+
+STANDARDS:
+- Amazon / Trendyol / Shopify product listing quality
+- Professional packshot / catalog photography style
+- Color-accurate representation of metals and stones
+- Commercial-grade precision and clarity
+
+TECHNICAL:
+- 4:5 portrait aspect ratio
+- 4K ultra-high resolution output
+- Ultra photorealistic
+- Studio product photography with maximum sharpness`;
+}
+
+function buildModelPrompt(
+  analysisResult: any,
+  fidelityBlock: string,
+  productExtractionBlock: string,
+  productType: string,
+): string {
+  const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
+  const pose = pickRandom(config.poses);
+
+  console.log(`Model prompt — Product type: ${productType}, Body region: ${config.bodyRegion}, Pose: ${pose.substring(0, 50)}...`);
+
+  return `LIFESTYLE MODEL PHOTOGRAPHY — Real human model wearing the jewelry piece.
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️
+- A real, photographic human model MUST be visible and wearing the jewelry
+- NO product-only output — the model IS required
+- NO mannequins, NO floating jewelry, NO disembodied body parts
+
+MODEL SPECIFICATIONS:
+- Turkish / Mediterranean aesthetic: olive to light skin tone, dark hair
+- Age range: 25-35, natural beauty
+- Real skin texture: visible pores, natural imperfections — absolutely NO plastic/CGI/airbrushed look
+- Anatomical accuracy: correct finger count (5 per hand), natural body proportions
+- Expression: confident, editorial, natural
+
+JEWELRY PLACEMENT:
+- Body region: ${config.bodyRegion.toUpperCase()}
+- Pose: ${pose}
+- The jewelry must be clearly visible, in focus, and accurately rendered on the model
+
+ENVIRONMENT:
+- Natural daylight, soft and flattering
+- Lifestyle setting: could be indoor elegant space or outdoor natural location
+- Shallow depth of field — model and jewelry sharp, background softly blurred
+- Warm, inviting atmosphere
+
+TECHNICAL:
+- 4:5 portrait aspect ratio
+- 4K ultra-high resolution output
+- Ultra photorealistic portrait photography
+- Fashion editorial meets lifestyle advertising quality`;
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 8192;
@@ -596,65 +850,125 @@ Ultra high resolution output.`;
       }).eq('id', jobId);
 
     } else {
-      // STANDARD: 3 images sequentially with scene
-      console.log('Standard generation with scene (3 images sequential, 4K)...');
+      // MASTER PAKET: 3 fundamentally different images
+      // 1) Editorial/Creative  2) E-Commerce  3) Model/Lifestyle
+      console.log('Master Paket generation (Editorial + E-Commerce + Model, 4K)...');
 
-      const isModelScene = scene?.category === 'manken';
-      const modelSceneEnforcement = isModelScene ? `
-⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️
-- A HUMAN MODEL must be VISIBLE and WEARING the jewelry
-- NO product-only output without visible model
-` : '';
+      // Resolve productType: use analysis if not provided
+      const resolvedProductType = productType || (() => {
+        const analysisType = analysisResult?.type?.toLowerCase() || '';
+        const typeMap: Record<string, string> = {
+          ring: 'yuzuk', necklace: 'kolye', bracelet: 'bileklik',
+          earring: 'kupe', pendant: 'kolye', watch: 'saat',
+          choker: 'kolye', brooch: 'genel', piercing: 'kupe',
+        };
+        return typeMap[analysisType] || 'genel';
+      })();
 
-      const lightingVariations = [
-        'Primary lighting from upper-left (10 o\'clock position). Soft diffused key light.',
-        'Balanced front lighting with gentle fill. Even illumination across the piece.',
-        'Dramatic side lighting from the right (2 o\'clock position). Subtle shadow play.',
+      console.log(`Resolved product type: ${resolvedProductType}`);
+
+      const masterSteps = [
+        { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
+          buildPrompt: () => buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock) },
+        { key: 'ecommerce', step: 'generating_ecommerce', label: 'E-Commerce',
+          buildPrompt: () => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock),
+          temperature: 0.1 },
+        { key: 'model', step: 'generating_model', label: 'Model',
+          buildPrompt: () => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType) },
       ];
 
-      const totalToGenerate = 3;
-      for (let i = 0; i < totalToGenerate; i++) {
-        console.log(`Generating image ${i + 1}/${totalToGenerate}...`);
+      for (let i = 0; i < masterSteps.length; i++) {
+        const ms = masterSteps[i];
+        console.log(`Generating ${ms.label} image (${i + 1}/3)...`);
 
-        // Granular progress: 28, 48, 68 for start of each image
         const startProgress = 28 + (i * 20);
         await supabase.from('processing_jobs').update({
           progress: startProgress,
-          current_step: `generating_${i + 1}`,
+          current_step: ms.step,
         }).eq('id', jobId);
 
-        const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+        const prompt = ms.buildPrompt();
 
-${productExtractionBlock}
+        let url: string | null = null;
 
-${fidelityBlock}
+        if (ms.temperature !== undefined) {
+          // Override temperature for e-commerce by using callGeminiImageGeneration directly with retry
+          const temperatures = [ms.temperature, ms.temperature + 0.02, ms.temperature + 0.05];
+          const delays = [0, 3000, 5000];
 
-${modelSceneEnforcement}
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              if (!GOOGLE_IMAGE_API_KEY) break;
+              if (attempt > 0) {
+                console.log(`E-commerce retry ${attempt}/2...`);
+                await new Promise(r => setTimeout(r, delays[attempt]));
+              }
 
-SCENE PLACEMENT:
-${scene?.prompt || 'Elegant luxury setting with soft studio lighting, premium background.'}
+              const genResponse = await callGeminiImageGeneration({
+                base64Images,
+                prompt,
+                temperature: temperatures[attempt],
+              });
 
-LIGHTING DIRECTION: ${lightingVariations[i]}
+              if (!genResponse.ok) {
+                const errText = await genResponse.text();
+                console.error(`E-commerce gen error (${genResponse.status}) attempt ${attempt + 1}:`, errText);
+                if (attempt < 2) continue;
+                break;
+              }
 
-TECHNICAL REQUIREMENTS:
-- Ultra high resolution output
-- Macro photography quality with perfect focus
-- Natural soft studio lighting
-- The jewelry must look IDENTICAL to the reference
+              const genData = await genResponse.json();
+              const parts = genData.candidates?.[0]?.content?.parts || [];
+              let generatedImage: string | null = null;
 
-Ultra high resolution output.`;
+              for (const part of parts) {
+                if (part.inlineData?.mimeType?.startsWith('image/')) {
+                  generatedImage = part.inlineData.data;
+                  part.inlineData.data = null;
+                  break;
+                }
+              }
 
-        const url = await generateSingleImage(base64Images, standardPrompt, userId, imageRecordId, i + 1, supabase, jobId);
+              if (!generatedImage) {
+                if (attempt < 2) continue;
+                break;
+              }
+
+              const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
+              generatedImage = null;
+
+              const filePath = `${userId}/generated/${imageRecordId}-${i + 1}.png`;
+              const { error: uploadError } = await supabase.storage
+                .from('jewelry-images')
+                .upload(filePath, imageBuffer, { contentType: 'image/png' });
+
+              if (!uploadError) {
+                const { data: signedUrlData } = await supabase.storage
+                  .from('jewelry-images')
+                  .createSignedUrl(filePath, 7 * 24 * 60 * 60);
+                if (signedUrlData?.signedUrl) {
+                  url = signedUrlData.signedUrl;
+                }
+              }
+              break;
+            } catch (error) {
+              console.error(`E-commerce gen error (attempt ${attempt + 1}):`, error);
+              if (attempt < 2) continue;
+            }
+          }
+        } else {
+          url = await generateSingleImage(base64Images, prompt, userId, imageRecordId, i + 1, supabase, jobId);
+        }
+
         if (url) generatedUrls.push(url);
 
-        // Update progress: 45, 65, 85 after each image
         const endProgress = 45 + (i * 20);
         await supabase.from('processing_jobs').update({
           completed_images: generatedUrls.length,
           progress: endProgress,
         }).eq('id', jobId);
 
-        console.log(`Image ${i + 1} done. Progress: ${endProgress}%`);
+        console.log(`${ms.label} image done. Progress: ${endProgress}%`);
       }
     }
 
@@ -771,7 +1085,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isRetouchPackage = packageType === 'retouch';
 
-    if (!hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
+    // Standard (Master) package doesn't need sceneId — only style-reference-less, non-retouch, non-standard needs it
+    const isStandardPackage = packageType === 'standard' || !packageType;
+    if (!hasStyleReference && !isRetouchPackage && !isStandardPackage && (!sceneId || !uuidRegex.test(sceneId))) {
       return sendCorsResponse(res, 400, { error: 'Invalid scene ID' });
     }
 

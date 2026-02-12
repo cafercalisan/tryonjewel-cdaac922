@@ -43,16 +43,18 @@ export default function Results() {
     },
   });
 
+  const imageTypeFileNames = ['editorial', 'ecommerce', 'model'];
+
   const handleDownload = async (url: string, index: number) => {
     if (!imageId) return;
     setIsDownloading(index);
     try {
-      // Download native 4K image directly
-      await downloadOriginalImage(url, `jewelry-${imageId}-${index + 1}-4K`);
-      toast.success('4K görsel indirildi');
+      const typeName = imageTypeFileNames[index] || `${index + 1}`;
+      await downloadOriginalImage(url, `jewelry-${imageId}-${typeName}-4K`);
+      toast.success('4K gorsel indirildi');
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('İndirme sırasında hata oluştu');
+      toast.error('Indirme sirasinda hata olustu');
     } finally {
       setIsDownloading(null);
     }
@@ -132,6 +134,9 @@ export default function Results() {
   const generatedUrls = image.generated_image_urls || [];
   const selectedUrl = generatedUrls[selectedIndex];
 
+  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model'];
+  const imageTypeDescriptions = ['Yaratici Sahne', 'Urun Cekimi', 'Model Gorsel'];
+
   return (
     <AppLayout showFooter={false}>
       <div className="container py-8 md:py-12 animate-fade-in">
@@ -193,11 +198,16 @@ export default function Results() {
                         : 'opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img 
-                      src={url} 
-                      alt={`Variation ${index + 1}`}
+                    <img
+                      src={url}
+                      alt={imageTypeLabels[index] || `Variation ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
+                      <span className="text-[10px] font-medium text-white">
+                        {imageTypeLabels[index] || `Varyasyon ${index + 1}`}
+                      </span>
+                    </div>
                     {selectedIndex === index && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/20">
                         <Check className="h-6 w-6 text-primary" />
@@ -211,12 +221,12 @@ export default function Results() {
             {/* Sidebar */}
             <div className="space-y-4">
               <div className="bg-card rounded-xl p-6 shadow-luxury">
-                <h3 className="font-medium mb-4">Seçili Görsel</h3>
+                <h3 className="font-medium mb-1">{imageTypeLabels[selectedIndex] || `Varyasyon ${selectedIndex + 1}`}</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Varyasyon {selectedIndex + 1} / {generatedUrls.length}
+                  {imageTypeDescriptions[selectedIndex] || `Varyasyon ${selectedIndex + 1} / ${generatedUrls.length}`}
                 </p>
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   onClick={() => handleDownload(selectedUrl, selectedIndex)}
                   disabled={isDownloading === selectedIndex}
                 >
@@ -225,17 +235,17 @@ export default function Results() {
                   ) : (
                     <Download className="mr-2 h-4 w-4" />
                   )}
-                  4K İndir
+                  {imageTypeLabels[selectedIndex] || 'Gorsel'} (4K) Indir
                 </Button>
               </div>
 
               <div className="bg-card rounded-xl p-6 shadow-luxury">
-                <h3 className="font-medium mb-4">Tüm Varyasyonları İndir</h3>
+                <h3 className="font-medium mb-4">Tum Gorselleri Indir</h3>
                 <div className="space-y-2">
                   {generatedUrls.map((url, index) => (
-                    <Button 
+                    <Button
                       key={index}
-                      variant="outline" 
+                      variant="outline"
                       className="w-full justify-start"
                       onClick={() => handleDownload(url, index)}
                       disabled={isDownloading === index}
@@ -245,7 +255,7 @@ export default function Results() {
                       ) : (
                         <Download className="mr-2 h-4 w-4" />
                       )}
-                      Varyasyon {index + 1} (4K)
+                      {imageTypeLabels[index] || `Varyasyon ${index + 1}`} (4K)
                     </Button>
                   ))}
                 </div>
