@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Check, Instagram, Globe, Upload, Wand2, X, Loader2, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -101,7 +102,7 @@ export default function CreateDesign() {
         logoBase64 = logoPreview;
       }
 
-      const response = await supabase.functions.invoke('generate-design', {
+      const response = await invokeApi('generate-design', {
         body: {
           productImageUrls: selectedImages,
           logoBase64,

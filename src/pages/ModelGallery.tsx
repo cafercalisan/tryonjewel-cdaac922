@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -140,7 +141,7 @@ export default function ModelGallery() {
       const pose = POSE_OPTIONS.find(p => p.id === poseId);
       if (!pose) throw new Error('Poz bulunamadı');
 
-      const response = await supabase.functions.invoke('generate-model', {
+      const response = await invokeApi('generate-model', {
         body: {
           modelData: {
             name: model.name,

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Loader2, Sparkles, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeApi } from "@/lib/api";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -201,7 +202,7 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
         }
       };
 
-      const { data, error } = await supabase.functions.invoke('generate-model', {
+      const { data, error } = await invokeApi('generate-model', {
         body: {
           name,
           gender,

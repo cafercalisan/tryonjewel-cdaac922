@@ -2,8 +2,8 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
-import { 
-  Check, 
+import {
+  Check,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { productTypes } from "@/components/generate/ProductTypeSelector";
 import { metalColors } from "@/components/generate/MetalColorSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
+import { invokeApi } from "@/lib/api";
 import { UploadArea } from "@/components/generate/UploadArea";
 import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
@@ -60,7 +61,6 @@ export default function Generate() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('standard');
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
-  const [modelVersion, setModelVersion] = useState<'v1' | 'v2'>('v1');
   
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
@@ -77,6 +77,8 @@ export default function Generate() {
   const [pollingImageId, setPollingImageId] = useState<string | null>(null);
   const [jobCurrentStep, setJobCurrentStep] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState(0);
+  const [completedImages, setCompletedImages] = useState(0);
+  const [totalImages, setTotalImages] = useState(3);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -92,12 +94,12 @@ export default function Generate() {
     setPollingJobId(jobId);
     setPollingImageId(imageId);
 
-    // Poll every 3 seconds
+    // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase
           .from('processing_jobs')
-          .select('status, result_urls, error_message, current_step, progress')
+          .select('status, result_urls, error_message, current_step, progress, completed_images, total_images')
           .eq('id', jobId)
           .single();
 
@@ -109,11 +111,13 @@ export default function Generate() {
         if (data) {
           setJobCurrentStep(data.current_step);
           setJobProgress(data.progress || 0);
+          setCompletedImages(data.completed_images || 0);
+          setTotalImages(data.total_images || 3);
 
           // Map current_step to generationStep for UI
-          if (data.current_step === 'analyzing') {
+          if (data.current_step === 'analyzing' || data.current_step === 'downloading') {
             setGenerationStep('analyzing');
-          } else if (data.current_step === 'generating') {
+          } else if (data.current_step?.startsWith('generating') || data.current_step === 'generating' || data.current_step === 'saving') {
             setGenerationStep('generating');
           } else if (data.current_step === 'completed' || data.current_step === 'failed') {
             setGenerationStep('finalizing');
@@ -147,9 +151,9 @@ export default function Generate() {
       } catch (err) {
         console.error('Polling exception:', err);
       }
-    }, 3000);
+    }, 2000);
 
-    // 3-minute timeout safety net
+    // 5-minute timeout safety net (Vercel serverless has 300s max)
     pollingTimeoutRef.current = setTimeout(() => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       toast.error('Üretim zaman aşımına uğradı. Lütfen tekrar deneyin.');
@@ -157,7 +161,7 @@ export default function Generate() {
       setGenerationStep('idle');
       setPollingJobId(null);
       setPollingImageId(null);
-    }, 3 * 60 * 1000);
+    }, 5 * 60 * 1000);
   }, [navigate]);
 
   const { data: scenes } = useQuery({
@@ -257,7 +261,6 @@ export default function Generate() {
   }, [processFile, uploadedImages.length]);
 
   const creditsNeeded = 10;
-  const totalImages = 3;
   const isRetouchMode = packageType === 'retouch';
 
   // When style reference is uploaded, scene selection is disabled
@@ -286,27 +289,26 @@ export default function Generate() {
     return !!selectedSceneId;
   }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
-  // Retry wrapper for WORKER_LIMIT (546) errors
+  // Retry wrapper for transient errors
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
     let lastError: any = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const { data, error } = await supabase.functions.invoke("generate-jewelry", { body });
-      
-      // Check for WORKER_LIMIT / 546 errors
+      const { data, error } = await invokeApi("generate-jewelry", { body });
+
       const errMsg = String(error?.message || data?.error || '');
-      const is546 = errMsg.includes('WORKER_LIMIT') || errMsg.includes('546') || errMsg.includes('worker') || error?.status === 546;
-      
-      if (is546 && attempt < maxRetries - 1) {
+      const isTransient = error?.status === 502 || error?.status === 503 || error?.status === 429;
+
+      if (isTransient && attempt < maxRetries - 1) {
         const baseMs = 800 * Math.pow(2, attempt);
         const jitter = Math.floor(Math.random() * 300);
         const waitMs = baseMs + jitter;
-        console.log(`WORKER_LIMIT hit, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
+        console.log(`Transient error, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
         toast.info(`Sunucu yoğun, ${Math.ceil(waitMs / 1000)}sn sonra tekrar denenecek... (${attempt + 1}/${maxRetries})`);
         await new Promise(r => setTimeout(r, waitMs));
         lastError = error;
         continue;
       }
-      
+
       return { data, error };
     }
     return { data: null, error: lastError };
@@ -340,7 +342,6 @@ export default function Generate() {
         packageType,
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
-        modelVersion,
       };
 
       if (isRetouchMode) {
@@ -387,12 +388,14 @@ export default function Generate() {
     return (
       <AppLayout showFooter={false}>
         <div className="container py-10 max-w-2xl mx-auto">
-          <GeneratingPanel 
-            step={generationStep} 
+          <GeneratingPanel
+            step={generationStep}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
             currentStep={jobCurrentStep}
             progress={jobProgress}
+            completedImages={completedImages}
+            totalImages={totalImages}
           />
         </div>
       </AppLayout>
@@ -445,61 +448,6 @@ export default function Generate() {
                 selectedPackage={packageType}
                 onSelect={setPackageType}
               />
-            </section>
-
-            {/* Model Version Toggle */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                  AI
-                </div>
-                <h2 className="text-sm font-semibold">Model Sürümü</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <motion.button
-                  onClick={() => setModelVersion('v1')}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className={`relative p-3 rounded-xl border-2 transition-all text-left ${
-                    modelVersion === 'v1'
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-border hover:border-primary/30 bg-card'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">V1</span>
-                    {modelVersion === 'v1' && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                        <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                      </motion.div>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Gemini 3 Pro</p>
-                </motion.button>
-                <motion.button
-                  onClick={() => setModelVersion('v2')}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className={`relative p-3 rounded-xl border-2 transition-all text-left ${
-                    modelVersion === 'v2'
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-border hover:border-primary/30 bg-card'
-                  }`}
-                >
-                  <div className="absolute -top-2 right-2 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
-                    BETA
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">V2</span>
-                    {modelVersion === 'v2' && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                        <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                      </motion.div>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Seedream 4.5</p>
-                </motion.button>
-              </div>
             </section>
 
             {/* Retouch Mode Info */}

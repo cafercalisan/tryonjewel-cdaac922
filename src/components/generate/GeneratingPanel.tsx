@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Loader2 } from 'lucide-react';
+import { Lightbulb, Loader2, CheckCircle2, Circle } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
@@ -9,14 +9,18 @@ interface GeneratingPanelProps {
   previewImage?: string | null;
   currentStep?: string | null;
   progress?: number;
+  completedImages?: number;
+  totalImages?: number;
 }
 
-export function GeneratingPanel({ 
-  step, 
+export function GeneratingPanel({
+  step,
   packageType = 'standard',
   previewImage = null,
   currentStep = null,
   progress = 0,
+  completedImages = 0,
+  totalImages = 3,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -33,25 +37,34 @@ export function GeneratingPanel({
     return () => clearInterval(interval);
   }, [facts.length]);
 
-  const title = packageType === 'retouch' ? 'Rötuş Yapılıyor' : 'Görsel Oluşturuluyor';
-  
+  const isRetouch = packageType === 'retouch';
+  const title = isRetouch ? 'Rötuş Yapılıyor' : 'Görsel Oluşturuluyor';
+
   const stepLabels: Record<string, string> = {
     'pending': 'Kuyrukta bekleniyor...',
     'downloading': 'Görseller indiriliyor...',
     'analyzing': 'Mücevher analiz ediliyor...',
     'generating': 'AI görsel oluşturuyor...',
+    'generating_1': 'Görsel 1/3 oluşturuluyor...',
+    'generating_2': 'Görsel 2/3 oluşturuluyor...',
+    'generating_3': 'Görsel 3/3 oluşturuluyor...',
+    'saving': 'Sonuçlar kaydediliyor...',
     'completed': 'Tamamlandı!',
     'failed': 'Hata oluştu',
   };
 
-  const description = currentStep 
+  const description = currentStep
     ? stepLabels[currentStep] || 'İşleniyor...'
-    : packageType === 'retouch'
+    : isRetouch
       ? 'AI profesyonel rötuş uyguluyor...'
       : 'Profesyonel mücevher görseli render ediliyor...';
 
-  // Use polling progress if available, otherwise estimate
   const displayProgress = progress > 0 ? progress : (step === 'analyzing' ? 15 : step === 'generating' ? 40 : 5);
+
+  // Determine which image is currently being generated
+  const currentImageIndex = currentStep?.startsWith('generating_')
+    ? parseInt(currentStep.split('_')[1]) - 1
+    : completedImages;
 
   return (
     <motion.div
@@ -83,6 +96,38 @@ export function GeneratingPanel({
           </div>
         </div>
       </div>
+
+      {/* Per-image progress indicators (only for standard package) */}
+      {!isRetouch && totalImages > 1 && (
+        <div className="px-6 pb-2">
+          <div className="flex items-center gap-3 justify-center">
+            {Array.from({ length: totalImages }, (_, i) => {
+              const isDone = i < completedImages;
+              const isActive = i === currentImageIndex && !isDone && currentStep?.startsWith('generating');
+              return (
+                <div key={i} className="flex items-center gap-1.5">
+                  {isDone ? (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 300 }}
+                    >
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    </motion.div>
+                  ) : isActive ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-muted-foreground/40" />
+                  )}
+                  <span className={`text-xs font-medium ${isDone ? 'text-green-500' : isActive ? 'text-primary' : 'text-muted-foreground/40'}`}>
+                    Görsel {i + 1}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Blurred preview */}
       {previewImage && (
@@ -125,6 +170,11 @@ export function GeneratingPanel({
               {description}
             </span>
             <div className="flex items-center gap-1.5">
+              {!isRetouch && totalImages > 1 && (
+                <span className="text-muted-foreground mr-1">
+                  {completedImages}/{totalImages}
+                </span>
+              )}
               <span className="text-muted-foreground">{displayProgress}%</span>
               <Loader2 className="h-3 w-3 animate-spin text-primary" />
             </div>

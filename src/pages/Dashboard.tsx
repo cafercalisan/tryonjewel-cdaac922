@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins, Instagram, Globe, Upload, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -324,7 +325,7 @@ function DesignCreator({ selectedImages, onClose }: { selectedImages: string[]; 
         logoBase64 = logoPreview;
       }
 
-      const response = await supabase.functions.invoke('generate-design', {
+      const response = await invokeApi('generate-design', {
         body: {
           productImageUrls: selectedImages,
           logoBase64,

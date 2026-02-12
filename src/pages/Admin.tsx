@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { Header } from '@/components/layout/Header';
@@ -99,7 +100,7 @@ export default function Admin() {
 
     setIsUpdating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-set-credits', {
+      const { data, error } = await invokeApi('admin-set-credits', {
         body: { userId: selectedUser.id, credits: newCredits },
       });
 

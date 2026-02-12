@@ -1,0 +1,144 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getServiceClient } from './_lib/supabase';
+import { corsHeaders, sendCorsResponse } from './_lib/cors';
+
+export const config = {
+  maxDuration: 60,
+};
+
+const VIDEO_CREDIT_COST = 200;
+
+async function refundCredits(supabase: any, userId: string, amount: number): Promise<void> {
+  console.log(`Attempting to refund ${amount} credits to user ${userId}`);
+  const { error } = await supabase.rpc('refund_credits', { _user_id: userId, _amount: amount });
+  if (error) console.error('Refund error:', error);
+  else console.log('Credits refunded successfully');
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY is not configured');
+
+    const supabase = getServiceClient();
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Authorization required');
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) throw new Error('Invalid authentication');
+
+    const { videoId } = req.body;
+    if (!videoId) throw new Error('Video ID is required');
+
+    const { data: video, error: videoError } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('id', videoId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (videoError || !video) throw new Error('Video not found');
+
+    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    const isAdminUser = isAdmin === true;
+
+    if (video.status === 'completed' || video.status === 'error') {
+      return sendCorsResponse(res, 200, { success: true, status: video.status, videoUrl: video.video_url, errorMessage: video.error_message });
+    }
+
+    if (!video.operation_id) {
+      return sendCorsResponse(res, 200, { success: true, status: video.status, message: 'Video generation starting...' });
+    }
+
+    console.log(`Checking operation: ${video.operation_id}`);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${video.operation_id}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GOOGLE_API_KEY } }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 404) {
+        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        await supabase.from('videos').update({ status: 'error', error_message: 'Video üretimi başarısız. Krediniz iade edildi.' }).eq('id', videoId);
+        return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'Operation not found. Credits refunded.', refunded: !isAdminUser });
+      }
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    const operationData = await response.json();
+
+    if (operationData.done === true) {
+      // Check RAI filter
+      const raiFilteredReasons = operationData?.response?.generateVideoResponse?.raiMediaFilteredReasons;
+      const raiFilteredCount = operationData?.response?.generateVideoResponse?.raiMediaFilteredCount;
+
+      if ((raiFilteredCount && raiFilteredCount > 0) || (raiFilteredReasons && raiFilteredReasons.length > 0)) {
+        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        const friendly = 'Video üretimi içerik filtresine takıldı. Krediniz iade edildi.';
+        await supabase.from('videos').update({ status: 'error', error_message: friendly }).eq('id', videoId);
+        return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: friendly, refunded: !isAdminUser });
+      }
+
+      if (operationData.error) {
+        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        await supabase.from('videos').update({ status: 'error', error_message: (operationData.error.message || 'Video üretimi başarısız') + ' Krediniz iade edildi.' }).eq('id', videoId);
+        return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: operationData.error.message, refunded: !isAdminUser });
+      }
+
+      const videoUri = operationData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+                       operationData.response?.generatedVideos?.[0]?.video?.uri ||
+                       operationData.response?.predictions?.[0]?.video?.uri ||
+                       operationData.result?.generatedVideos?.[0]?.video?.uri ||
+                       operationData.result?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+                       operationData.response?.video?.uri;
+
+      if (videoUri) {
+        try {
+          const videoResponse = await fetch(`${videoUri}&key=${GOOGLE_API_KEY}`);
+          if (videoResponse.ok) {
+            const videoBlob = await videoResponse.arrayBuffer();
+            const storagePath = `videos/${videoId}.mp4`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('jewelry-images')
+              .upload(storagePath, videoBlob, { contentType: 'video/mp4', upsert: true });
+
+            if (!uploadError) {
+              const { data: publicUrlData } = supabase.storage.from('jewelry-images').getPublicUrl(storagePath);
+              await supabase.from('videos').update({ status: 'completed', video_url: publicUrlData.publicUrl, error_message: null }).eq('id', videoId);
+              return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl: publicUrlData.publicUrl });
+            }
+          }
+        } catch (uploadErr) {
+          console.error('Error uploading video:', uploadErr);
+        }
+
+        await supabase.from('videos').update({ status: 'completed', video_url: videoUri, error_message: null }).eq('id', videoId);
+        return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl: videoUri });
+      } else {
+        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        await supabase.from('videos').update({ status: 'error', error_message: 'Video tamamlandı ancak URL alınamadı. Krediniz iade edildi.' }).eq('id', videoId);
+        return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'No video URL', refunded: !isAdminUser });
+      }
+    }
+
+    // Still in progress
+    const progress = operationData.metadata?.progress || 0;
+    await supabase.from('videos').update({ status: 'processing', error_message: progress > 0 ? `İşleniyor... ${progress}%` : 'Video oluşturuluyor...' }).eq('id', videoId);
+
+    return sendCorsResponse(res, 200, { success: true, status: 'processing', progress, message: progress > 0 ? `İşleniyor... ${progress}%` : 'Video oluşturuluyor...' });
+
+  } catch (error) {
+    console.error('Error in check-video-status:', error);
+    return sendCorsResponse(res, 500, { success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}

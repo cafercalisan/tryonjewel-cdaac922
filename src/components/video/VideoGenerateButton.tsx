@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Video, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -85,7 +86,7 @@ export function VideoGenerateButton({
       setGenerationStatus('processing');
 
       // Call edge function
-      const { data, error } = await supabase.functions.invoke('generate-video', {
+      const { data, error } = await invokeApi('generate-video', {
         body: {
           imageUrl,
           videoId: videoRecord.id,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Video {
@@ -30,7 +31,7 @@ export function useVideoStatusPolling(videos: Video[] | undefined, userId: strin
 
       console.log('Checking status for video:', videoId);
 
-      const { data, error } = await supabase.functions.invoke('check-video-status', {
+      const { data, error } = await invokeApi('check-video-status', {
         body: { videoId }
       });
 

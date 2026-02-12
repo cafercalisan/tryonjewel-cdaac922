@@ -5,7 +5,7 @@ import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Max
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
-import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
+import { downloadOriginalImage } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
@@ -47,14 +47,8 @@ export default function Results() {
     if (!imageId) return;
     setIsDownloading(index);
     try {
-      // Download at maximum 4K quality
-      await downloadImageAs4kJpeg({
-        url,
-        filenameBase: `jewelry-${imageId}-${index + 1}-4K`,
-        width: 3840,
-        height: 4800,
-        quality: 1.0
-      });
+      // Download native 4K image directly
+      await downloadOriginalImage(url, `jewelry-${imageId}-${index + 1}-4K`);
       toast.success('4K görsel indirildi');
     } catch (error) {
       console.error('Download error:', error);
@@ -155,6 +149,11 @@ export default function Results() {
               <h1 className="text-2xl font-semibold">Sonuçlar</h1>
               {image.scenes && (
                 <p className="text-muted-foreground">{(image.scenes as any).name_tr}</p>
+              )}
+              {generatedUrls.length > 0 && generatedUrls.length < 3 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  {generatedUrls.length}/3 görsel başarıyla oluşturuldu
+                </p>
               )}
             </div>
           </div>
