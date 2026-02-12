@@ -142,7 +142,6 @@ async function callSeedreamImageGeneration({
     watermark: false,
   };
 
-  // Add image reference(s) for image-to-image
   if (imageUrls && imageUrls.length > 0) {
     body.image = imageUrls.length === 1 ? imageUrls[0] : imageUrls;
     body.sequential_image_generation = 'disabled';
@@ -186,7 +185,6 @@ async function generateSingleImageSeedream(
     const resultUrl = await callSeedreamImageGeneration({ imageUrls, prompt });
     if (!resultUrl) return null;
 
-    // Download the generated image from Seedream's URL
     const imgResp = await fetch(resultUrl);
     if (!imgResp.ok) {
       console.error(`Failed to download Seedream result: ${imgResp.status}`);
@@ -270,7 +268,6 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         generatedImage = part.inlineData.data;
-        // Clear part data to free memory
         part.inlineData.data = null;
         break;
       }
@@ -281,9 +278,8 @@ async function generateSingleImage(base64Images: string[], prompt: string, userI
       return null;
     }
 
-    // Convert and upload, then immediately free the base64 string
     const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
-    generatedImage = null; // Free ~20MB+ of base64 string memory
+    generatedImage = null; // Free memory
     
     const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
     const { error: uploadError } = await supabase.storage
@@ -320,36 +316,28 @@ async function processGenerationInBackground(params: {
   validAdditionalPaths: string[];
   sceneId: string | null;
   packageType: string;
-  colorId: string | null;
   productType: string | null;
-  modelId: string | null;
   metalColorOverride: string | null;
   styleReferencePath: string | null;
   creditsNeeded: number;
   isAdminUser: boolean;
   modelVersion: string;
-  stepIndex: number;
 }) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
-    sceneId, packageType, colorId, productType, modelId,
+    sceneId, packageType, productType,
     metalColorOverride, styleReferencePath, creditsNeeded, isAdminUser,
-    modelVersion, stepIndex
+    modelVersion
   } = params;
   
-  const isMasterPackage = packageType === 'master';
-  // Use the model version selected by the user: V1=Gemini, V2=Seedream
   const useV2ForGeneration = modelVersion === 'v2';
   console.log(`Using model: Analysis=Gemini, Generation=${useV2ForGeneration ? 'Seedream 4.5' : 'Gemini 3 Pro'}, Package=${packageType}`);
 
   const isRetouchPackage = packageType === 'retouch';
-  const totalImages = isMasterPackage ? 3 : 1;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // Helper: generate image using the appropriate model
-  // Master always uses Seedream (URL-based, memory efficient)
-  // Standard/Retouch respects user's V1/V2 choice
   async function generateImage(
     base64Imgs: string[],
     signedUrls: string[],
@@ -424,15 +412,13 @@ async function processGenerationInBackground(params: {
       scene = sceneData;
     }
 
-    // Fetch and convert all images to base64
+    // Fetch and convert first image to base64
     await supabase.from('processing_jobs').update({
       current_step: 'analyzing',
       progress: 10,
     }).eq('id', jobId);
 
     const base64Images: string[] = [];
-    // Only convert the FIRST image to base64 to minimize memory usage
-    // Additional images are only used via signed URLs for V2
     const firstUrl = imageUrls[0];
     const imageResponse = await fetch(firstUrl);
     const imageBuffer = await imageResponse.arrayBuffer();
@@ -687,7 +673,7 @@ FORBIDDEN:
     const generatedUrls: string[] = [];
 
     // ═══════════════════════════════════════════════════════════════
-    // GENERATION LOGIC (same as before but with job progress updates)
+    // GENERATION LOGIC
     // ═══════════════════════════════════════════════════════════════
     
     if (isRetouchPackage) {
@@ -746,280 +732,6 @@ Ultra high resolution output.`.trim();
         completed_images: generatedUrls.length,
         progress: 90,
       }).eq('id', jobId);
-
-    } else if (isMasterPackage) {
-      console.log(`Master Package step ${stepIndex}/2: Generating image...`);
-
-      // Read existing URLs for continuation steps
-      let existingUrls: string[] = [];
-      if (stepIndex > 0) {
-        const { data: jd } = await supabase.from('processing_jobs').select('result_urls').eq('id', jobId).single();
-        existingUrls = Array.isArray(jd?.result_urls) ? jd.result_urls as string[] : [];
-      }
-
-      const colorMap: Record<string, { name: string; prompt: string }> = {
-        'white': { name: 'Beyaz', prompt: 'matte seamless paper backdrop, soft off-white, clean ivory (NON-METALLIC)' },
-        'cream': { name: 'Krem', prompt: 'matte seamless paper backdrop, warm cream, soft ivory, delicate beige-white (NON-METALLIC)' },
-        'blush': { name: 'Pudra Pembe', prompt: 'matte seamless paper backdrop, soft blush pink, pale dusty rose (NON-METALLIC)' },
-        'lavender': { name: 'Lavanta', prompt: 'matte seamless paper backdrop, soft lavender, pale muted violet (NON-METALLIC)' },
-        'mint': { name: 'Nane Yeşili', prompt: 'matte seamless paper backdrop, soft mint, pale sage, gentle seafoam (NON-METALLIC)' },
-        'skyblue': { name: 'Gök Mavisi', prompt: 'matte seamless paper backdrop, soft sky blue, pale powder blue (NON-METALLIC)' },
-        'peach': { name: 'Şeftali', prompt: 'matte seamless paper backdrop, soft peach, gentle apricot, muted coral tint (NON-METALLIC)' },
-        'champagne': { name: 'Şampanya', prompt: 'matte seamless paper backdrop, warm champagne-beige, soft nude, elegant sand (NON-METALLIC)' },
-        'silver': { name: 'Gümüş', prompt: 'matte seamless paper backdrop, cool light gray, pale dove gray, soft neutral gray (NON-METALLIC)' },
-        'gray': { name: 'Gri', prompt: 'matte seamless paper backdrop, soft dove gray, gentle stone gray, neutral warm gray (NON-METALLIC)' },
-      };
-
-      const selectedColor = colorMap[colorId || 'white'] || colorMap['white'];
-
-      // Catalog backgrounds for editorial shot
-      const catalogBackgrounds = [
-        { name: 'Carrara Marble Slab', prompt: 'jewelry resting on a luxurious Carrara white marble surface with subtle gray veining, soft shadows, natural stone texture' },
-        { name: 'Travertine Stone', prompt: 'jewelry placed on warm travertine stone surface, natural porous texture, beige-cream tones, Mediterranean luxury' },
-        { name: 'Black Granite', prompt: 'jewelry on polished black granite surface with subtle golden or white flecks, dramatic contrast' },
-        { name: 'Raw Concrete', prompt: 'jewelry on raw concrete surface, minimalist industrial chic, subtle gray texture' },
-        { name: 'Cream Linen', prompt: 'jewelry draped on luxurious cream linen fabric with natural folds and texture, soft diffused light' },
-        { name: 'Slate Stone', prompt: 'jewelry on dark slate stone surface with natural layered texture, moody elegance' },
-        { name: 'White Sand', prompt: 'jewelry resting on fine white sand surface, pristine beach aesthetic, soft granular texture' },
-        { name: 'Velvet Cushion', prompt: 'jewelry on deep navy or burgundy velvet cushion, rich fabric texture, jeweler display aesthetic' },
-        { name: 'Rose Petals', prompt: 'jewelry scattered among fresh rose petals, romantic editorial, soft pink and cream tones' },
-        { name: 'Water Droplets', prompt: 'jewelry on clear glass surface with water droplets, fresh morning dew aesthetic, crystal clarity' },
-        { name: 'Raw Quartz Crystal', prompt: 'jewelry arranged with raw quartz crystal clusters, natural gemstone setting, prismatic light' },
-      ];
-
-      const randomCatalogBg = catalogBackgrounds[Math.floor(Math.random() * catalogBackgrounds.length)];
-      console.log(`Selected catalog background: ${randomCatalogBg.name}`);
-
-      // ═══════════════════════════════════════════════════════════
-      // IMAGE 1: Editorial Luxury Scene (reference anchor)
-      // ═══════════════════════════════════════════════════════════
-      const catalogPrompt = `High-end luxury fashion editorial photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K ultra-high resolution quality.
-
-${productExtractionBlock}
-
-${fidelityBlock}
-
-TASK TYPE: EDITORIAL SCENE INTEGRATION WITHOUT ALTERING THE JEWELRY
-- The jewelry (especially metal color) must remain exactly as reference.
-- Product must be INTEGRATED into the scene, NOT staged or floating in air.
-
-⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
-- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Original Color Category: ${metalColorCategory.toUpperCase()}
-${metalColorHex ? `- Original Metal Hex Reference: ${metalColorHex}` : ''}
-
-SCENE CONCEPT:
-- SELECTED SCENE: ${randomCatalogBg.name}
-- SCENE DESCRIPTION: ${randomCatalogBg.prompt}
-- Product must feel NATURALLY INTEGRATED into the scene
-
-CAMERA & COMPOSITION:
-- Lens: 85–100mm, slightly low or side-angled
-- Composition: Asymmetrical but balanced, editorial negative space
-- Focus: Razor-sharp on jewelry with natural depth of field
-
-OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
-Ultra high resolution output.`;
-
-      if (stepIndex === 0) {
-        console.log('Step 0: Generating Editorial image...');
-        const catalogUrl = await generateImage(base64Images, imageUrls, catalogPrompt, 1);
-        
-        if (catalogUrl) {
-          generatedUrls.push(catalogUrl);
-          existingUrls.push(catalogUrl);
-          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
-        }
-        await supabase.from('processing_jobs').update({
-          status: generatedUrls.length > 0 ? 'step_0_done' : 'failed',
-          completed_images: existingUrls.length,
-          progress: 90,
-          result_urls: existingUrls,
-          current_step: generatedUrls.length > 0 ? 'step_0_done' : 'failed',
-          ...(generatedUrls.length === 0 ? { error_message: 'Editorial görsel oluşturulamadı' } : {}),
-        }).eq('id', jobId);
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // IMAGE 2: E-commerce clean background
-      // ═══════════════════════════════════════════════════════════
-      const ecommercePrompt = `[STRICT INPAINTING MODE - BACKGROUND REPLACEMENT ONLY]
-Professional e-commerce product photography. Ultra photorealistic. 4:5 portrait aspect ratio.
-
-${productExtractionBlock}
-
-${fidelityBlock}
-
-WHAT IS FROZEN (DO NOT TOUCH):
-- ✔ Exact jewelry geometry and proportions
-- ✔ Every stone position and count
-- ✔ Metal color, finish, and reflective properties
-- ✔ All design elements exactly as reference
-
-WHAT TO CHANGE (BACKGROUND ONLY):
-- Background: ${selectedColor.prompt}
-- Surface: matte, non-reflective
-- Lighting: soft, diffused, neutral
-
-⚠️ METAL COLOR IS LOCKED (ZERO TOLERANCE) ⚠️
-- Original Metal: ${metalType.replace('_', ' ').toUpperCase()}
-- Original Color Category: ${metalColorCategory.toUpperCase()}
-
-SCENE: Clean, minimal e-commerce product shot.
-OUTPUT QUALITY: Maximum resolution, ultra-sharp details.
-Ultra high resolution output.`;
-
-      if (stepIndex === 1) {
-        console.log('Step 1: Generating E-commerce image...');
-        const ecomUrl = await generateImage(base64Images, imageUrls, ecommercePrompt, 2);
-        if (ecomUrl) {
-          generatedUrls.push(ecomUrl);
-          existingUrls.push(ecomUrl);
-          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
-        }
-        await supabase.from('processing_jobs').update({
-          status: generatedUrls.length > 0 ? 'step_1_done' : 'failed',
-          completed_images: existingUrls.length,
-          progress: 90,
-          result_urls: existingUrls,
-          current_step: generatedUrls.length > 0 ? 'step_1_done' : 'failed',
-          ...(generatedUrls.length === 0 ? { error_message: 'E-ticaret görsel oluşturulamadı' } : {}),
-        }).eq('id', jobId);
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // IMAGE 3: Model shot
-      // ═══════════════════════════════════════════════════════════
-      const editorialBackgrounds = [
-        { name: 'Carrara Marble', prompt: 'Polished Carrara marble surface with natural gray veining, soft neutral daylight' },
-        { name: 'Black Volcanic Stone', prompt: 'Matte black volcanic stone surface, subtle natural texture, dramatic contrast' },
-        { name: 'Ivory Silk', prompt: 'Flowing ivory silk fabric with soft sculptural folds, warm studio lighting' },
-        { name: 'Deep Navy Velvet', prompt: 'Rich deep navy velvet fabric surface, subtle light play on texture' },
-        { name: 'White Gallery Wall', prompt: 'Clean white gallery wall with soft museum lighting, minimal architectural space' },
-        { name: 'Mediterranean Limestone', prompt: 'Natural Mediterranean limestone rock surface, warm cream and beige tones' },
-      ];
-      
-      const selectedBackground = editorialBackgrounds[Math.floor(Math.random() * editorialBackgrounds.length)];
-      
-      const productTypeUpper = (productType || analysisResult.type || 'ring').toLowerCase();
-      
-      let modelBodyPart = 'hand';
-      let wearingDescription = 'worn on elegant fingers';
-      let framingDescription = 'TIGHT MACRO CROP on the ring, hand visible but ring dominates 70% of frame';
-      let cameraLens = '100mm macro lens';
-      let scaleNote = 'Ring appears at natural finger-to-ring proportion, NOT enlarged';
-      
-      if (productTypeUpper.includes('kolye') || productTypeUpper.includes('necklace') || productTypeUpper.includes('pendant') || productTypeUpper.includes('choker')) {
-        modelBodyPart = 'neck and décolletage';
-        wearingDescription = 'elegantly draped around the neck at natural position';
-        framingDescription = 'TIGHT CROP from chin to upper chest, necklace centered and clearly readable';
-        cameraLens = '85mm prime lens';
-        scaleNote = 'Necklace appears at NATURAL DELICATE SIZE relative to neck - DO NOT ENLARGE.';
-      } else if (productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing')) {
-        modelBodyPart = 'ear and jawline';
-        wearingDescription = 'adorning the ear in correct anatomical position';
-        framingDescription = 'TIGHT CROP showing ear - jawline to temple visible, earring dominates 60% of frame';
-        cameraLens = '100mm macro lens';
-        scaleNote = 'Earring at natural ear proportion. ONE earring per ear ONLY.';
-      } else if (productTypeUpper.includes('bileklik') || productTypeUpper.includes('bracelet') || productTypeUpper.includes('bangle')) {
-        modelBodyPart = 'wrist and forearm';
-        wearingDescription = 'wrapped around a slender wrist';
-        framingDescription = 'TIGHT CROP on wrist area, bracelet clearly readable';
-        cameraLens = '100mm macro lens';
-        scaleNote = 'Bracelet at natural wrist proportion';
-      } else if (productTypeUpper.includes('yüzük') || productTypeUpper.includes('ring') || productTypeUpper.includes('yuzuk')) {
-        modelBodyPart = 'hand and fingers';
-        wearingDescription = 'on elegant, well-manicured fingers';
-        framingDescription = 'EXTREME CLOSE-UP on ring and finger, ring stone/setting occupies 60-70% of frame';
-        cameraLens = '100mm macro lens';
-        scaleNote = 'Ring at EXACT natural finger proportion';
-      } else if (productTypeUpper.includes('saat') || productTypeUpper.includes('watch')) {
-        modelBodyPart = 'wrist and forearm';
-        wearingDescription = 'elegantly worn on the wrist, watch face prominently displayed';
-        framingDescription = 'TIGHT MACRO CROP on wrist showing watch face details - watch occupies 65% of frame';
-        cameraLens = '100mm macro lens';
-        scaleNote = 'Watch at natural wrist proportion';
-      }
-
-      let modelDescription = 'elegant model with natural beauty, sophisticated appearance';
-      let skinToneDesc = 'natural healthy skin with visible pores';
-      let skinUndertoneDesc = 'neutral undertone';
-      
-      if (modelId && uuidRegex.test(modelId)) {
-        const { data: modelData } = await supabase
-          .from('user_models')
-          .select('*')
-          .eq('id', modelId)
-          .single();
-        
-        if (modelData) {
-          const genderDesc = modelData.gender === 'female' ? 'female' : modelData.gender === 'male' ? 'male' : 'androgynous';
-          modelDescription = `${modelData.ethnicity || 'diverse'} ${genderDesc} model, ${modelData.age_range || 'young adult'} age range, ${modelData.face_shape || 'balanced'} face, ${modelData.eye_color || 'natural'} eyes, ${modelData.hair_color || 'dark'} ${modelData.hair_texture || 'straight'} hair`;
-          skinToneDesc = `${modelData.skin_tone || 'medium'} skin tone with visible pores`;
-          skinUndertoneDesc = `${modelData.skin_undertone || 'neutral'} undertone`;
-        }
-      }
-
-      const isEarringType = productTypeUpper.includes('küpe') || productTypeUpper.includes('earring') || productTypeUpper.includes('piercing');
-      const earringConstraints = isEarringType ? `
-⚠️ EARRING RULE: ONE EAR = ONE PIERCING = ONE EARRING
-- Each visible ear MUST have exactly ONE (1) primary lobe piercing
-- Frame MUST show ONLY ONE ear clearly (single-ear close-up)
-- NEVER render two earrings on the same ear
-` : '';
-
-      const modelShotPrompt = `JEWELRY WORN BY A HUMAN MODEL - EDITORIAL CAMPAIGN PHOTOGRAPHY.
-⚠️ MANDATORY: THIS IMAGE MUST SHOW A REAL HUMAN MODEL WEARING THE JEWELRY ⚠️
-
-${productExtractionBlock}
-
-${fidelityBlock}
-
-${earringConstraints}
-
-⚠️ SCALE PRESERVATION ⚠️
-${scaleNote}
-
-FRAMING: ${framingDescription}
-- HUMAN MODEL'S ${modelBodyPart.toUpperCase()} MUST BE VISIBLE wearing the jewelry
-- Camera: ${cameraLens}, f/4-f/5.6, ISO 50-100
-
-MODEL:
-- ${modelDescription}
-- Skin: ${skinToneDesc}, ${skinUndertoneDesc}
-- Body part: ${modelBodyPart}
-- Wearing: ${wearingDescription}
-- Skin: editorial macro-photography level, visible pores, NO plastic/waxy appearance
-- FEMALE BODY HAIR: Ultra-fine, nearly invisible vellus hair only
-
-BACKGROUND: ${selectedBackground.name}
-${selectedBackground.prompt}
-
-LIGHTING:
-- White balance neutral ~5000K-5500K
-- Soft diffused studio lighting
-- NO rim lights or colored bounce that shift metal color
-- Light FAVORS jewelry detail and facet visibility
-
-METAL COLOR ENFORCEMENT:
-- Metal: ${metalType.replace('_', ' ').toUpperCase()} - LOCKED
-- Any deviation = GENERATION FAILURE
-
-MOOD: Luxury fashion editorial, calm, precise, product-first.
-
-OUTPUT: 4K ultra-high resolution. PHOTOREALISM prioritized.
-Ultra high resolution output.`;
-
-      if (stepIndex === 2) {
-        console.log('Step 2: Generating Model Shot image...');
-        const modelUrl = await generateImage(base64Images, imageUrls, modelShotPrompt, 3);
-        if (modelUrl) {
-          generatedUrls.push(modelUrl);
-          existingUrls.push(modelUrl);
-          await supabase.from('images').update({ generated_image_urls: existingUrls }).eq('id', imageRecordId);
-        }
-        // Step 2 result handled by finalize section
-      }
 
     } else if (hasStyleReference && styleReferenceBase64) {
       // STYLE REFERENCE MODE
@@ -1111,28 +823,6 @@ Ultra high resolution output.`;
     // FINALIZE
     // ═══════════════════════════════════════════════════════════════
 
-    // For master intermediate steps (0, 1), completion is handled above
-    if (isMasterPackage && stepIndex < 2) {
-      console.log(`Master step ${stepIndex} complete. Generated: ${generatedUrls.length}`);
-      // If step failed, handle refund
-      if (generatedUrls.length === 0 && stepIndex === 0 && !isAdminUser) {
-        await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
-        console.log(`Full refund on step 0 failure: ${creditsNeeded}`);
-      }
-      return;
-    }
-
-    // For master step 2, merge all URLs from previous steps
-    if (isMasterPackage && stepIndex === 2) {
-      const { data: finalJob } = await supabase.from('processing_jobs').select('result_urls').eq('id', jobId).single();
-      const allUrls = Array.isArray(finalJob?.result_urls) ? finalJob.result_urls as string[] : [];
-      for (const u of generatedUrls) {
-        if (!allUrls.includes(u)) allUrls.push(u);
-      }
-      generatedUrls.length = 0;
-      allUrls.forEach(u => generatedUrls.push(u));
-    }
-
     if (generatedUrls.length === 0) {
       // Refund credits
       if (!isAdminUser) {
@@ -1157,21 +847,6 @@ Ultra high resolution output.`;
       return;
     }
 
-    // Partial refund for master package if some images failed
-    if (isMasterPackage && generatedUrls.length < 3 && !isAdminUser) {
-      const failedCount = 3 - generatedUrls.length;
-      const refundAmount = Math.floor((failedCount / 3) * creditsNeeded);
-      if (refundAmount > 0) {
-        await supabase.rpc('refund_credits', { _user_id: userId, _amount: refundAmount });
-        console.log(`Partial refund: ${refundAmount} credits for ${failedCount} failed images`);
-        
-        await supabase.from('processing_jobs').update({
-          partial_refund_amount: refundAmount,
-          failed_image_indices: Array.from({ length: failedCount }, (_, i) => generatedUrls.length + i),
-        }).eq('id', jobId);
-      }
-    }
-
     // Update image record
     await supabase.from('images').update({
       status: 'completed',
@@ -1193,8 +868,7 @@ Ultra high resolution output.`;
     console.error('Background processing error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     
-    // Refund credits on error (only for step 0 or non-master to prevent double refund)
-    if (!isAdminUser && (stepIndex === 0 || !isMasterPackage)) {
+    if (!isAdminUser) {
       try {
         await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
         console.log(`Credits refunded on error: ${creditsNeeded}`);
@@ -1252,9 +926,8 @@ serve(async (req) => {
     console.log('Authenticated user:', userId);
 
     // Parse request body
-    const { imagePath, additionalImagePaths, sceneId, packageType, colorId, productType, modelId, metalColorOverride, styleReferencePath, modelVersion, stepIndex: rawStepIndex, existingJobId, existingImageId } = await req.json();
-    const stepIndex = rawStepIndex || 0;
-    console.log('Generate request:', { imagePath, sceneId, packageType, productType, modelVersion, stepIndex, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath, modelVersion } = await req.json();
+    console.log('Generate request:', { imagePath, sceneId, packageType, productType, modelVersion, userId });
 
     // Validate imagePath
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
@@ -1279,10 +952,9 @@ serve(async (req) => {
 
     // Validate sceneId
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isMasterPackage = packageType === 'master';
     const isRetouchPackage = packageType === 'retouch';
     
-    if (!isMasterPackage && !hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
+    if (!hasStyleReference && !isRetouchPackage && (!sceneId || !uuidRegex.test(sceneId))) {
       return new Response(
         JSON.stringify({ error: 'Invalid scene ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1292,29 +964,27 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // ═══ SINGLE-FLIGHT: Block concurrent jobs, auto-clean stuck ones ═══
-    if (stepIndex === 0) {
-      // Auto-clean stuck jobs older than 5 minutes
-      await supabase
-        .from('processing_jobs')
-        .update({ status: 'failed', error_message: 'Auto-cleaned: stuck job (timeout)' })
-        .eq('user_id', userId)
-        .in('status', ['pending', 'generating'])
-        .lt('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+    // Auto-clean stuck jobs older than 5 minutes
+    await supabase
+      .from('processing_jobs')
+      .update({ status: 'failed', error_message: 'Auto-cleaned: stuck job (timeout)' })
+      .eq('user_id', userId)
+      .in('status', ['pending', 'generating'])
+      .lt('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
-      // Now check for truly active jobs
-      const { count: activeJobs } = await supabase
-        .from('processing_jobs')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .in('status', ['pending', 'generating']);
+    // Now check for truly active jobs
+    const { count: activeJobs } = await supabase
+      .from('processing_jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['pending', 'generating']);
 
-      if (activeJobs && activeJobs > 0) {
-        console.log(`Blocked: user ${userId} already has ${activeJobs} active job(s)`);
-        return new Response(
-          JSON.stringify({ error: 'Zaten devam eden bir üretim var. Lütfen bekleyin.', code: 'ACTIVE_JOB_EXISTS' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (activeJobs && activeJobs > 0) {
+      console.log(`Blocked: user ${userId} already has ${activeJobs} active job(s)`);
+      return new Response(
+        JSON.stringify({ error: 'Zaten devam eden bir üretim var. Lütfen bekleyin.', code: 'ACTIVE_JOB_EXISTS' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check admin status
@@ -1323,86 +993,76 @@ serve(async (req) => {
     const isAdminUser = isAdmin === true;
 
     // Calculate credits
-    const creditsNeeded = isMasterPackage ? 20 : 10;
-    const totalImages = isMasterPackage ? 3 : 1;
+    const creditsNeeded = 10;
 
-    let imageRecordId: string;
-    let jobRecordId: string;
+    // Deduct credits
+    if (!isAdminUser) {
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
 
-    if (stepIndex > 0 && existingJobId && existingImageId) {
-      // Continuation step - reuse existing records, no credit deduction
-      imageRecordId = existingImageId;
-      jobRecordId = existingJobId;
-      console.log(`Continuing job ${jobRecordId}, step ${stepIndex}`);
-    } else {
-      // Step 0 or non-master: normal flow with credits and record creation
-      if (!isAdminUser) {
-        const { data: deductResult, error: deductError } = await supabase
-          .rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
-
-        if (deductError) {
-          console.error('Credit deduction error:', deductError);
-          return new Response(
-            JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        if (!deductResult?.success) {
-          return new Response(
-            JSON.stringify({ 
-              error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` 
-            }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
-      } else {
-        console.log('Admin user - skipping credit deduction');
+      if (deductError) {
+        console.error('Credit deduction error:', deductError);
+        return new Response(
+          JSON.stringify({ error: 'Kredi kontrolü sırasında hata oluştu.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      // Create image record
-      const { data: imageRecord, error: insertError } = await supabase
-        .from('images')
-        .insert({
-          user_id: userId,
-          scene_id: sceneId || null,
-          original_image_url: imagePath,
-          status: 'analyzing',
-        })
-        .select()
-        .single();
+      if (!deductResult?.success) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` 
+          }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-      if (insertError) throw insertError;
-      imageRecordId = imageRecord.id;
-
-      // Create processing job
-      const { data: jobRecord, error: jobError } = await supabase
-        .from('processing_jobs')
-        .insert({
-          user_id: userId,
-          image_record_id: imageRecordId,
-          status: 'pending',
-          total_images: totalImages,
-          completed_images: 0,
-          progress: 0,
-          current_step: 'pending',
-          credits_used: isAdminUser ? 0 : creditsNeeded,
-        })
-        .select()
-        .single();
-
-      if (jobError) throw jobError;
-      jobRecordId = jobRecord.id;
-
-      console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
+      console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+    } else {
+      console.log('Admin user - skipping credit deduction');
     }
 
+    // Create image record
+    const { data: imageRecord, error: insertError } = await supabase
+      .from('images')
+      .insert({
+        user_id: userId,
+        scene_id: sceneId || null,
+        original_image_url: imagePath,
+        status: 'analyzing',
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    const imageRecordId = imageRecord.id;
+
+    // Create processing job
+    const { data: jobRecord, error: jobError } = await supabase
+      .from('processing_jobs')
+      .insert({
+        user_id: userId,
+        image_record_id: imageRecordId,
+        status: 'pending',
+        total_images: 1,
+        completed_images: 0,
+        progress: 0,
+        current_step: 'pending',
+        credits_used: isAdminUser ? 0 : creditsNeeded,
+      })
+      .select()
+      .single();
+
+    if (jobError) throw jobError;
+    const jobRecordId = jobRecord.id;
+
+    console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
+
     // ═══════════════════════════════════════════════════════════════
-    // SYNCHRONOUS PROCESSING - await directly, return results
+    // FIRE-AND-FORGET: Use EdgeRuntime.waitUntil() to process in background
+    // The response is sent immediately, freeing the worker
     // ═══════════════════════════════════════════════════════════════
-    await processGenerationInBackground({
+    (globalThis as any).EdgeRuntime.waitUntil(processGenerationInBackground({
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -1410,35 +1070,21 @@ serve(async (req) => {
       validAdditionalPaths,
       sceneId: sceneId || null,
       packageType: packageType || 'standard',
-      colorId: colorId || null,
       productType: productType || null,
-      modelId: modelId || null,
       metalColorOverride: metalColorOverride || null,
       styleReferencePath: styleReferencePath || null,
       creditsNeeded,
       isAdminUser,
       modelVersion: modelVersion || 'v1',
-      stepIndex,
-    });
+    }));
 
-    // Fetch final job state after processing
-    const { data: finalJobState } = await supabase.from('processing_jobs')
-      .select('status, result_urls, completed_images, error_message')
-      .eq('id', jobRecordId)
-      .single();
-
-    const resultUrls = Array.isArray(finalJobState?.result_urls) ? finalJobState.result_urls : [];
-
+    // Return immediately with job reference
     return new Response(
       JSON.stringify({ 
-        success: finalJobState?.status !== 'failed', 
+        success: true, 
         jobId: jobRecordId, 
         imageId: imageRecordId,
-        status: finalJobState?.status || 'completed',
-        resultUrls,
-        totalImages,
-        completedImages: finalJobState?.completed_images || 0,
-        errorMessage: finalJobState?.error_message || null,
+        status: 'pending',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
