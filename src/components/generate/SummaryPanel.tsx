@@ -1,4 +1,4 @@
-import { Crown, Image as ImageIcon, Sparkles, User, Check, Wand2 } from "lucide-react";
+import { Image as ImageIcon, Sparkles, User, Check, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { metalColors } from "./MetalColorSelector";
 import { productTypes } from "./ProductTypeSelector";
@@ -17,7 +17,7 @@ interface UserModel {
 }
 
 interface SummaryPanelProps {
-  packageType: 'standard' | 'master' | 'retouch';
+  packageType: 'standard' | 'retouch';
   selectedProductType: string | null;
   selectedMetalColor: string | null;
   selectedModel: UserModel | null;
@@ -74,7 +74,7 @@ export function SummaryPanel({
       icon: <Sparkles className="h-4 w-4 text-primary" />,
       label: 'Stil Referansı',
     },
-    packageType === 'standard' && selectedScene && !hasStyleReference && {
+    selectedScene && !hasStyleReference && {
       icon: <Sparkles className="h-4 w-4 text-muted-foreground" />,
       label: selectedScene.name_tr,
     },
@@ -85,11 +85,7 @@ export function SummaryPanel({
       {/* Package Summary Card */}
       <div className="bg-card rounded-2xl border border-border p-5">
         <div className="flex items-center gap-3 mb-4">
-          {packageType === 'master' ? (
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Crown className="h-5 w-5 text-primary" />
-            </div>
-          ) : packageType === 'retouch' ? (
+          {packageType === 'retouch' ? (
             <div className="p-2 rounded-xl bg-primary/10">
               <Wand2 className="h-5 w-5 text-primary" />
             </div>
@@ -100,34 +96,13 @@ export function SummaryPanel({
           )}
           <div>
             <h3 className="font-semibold">
-              {packageType === 'master' ? 'Master Paket' : packageType === 'retouch' ? 'Retouch' : 'Standart Paket'}
+              {packageType === 'retouch' ? 'Retouch' : 'Standart Paket'}
             </h3>
             <p className="text-xs text-muted-foreground">
               {packageType === 'retouch' ? 'Profesyonel rötuş işlemi' : `${totalImages} görsel oluşturulacak`}
             </p>
           </div>
         </div>
-
-        {/* Output preview for Master */}
-        {packageType === 'master' && (
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {[
-              { emoji: '🛒', label: 'E-Ticaret' },
-              { emoji: '📸', label: 'Katalog' },
-              { emoji: '👤', label: 'Model' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="bg-muted/50 rounded-xl p-2.5 text-center"
-              >
-                <div className="text-lg mb-0.5">{item.emoji}</div>
-                <p className="text-[10px] font-medium text-muted-foreground">
-                  {item.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Summary items */}
         {summaryItems.length > 0 && (

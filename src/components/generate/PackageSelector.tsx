@@ -1,7 +1,7 @@
-import { Crown, Image as ImageIcon, Wand2, Check } from "lucide-react";
+import { Image as ImageIcon, Wand2, Check } from "lucide-react";
 import { motion } from "framer-motion";
 
-type PackageType = 'standard' | 'master' | 'retouch';
+type PackageType = 'standard' | 'retouch';
 
 interface PackageSelectorProps {
   selectedPackage: PackageType;
@@ -13,21 +13,12 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
     {
       id: 'standard' as PackageType,
       name: 'Standart',
-      description: 'Tek sahne görseli',
+      description: 'Profesyonel sahne görseli',
       credits: 10,
       images: 1,
       icon: ImageIcon,
-      features: ['1 profesyonel görsel', 'Sahne seçimi', 'Hızlı üretim'],
-    },
-    {
-      id: 'master' as PackageType,
-      name: 'Master',
-      description: 'E-ticaret paketi',
-      credits: 20,
-      images: 3,
-      icon: Crown,
       recommended: true,
-      features: ['3 farklı görsel', 'E-ticaret + Katalog + Model', 'En yüksek kalite'],
+      features: ['1 profesyonel görsel', 'Sahne seçimi', 'En yüksek kalite'],
     },
     {
       id: 'retouch' as PackageType,
@@ -41,7 +32,7 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3">
       {packages.map((pkg) => {
         const isSelected = selectedPackage === pkg.id;
         const Icon = pkg.icon;
