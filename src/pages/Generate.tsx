@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
@@ -72,6 +72,93 @@ export default function Generate() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   
+  // Polling state
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [pollingImageId, setPollingImageId] = useState<string | null>(null);
+  const [jobCurrentStep, setJobCurrentStep] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+    };
+  }, []);
+
+  const startPolling = useCallback((jobId: string, imageId: string) => {
+    setPollingJobId(jobId);
+    setPollingImageId(imageId);
+
+    // Poll every 3 seconds
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('processing_jobs')
+          .select('status, result_urls, error_message, current_step, progress')
+          .eq('id', jobId)
+          .single();
+
+        if (error) {
+          console.error('Polling error:', error);
+          return;
+        }
+
+        if (data) {
+          setJobCurrentStep(data.current_step);
+          setJobProgress(data.progress || 0);
+
+          // Map current_step to generationStep for UI
+          if (data.current_step === 'analyzing') {
+            setGenerationStep('analyzing');
+          } else if (data.current_step === 'generating') {
+            setGenerationStep('generating');
+          } else if (data.current_step === 'completed' || data.current_step === 'failed') {
+            setGenerationStep('finalizing');
+          }
+
+          if (data.status === 'completed') {
+            // Stop polling
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+            
+            toast.success("Görseliniz başarıyla oluşturuldu!");
+            setTimeout(() => {
+              setIsGenerating(false);
+              setGenerationStep('idle');
+              setPollingJobId(null);
+              setPollingImageId(null);
+              navigate(`/sonuclar?id=${imageId}`);
+            }, 1500);
+          } else if (data.status === 'failed') {
+            // Stop polling
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+            
+            toast.error(data.error_message || 'Görsel oluşturulurken bir hata oluştu.');
+            setIsGenerating(false);
+            setGenerationStep('idle');
+            setPollingJobId(null);
+            setPollingImageId(null);
+          }
+        }
+      } catch (err) {
+        console.error('Polling exception:', err);
+      }
+    }, 3000);
+
+    // 3-minute timeout safety net
+    pollingTimeoutRef.current = setTimeout(() => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      toast.error('Üretim zaman aşımına uğradı. Lütfen tekrar deneyin.');
+      setIsGenerating(false);
+      setGenerationStep('idle');
+      setPollingJobId(null);
+      setPollingImageId(null);
+    }, 3 * 60 * 1000);
+  }, [navigate]);
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -81,8 +168,6 @@ export default function Generate() {
       return data as Scene[];
     },
   });
-
-
 
 
   const { data: isAdminUser = false } = useQuery({
@@ -212,7 +297,7 @@ export default function Generate() {
       const is546 = errMsg.includes('WORKER_LIMIT') || errMsg.includes('546') || errMsg.includes('worker') || error?.status === 546;
       
       if (is546 && attempt < maxRetries - 1) {
-        const baseMs = 800 * Math.pow(2, attempt); // 800ms, 1600ms, 3200ms
+        const baseMs = 800 * Math.pow(2, attempt);
         const jitter = Math.floor(Math.random() * 300);
         const waitMs = baseMs + jitter;
         console.log(`WORKER_LIMIT hit, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
@@ -256,7 +341,6 @@ export default function Generate() {
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
         modelVersion,
-        stepIndex: 0,
       };
 
       if (isRetouchMode) {
@@ -283,15 +367,11 @@ export default function Generate() {
       if (error) throw error;
 
       if (!data?.success) {
-        throw new Error(data?.errorMessage || 'Görsel oluşturulamadı');
+        throw new Error(data?.errorMessage || data?.error || 'Görsel oluşturulamadı');
       }
 
-      toast.success("Görseliniz başarıyla oluşturuldu!");
-      setTimeout(() => {
-        setIsGenerating(false);
-        setGenerationStep('idle');
-        navigate(`/sonuclar?id=${data.imageId}`);
-      }, 1500);
+      // Start polling for job completion
+      startPolling(data.jobId, data.imageId);
 
     } catch (error) {
       console.error("Generation error:", error);
@@ -311,6 +391,8 @@ export default function Generate() {
             step={generationStep} 
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
+            currentStep={jobCurrentStep}
+            progress={jobProgress}
           />
         </div>
       </AppLayout>

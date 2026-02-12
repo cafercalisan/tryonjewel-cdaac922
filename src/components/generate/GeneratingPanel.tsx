@@ -7,12 +7,16 @@ interface GeneratingPanelProps {
   step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
   packageType?: 'standard' | 'retouch';
   previewImage?: string | null;
+  currentStep?: string | null;
+  progress?: number;
 }
 
 export function GeneratingPanel({ 
   step, 
   packageType = 'standard',
   previewImage = null,
+  currentStep = null,
+  progress = 0,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -30,9 +34,24 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const title = packageType === 'retouch' ? 'Rötuş Yapılıyor' : 'Görsel Oluşturuluyor';
-  const description = packageType === 'retouch'
-    ? 'AI profesyonel rötuş uyguluyor...'
-    : 'Profesyonel mücevher görseli render ediliyor...';
+  
+  const stepLabels: Record<string, string> = {
+    'pending': 'Kuyrukta bekleniyor...',
+    'downloading': 'Görseller indiriliyor...',
+    'analyzing': 'Mücevher analiz ediliyor...',
+    'generating': 'AI görsel oluşturuyor...',
+    'completed': 'Tamamlandı!',
+    'failed': 'Hata oluştu',
+  };
+
+  const description = currentStep 
+    ? stepLabels[currentStep] || 'İşleniyor...'
+    : packageType === 'retouch'
+      ? 'AI profesyonel rötuş uyguluyor...'
+      : 'Profesyonel mücevher görseli render ediliyor...';
+
+  // Use polling progress if available, otherwise estimate
+  const displayProgress = progress > 0 ? progress : (step === 'analyzing' ? 15 : step === 'generating' ? 40 : 5);
 
   return (
     <motion.div
@@ -97,13 +116,18 @@ export function GeneratingPanel({
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: '0%' }}
-              animate={{ width: '60%' }}
-              transition={{ duration: 2, ease: 'easeOut' }}
+              animate={{ width: `${Math.min(displayProgress, 95)}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
             />
           </div>
           <div className="flex justify-between items-center text-xs">
-            <span className="text-muted-foreground">İşleniyor...</span>
-            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <span className="text-muted-foreground">
+              {description}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">{displayProgress}%</span>
+              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            </div>
           </div>
         </div>
 
