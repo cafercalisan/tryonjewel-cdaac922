@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Loader2, CheckCircle2, Circle } from 'lucide-react';
+import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
@@ -12,6 +12,12 @@ interface GeneratingPanelProps {
   completedImages?: number;
   totalImages?: number;
 }
+
+const IMAGE_TYPE_CONFIG = [
+  { label: 'Editorial', Icon: Camera, desc: 'Yaratici sahne' },
+  { label: 'E-Ticaret', Icon: ShoppingBag, desc: 'Urun cekimi' },
+  { label: 'Model', Icon: User, desc: 'Lifestyle gorsel' },
+];
 
 export function GeneratingPanel({
   step,
@@ -38,36 +44,32 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const isRetouch = packageType === 'retouch';
-  const title = isRetouch ? 'Rötuş Yapılıyor' : 'Görsel Oluşturuluyor';
+  const title = isRetouch ? 'Rotus Yapiliyor' : 'Gorsel Olusturuluyor';
 
   const stepLabels: Record<string, string> = {
     'pending': 'Kuyrukta bekleniyor...',
-    'downloading': 'Görseller indiriliyor...',
-    'analyzing': 'Mücevher analiz ediliyor...',
-    'generating': 'AI görsel oluşturuyor...',
-    'generating_1': 'Görsel 1/3 oluşturuluyor...',
-    'generating_2': 'Görsel 2/3 oluşturuluyor...',
-    'generating_3': 'Görsel 3/3 oluşturuluyor...',
-    'generating_editorial': 'Editorial görsel oluşturuluyor...',
-    'generating_ecommerce': 'E-Ticaret görseli oluşturuluyor...',
-    'generating_model': 'Model görseli oluşturuluyor...',
-    'saving': 'Sonuçlar kaydediliyor...',
-    'completed': 'Tamamlandı!',
-    'failed': 'Hata oluştu',
+    'downloading': 'Gorseller indiriliyor...',
+    'analyzing': 'Mucevher analiz ediliyor...',
+    'generating': 'AI gorsel olusturuyor...',
+    'generating_1': 'Gorsel 1/3 olusturuluyor...',
+    'generating_2': 'Gorsel 2/3 olusturuluyor...',
+    'generating_3': 'Gorsel 3/3 olusturuluyor...',
+    'generating_editorial': 'Editorial gorsel olusturuluyor...',
+    'generating_ecommerce': 'E-Ticaret gorseli olusturuluyor...',
+    'generating_model': 'Model gorseli olusturuluyor...',
+    'saving': 'Sonuclar kaydediliyor...',
+    'completed': 'Tamamlandi!',
+    'failed': 'Hata olustu',
   };
 
   const description = currentStep
-    ? stepLabels[currentStep] || 'İşleniyor...'
+    ? stepLabels[currentStep] || 'Isleniyor...'
     : isRetouch
-      ? 'AI profesyonel rötuş uyguluyor...'
-      : 'Profesyonel mücevher görseli render ediliyor...';
+      ? 'AI profesyonel rotus uyguluyor...'
+      : 'Profesyonel mucevher gorseli render ediliyor...';
 
   const displayProgress = progress > 0 ? progress : (step === 'analyzing' ? 15 : step === 'generating' ? 40 : 5);
 
-  // Master Paket image type labels
-  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model'];
-
-  // Determine which image is currently being generated
   const masterStepMap: Record<string, number> = {
     'generating_editorial': 0,
     'generating_ecommerce': 1,
@@ -83,22 +85,23 @@ export function GeneratingPanel({
       animate={{ opacity: 1, y: 0 }}
       className="bg-card border border-border rounded-2xl overflow-hidden shadow-luxury"
     >
-      {/* Header with spinner */}
+      {/* Header with gold spinner */}
       <div className="relative p-6 pb-4">
         <div className="flex items-center gap-4">
           <div className="relative w-12 h-12 flex-shrink-0">
             <motion.div
-              className="absolute inset-0 rounded-full border-2 border-primary/20"
+              className="absolute inset-0 rounded-full border-2 border-gold/20"
               animate={{ rotate: 360 }}
               transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
             />
             <motion.div
-              className="absolute inset-1 rounded-full border-2 border-transparent border-t-primary"
+              className="absolute inset-1 rounded-full border-2 border-transparent"
+              style={{ borderTopColor: 'hsl(38, 45%, 55%)' }}
               animate={{ rotate: -360 }}
               transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'hsl(38, 45%, 55%)' }} />
             </div>
           </div>
           <div>
@@ -108,32 +111,55 @@ export function GeneratingPanel({
         </div>
       </div>
 
-      {/* Per-image progress indicators (only for standard package) */}
+      {/* Per-image progress cards (only for standard package) */}
       {!isRetouch && totalImages > 1 && (
-        <div className="px-6 pb-2">
-          <div className="flex items-center gap-3 justify-center">
-            {Array.from({ length: totalImages }, (_, i) => {
+        <div className="px-6 pb-3">
+          <div className="grid grid-cols-3 gap-2">
+            {Array.from({ length: Math.min(totalImages, 3) }, (_, i) => {
               const isDone = i < completedImages;
               const isActive = i === currentImageIndex && !isDone && currentStep?.startsWith('generating');
+              const config = IMAGE_TYPE_CONFIG[i];
+
               return (
-                <div key={i} className="flex items-center gap-1.5">
-                  {isDone ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300 }}
-                    >
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    </motion.div>
-                  ) : isActive ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground/40" />
-                  )}
-                  <span className={`text-xs font-medium ${isDone ? 'text-green-500' : isActive ? 'text-primary' : 'text-muted-foreground/40'}`}>
-                    {imageTypeLabels[i] || `Görsel ${i + 1}`}
-                  </span>
-                </div>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className={`relative rounded-xl p-2.5 border transition-all ${
+                    isDone
+                      ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
+                      : isActive
+                      ? 'gradient-gold-subtle border-gold animate-glow-gold'
+                      : 'bg-muted/30 border-border/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {isDone ? (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 300 }}
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      </motion.div>
+                    ) : isActive ? (
+                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'hsl(38, 45%, 55%)' }} />
+                    ) : (
+                      <config.Icon className="h-4 w-4 text-muted-foreground/40" />
+                    )}
+                    <span className={`text-[11px] font-semibold ${
+                      isDone ? 'text-green-600 dark:text-green-400' : isActive ? 'text-foreground' : 'text-muted-foreground/50'
+                    }`}>
+                      {config?.label || `Gorsel ${i + 1}`}
+                    </span>
+                  </div>
+                  <p className={`text-[9px] leading-tight ${
+                    isDone ? 'text-green-500/70' : isActive ? 'text-muted-foreground' : 'text-muted-foreground/30'
+                  }`}>
+                    {config?.desc}
+                  </p>
+                </motion.div>
               );
             })}
           </div>
@@ -166,11 +192,11 @@ export function GeneratingPanel({
 
       {/* Progress & Facts */}
       <div className="p-6 pt-4 space-y-4">
-        {/* Progress bar */}
+        {/* Gold gradient progress bar */}
         <div className="space-y-2">
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
+              className="h-full rounded-full gradient-gold"
               initial={{ width: '0%' }}
               animate={{ width: `${Math.min(displayProgress, 95)}%` }}
               transition={{ duration: 1, ease: 'easeOut' }}
@@ -186,17 +212,17 @@ export function GeneratingPanel({
                   {completedImages}/{totalImages}
                 </span>
               )}
-              <span className="text-muted-foreground">{displayProgress}%</span>
-              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              <span className="font-medium" style={{ color: 'hsl(38, 45%, 55%)' }}>{displayProgress}%</span>
+              <Loader2 className="h-3 w-3 animate-spin" style={{ color: 'hsl(38, 45%, 55%)' }} />
             </div>
           </div>
         </div>
 
         {/* Jewelry Facts */}
-        <div className="bg-muted/50 rounded-xl p-4 border border-border/50">
+        <div className="gradient-gold-subtle rounded-xl p-4 border border-gold/10">
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wider">
+            <Lightbulb className="h-4 w-4" style={{ color: 'hsl(38, 45%, 55%)' }} />
+            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'hsl(38, 45%, 55%)' }}>
               Biliyor muydunuz?
             </span>
           </div>
@@ -209,7 +235,7 @@ export function GeneratingPanel({
               transition={{ duration: 0.4 }}
               className="text-sm text-muted-foreground leading-relaxed"
             >
-              {facts[currentFactIndex] || 'Mücevherler yüzyıllardır insanlığın en değerli hazineleri arasında yer almaktadır.'}
+              {facts[currentFactIndex] || 'Mucevherler yuzyillardir insanligin en degerli hazineleri arasinda yer almaktadir.'}
             </motion.p>
           </AnimatePresence>
         </div>

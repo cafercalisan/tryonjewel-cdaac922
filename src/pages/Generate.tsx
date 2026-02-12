@@ -4,7 +4,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
 import {
   Check,
-  Wand2,
+  Sparkles,
+  Camera,
+  ShoppingBag,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -620,33 +623,35 @@ export default function Generate() {
                   transition={{ duration: 0.2 }}
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full gradient-gold text-white text-xs font-bold flex items-center justify-center">
                       5
                     </div>
                     <h2 className="text-sm font-semibold">Master Paket</h2>
                   </div>
-                  <div className="bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-2xl border border-primary/20 p-5">
+                  <div className="gradient-gold-subtle rounded-2xl border border-gold/20 p-5 shadow-luxury">
                     <div className="flex items-start gap-3 mb-4">
-                      <div className="p-2 rounded-xl bg-primary/10 shrink-0">
-                        <Wand2 className="h-5 w-5 text-primary" />
+                      <div className="p-2 rounded-xl gradient-gold shrink-0 shadow-sm">
+                        <Sparkles className="h-5 w-5 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-sm mb-1">3 Profesyonel Gorsel</h3>
+                        <h3 className="font-semibold text-sm mb-0.5">3 Profesyonel Gorsel</h3>
                         <p className="text-xs text-muted-foreground">
                           Her uretim benzersiz sahneler icerir
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="space-y-2">
                       {[
-                        { icon: '📸', label: 'Editorial', desc: 'Luks yaratici sahne' },
-                        { icon: '🛍️', label: 'E-Ticaret', desc: 'Temiz urun cekimi' },
-                        { icon: '👤', label: 'Model', desc: 'Lifestyle giydirilmis' },
+                        { Icon: Camera, label: 'Editorial', desc: 'Luks yaratici sahne kompozisyonu' },
+                        { Icon: ShoppingBag, label: 'E-Ticaret', desc: 'Temiz beyaz zemin urun cekimi' },
+                        { Icon: User, label: 'Model', desc: 'Gercek model uzerinde lifestyle' },
                       ].map((item) => (
-                        <div key={item.label} className="flex flex-col items-center gap-1.5 bg-background/50 rounded-xl px-2.5 py-3 text-center">
-                          <span className="text-lg">{item.icon}</span>
-                          <span className="font-medium">{item.label}</span>
-                          <span className="text-muted-foreground text-[10px] leading-tight">{item.desc}</span>
+                        <div key={item.label} className="flex items-center gap-3 bg-card/80 rounded-xl px-3 py-2.5 border-l-2 border-gold shadow-sm">
+                          <item.Icon className="h-4 w-4 text-[hsl(38,45%,55%)] shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium block">{item.label}</span>
+                            <span className="text-muted-foreground text-[10px] leading-tight block">{item.desc}</span>
+                          </div>
                         </div>
                       ))}
                     </div>

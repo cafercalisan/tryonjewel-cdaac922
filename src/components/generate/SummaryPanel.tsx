@@ -83,23 +83,25 @@ export function SummaryPanel({
   return (
     <div className="space-y-4">
       {/* Package Summary Card */}
-      <div className="bg-card rounded-2xl border border-border p-5">
+      <div className={`rounded-2xl border p-5 shadow-luxury ${
+        packageType === 'standard' ? 'gradient-gold-subtle border-gold/20' : 'bg-card border-border'
+      }`}>
         <div className="flex items-center gap-3 mb-4">
           {packageType === 'retouch' ? (
             <div className="p-2 rounded-xl bg-primary/10">
               <Wand2 className="h-5 w-5 text-primary" />
             </div>
           ) : (
-            <div className="p-2 rounded-xl bg-muted">
-              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            <div className="p-2 rounded-xl gradient-gold shadow-sm">
+              <Sparkles className="h-5 w-5 text-white" />
             </div>
           )}
           <div>
             <h3 className="font-semibold">
-              {packageType === 'retouch' ? 'Retouch' : 'Standart Paket'}
+              {packageType === 'retouch' ? 'Retouch' : 'Master Paket'}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {packageType === 'retouch' ? 'Profesyonel rötuş işlemi' : `${totalImages} görsel oluşturulacak`}
+              {packageType === 'retouch' ? 'Profesyonel rotus islemi' : `${totalImages} gorsel olusturulacak`}
             </p>
           </div>
         </div>
@@ -125,14 +127,14 @@ export function SummaryPanel({
       </div>
 
       {/* Credits & Generate */}
-      <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-5">
+      <div className="bg-card rounded-2xl border border-border p-5 shadow-luxury">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm font-medium">Maliyet</p>
             <p className="text-xs text-muted-foreground">Kredi bakiyeniz</p>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-primary">{creditsNeeded}</p>
+            <p className="text-3xl font-bold" style={{ color: 'hsl(38, 45%, 55%)' }}>{creditsNeeded}</p>
             <p className="text-xs text-muted-foreground">
               / {currentCredits ?? 0}
             </p>
@@ -148,16 +150,16 @@ export function SummaryPanel({
         <Button
           onClick={onGenerate}
           disabled={!canGenerate}
-          className="w-full h-12 text-base gap-2 font-semibold"
+          className="w-full h-12 text-base gap-2 font-semibold gradient-gold text-white border-0 hover:opacity-90 transition-opacity disabled:opacity-50"
           size="lg"
         >
           <Sparkles className="h-4 w-4" />
-          {isAdminUser ? 'Oluştur' : `Oluştur`}
+          Olustur
         </Button>
 
         {!isAdminUser && currentCredits !== undefined && (
           <p className="text-[11px] text-center text-muted-foreground mt-3">
-            İşlem sonrası bakiye: {Math.max(0, currentCredits - creditsNeeded)} kredi
+            Islem sonrasi bakiye: {Math.max(0, currentCredits - creditsNeeded)} kredi
           </p>
         )}
       </div>

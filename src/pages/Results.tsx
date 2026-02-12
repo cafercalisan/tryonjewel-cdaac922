@@ -1,7 +1,7 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2 } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2, Camera, ShoppingBag, User } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
@@ -136,6 +136,7 @@ export default function Results() {
 
   const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model'];
   const imageTypeDescriptions = ['Yaratici Sahne', 'Urun Cekimi', 'Model Gorsel'];
+  const imageTypeIcons = [Camera, ShoppingBag, User];
 
   return (
     <AppLayout showFooter={false}>
@@ -193,20 +194,24 @@ export default function Results() {
                     key={index}
                     onClick={() => setSelectedIndex(index)}
                     className={`relative aspect-[4/5] rounded-xl overflow-hidden transition-all ${
-                      selectedIndex === index 
-                        ? 'ring-2 ring-primary ring-offset-2' 
+                      selectedIndex === index
+                        ? 'ring-2 ring-offset-2 shadow-luxury'
                         : 'opacity-70 hover:opacity-100'
                     }`}
+                    style={selectedIndex === index ? { '--tw-ring-color': 'hsl(38, 45%, 55%)' } as React.CSSProperties : undefined}
                   >
                     <img
                       src={url}
                       alt={imageTypeLabels[index] || `Variation ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
-                      <span className="text-[10px] font-medium text-white">
-                        {imageTypeLabels[index] || `Varyasyon ${index + 1}`}
-                      </span>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 backdrop-blur-[2px]">
+                      <div className="flex items-center gap-1">
+                        {imageTypeIcons[index] && (() => { const Icon = imageTypeIcons[index]; return <Icon className="h-3 w-3 text-white/80" />; })()}
+                        <span className="text-[10px] font-medium text-white">
+                          {imageTypeLabels[index] || `Varyasyon ${index + 1}`}
+                        </span>
+                      </div>
                     </div>
                     {selectedIndex === index && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/20">
@@ -220,13 +225,16 @@ export default function Results() {
 
             {/* Sidebar */}
             <div className="space-y-4">
-              <div className="bg-card rounded-xl p-6 shadow-luxury">
-                <h3 className="font-medium mb-1">{imageTypeLabels[selectedIndex] || `Varyasyon ${selectedIndex + 1}`}</h3>
+              <div className="bg-card rounded-xl p-6 shadow-luxury border-l-2 border-gold">
+                <div className="flex items-center gap-2 mb-1">
+                  {imageTypeIcons[selectedIndex] && (() => { const Icon = imageTypeIcons[selectedIndex]; return <Icon className="h-4 w-4" style={{ color: 'hsl(38, 45%, 55%)' }} />; })()}
+                  <h3 className="font-medium">{imageTypeLabels[selectedIndex] || `Varyasyon ${selectedIndex + 1}`}</h3>
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   {imageTypeDescriptions[selectedIndex] || `Varyasyon ${selectedIndex + 1} / ${generatedUrls.length}`}
                 </p>
                 <Button
-                  className="w-full"
+                  className="w-full gradient-gold text-white border-0 hover:opacity-90"
                   onClick={() => handleDownload(selectedUrl, selectedIndex)}
                   disabled={isDownloading === selectedIndex}
                 >
@@ -242,22 +250,27 @@ export default function Results() {
               <div className="bg-card rounded-xl p-6 shadow-luxury">
                 <h3 className="font-medium mb-4">Tum Gorselleri Indir</h3>
                 <div className="space-y-2">
-                  {generatedUrls.map((url, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => handleDownload(url, index)}
-                      disabled={isDownloading === index}
-                    >
-                      {isDownloading === index ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="mr-2 h-4 w-4" />
-                      )}
-                      {imageTypeLabels[index] || `Varyasyon ${index + 1}`} (4K)
-                    </Button>
-                  ))}
+                  {generatedUrls.map((url, index) => {
+                    const TypeIcon = imageTypeIcons[index];
+                    return (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => handleDownload(url, index)}
+                        disabled={isDownloading === index}
+                      >
+                        {isDownloading === index ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : TypeIcon ? (
+                          <TypeIcon className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {imageTypeLabels[index] || `Varyasyon ${index + 1}`} (4K)
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
 

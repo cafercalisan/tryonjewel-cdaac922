@@ -190,6 +190,28 @@
     background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(38, 50%, 65%) 100%);
   }
 
+  /* Gold subtle gradient for premium cards */
+  .gradient-gold-subtle {
+    background: linear-gradient(135deg, hsl(38, 30%, 92%) 0%, hsl(38, 20%, 96%) 100%);
+  }
+  .dark .gradient-gold-subtle {
+    background: linear-gradient(135deg, hsl(38, 30%, 12%) 0%, hsl(38, 20%, 8%) 100%);
+  }
+
+  /* Gold border utility */
+  .border-gold {
+    border-color: hsl(38, 45%, 55%);
+  }
+
+  /* Gold glow animation for active states */
+  @keyframes glow-gold {
+    0%, 100% { box-shadow: 0 0 0 0 hsla(38, 45%, 55%, 0); }
+    50% { box-shadow: 0 0 20px 2px hsla(38, 45%, 55%, 0.15); }
+  }
+  .animate-glow-gold {
+    animation: glow-gold 2s ease-in-out infinite;
+  }
+
   /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
