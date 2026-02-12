@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { waitUntil } from '@vercel/functions';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
@@ -873,16 +874,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
 
-    // Return immediately, then process (Vercel serverless waits for the response to be sent)
-    res.status(200).json({
-      success: true,
-      jobId: jobRecordId,
-      imageId: imageRecordId,
-      status: 'pending',
-    });
-
-    // Process generation (this runs after the response is sent due to Vercel's behavior)
-    await processGeneration({
+    // Return immediately, process in background via waitUntil
+    waitUntil(processGeneration({
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -895,6 +888,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       styleReferencePath: styleReferencePath || null,
       creditsNeeded,
       isAdminUser,
+    }));
+
+    return sendCorsResponse(res, 200, {
+      success: true,
+      jobId: jobRecordId,
+      imageId: imageRecordId,
+      status: 'pending',
     });
 
   } catch (error) {
