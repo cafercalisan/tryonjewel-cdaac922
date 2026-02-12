@@ -56,7 +56,7 @@ async function callGeminiImageGeneration({
         temperature: 0.15,
         imageConfig: {
           aspectRatio: '3:4',
-          imageSize: '4K',
+          imageSize: '2K',
         },
       },
     }),
@@ -781,8 +781,8 @@ Ultra high resolution output.`;
       }).eq('id', jobId);
       
     } else {
-      // STANDARD: Single image with scene
-      console.log('Standard generation with scene...');
+      // STANDARD: 3 images sequentially with scene
+      console.log('Standard generation with scene (3 images sequential)...');
       
       const isModelScene = scene?.category === 'manken';
       const modelSceneEnforcement = isModelScene ? `
@@ -791,7 +791,17 @@ Ultra high resolution output.`;
 - NO product-only output without visible model
 ` : '';
 
-      const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 4K quality.
+      const lightingVariations = [
+        'Primary lighting from upper-left (10 o\'clock position). Soft diffused key light.',
+        'Balanced front lighting with gentle fill. Even illumination across the piece.',
+        'Dramatic side lighting from the right (2 o\'clock position). Subtle shadow play.',
+      ];
+
+      const totalToGenerate = 3;
+      for (let i = 0; i < totalToGenerate; i++) {
+        console.log(`Generating image ${i + 1}/${totalToGenerate}...`);
+        
+        const standardPrompt = `Professional luxury jewelry photography. Ultra photorealistic. 4:5 portrait aspect ratio. 2K quality.
 
 ${productExtractionBlock}
 
@@ -802,21 +812,28 @@ ${modelSceneEnforcement}
 SCENE PLACEMENT:
 ${scene?.prompt || 'Elegant luxury setting with soft studio lighting, premium background.'}
 
+LIGHTING DIRECTION: ${lightingVariations[i]}
+
 TECHNICAL REQUIREMENTS:
-- Ultra high resolution 4K output
+- Ultra high resolution output
 - Macro photography quality with perfect focus
 - Natural soft studio lighting
 - The jewelry must look IDENTICAL to the reference
 
 Ultra high resolution output.`;
 
-      const url = await generateImage(base64Images, imageUrls, standardPrompt, 1);
-      if (url) generatedUrls.push(url);
+        const url = await generateImage(base64Images, imageUrls, standardPrompt, i + 1);
+        if (url) generatedUrls.push(url);
 
-      await supabase.from('processing_jobs').update({
-        completed_images: generatedUrls.length,
-        progress: 90,
-      }).eq('id', jobId);
+        // Update progress incrementally
+        const progressPercent = Math.round(20 + ((i + 1) / totalToGenerate) * 70);
+        await supabase.from('processing_jobs').update({
+          completed_images: generatedUrls.length,
+          progress: progressPercent,
+        }).eq('id', jobId);
+        
+        console.log(`Image ${i + 1} done. Progress: ${progressPercent}%`);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -965,12 +982,31 @@ serve(async (req) => {
 
     // ═══ SINGLE-FLIGHT: Block concurrent jobs, auto-clean stuck ones ═══
     // Auto-clean stuck jobs older than 5 minutes
-    await supabase
+    // Auto-clean stuck jobs older than 5 minutes AND sync images table
+    const { data: stuckJobs } = await supabase
       .from('processing_jobs')
-      .update({ status: 'failed', error_message: 'Auto-cleaned: stuck job (timeout)' })
+      .select('id, image_record_id')
       .eq('user_id', userId)
       .in('status', ['pending', 'generating'])
       .lt('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+    if (stuckJobs && stuckJobs.length > 0) {
+      const stuckJobIds = stuckJobs.map(j => j.id);
+      const stuckImageIds = stuckJobs.map(j => j.image_record_id).filter(Boolean);
+
+      await supabase
+        .from('processing_jobs')
+        .update({ status: 'failed', error_message: 'Auto-cleaned: stuck job (timeout)' })
+        .in('id', stuckJobIds);
+
+      if (stuckImageIds.length > 0) {
+        await supabase
+          .from('images')
+          .update({ status: 'failed', error_message: 'Auto-cleaned: generation timed out' })
+          .in('id', stuckImageIds);
+      }
+      console.log(`Auto-cleaned ${stuckJobs.length} stuck jobs and synced images table`);
+    }
 
     // Now check for truly active jobs
     const { count: activeJobs } = await supabase
@@ -1044,7 +1080,7 @@ serve(async (req) => {
         user_id: userId,
         image_record_id: imageRecordId,
         status: 'pending',
-        total_images: 1,
+        total_images: 3,
         completed_images: 0,
         progress: 0,
         current_step: 'pending',

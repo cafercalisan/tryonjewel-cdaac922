@@ -257,7 +257,7 @@ export default function Generate() {
   }, [processFile, uploadedImages.length]);
 
   const creditsNeeded = 10;
-  const totalImages = 1;
+  const totalImages = 3;
   const isRetouchMode = packageType === 'retouch';
 
   // When style reference is uploaded, scene selection is disabled
