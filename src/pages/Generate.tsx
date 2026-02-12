@@ -1,11 +1,9 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProfile } from "@/hooks/useProfile";
 import { 
   Check, 
-  ChevronDown,
-  User,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,12 +20,6 @@ import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
 import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface Scene {
   id: string;
@@ -43,18 +35,8 @@ interface Scene {
   sub_category: string;
 }
 
-interface UserModel {
-  id: string;
-  name: string;
-  skin_tone: string;
-  ethnicity: string;
-  hair_color: string;
-  gender: string;
-  age_range: string;
-  preview_image_url: string | null;
-}
 
-type PackageType = 'standard' | 'master' | 'retouch';
+type PackageType = 'standard' | 'retouch';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
 interface UploadedImage {
@@ -76,8 +58,7 @@ export default function Generate() {
   const [isCompressing, setIsCompressing] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
-  const [packageType, setPackageType] = useState<PackageType>('master');
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [packageType, setPackageType] = useState<PackageType>('standard');
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
   const [modelVersion, setModelVersion] = useState<'v1' | 'v2'>('v1');
   
@@ -90,16 +71,7 @@ export default function Generate() {
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
-  const [currentImageIndex, setCurrentImageIndex] = useState(1);
-  const [completedImages, setCompletedImages] = useState(0);
-  const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const [resultUrls, setResultUrls] = useState<string[]>([]);
-  const [cardStatuses, setCardStatuses] = useState<('waiting' | 'generating' | 'completed' | 'failed')[]>(['waiting', 'waiting', 'waiting']);
-  const generationParamsRef = useRef<any>(null);
-  const [masterJobId, setMasterJobId] = useState<string | null>(null);
-  const [masterImageId, setMasterImageId] = useState<string | null>(null);
-  const [masterCurrentStep, setMasterCurrentStep] = useState(0);
-  const [masterWaitingForUser, setMasterWaitingForUser] = useState(false);
+  
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -110,20 +82,8 @@ export default function Generate() {
     },
   });
 
-  const { data: userModels } = useQuery({
-    queryKey: ['user-models', user?.id],
-    queryFn: async (): Promise<UserModel[]> => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('user_models')
-        .select('id, name, skin_tone, ethnicity, hair_color, gender, age_range, preview_image_url')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as UserModel[];
-    },
-    enabled: !!user,
-  });
+
+
 
   const { data: isAdminUser = false } = useQuery({
     queryKey: ['is-admin', user?.id],
@@ -211,8 +171,8 @@ export default function Generate() {
     e.target.value = '';
   }, [processFile, uploadedImages.length]);
 
-  const creditsNeeded = packageType === 'master' ? 20 : 10;
-  const totalImages = packageType === 'master' ? 3 : 1;
+  const creditsNeeded = 10;
+  const totalImages = 1;
   const isRetouchMode = packageType === 'retouch';
 
   // When style reference is uploaded, scene selection is disabled
@@ -238,12 +198,8 @@ export default function Generate() {
     // If style reference is used, no scene needed
     if (hasStyleReference) return true;
 
-    if (packageType === 'standard') {
-      return !!selectedSceneId;
-    }
-
-    return true;
-  }, [uploadedImages.length, user, profile, creditsNeeded, packageType, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
+    return !!selectedSceneId;
+  }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode]);
 
   // Retry wrapper for WORKER_LIMIT (546) errors
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
@@ -271,90 +227,12 @@ export default function Generate() {
     return { data: null, error: lastError };
   };
 
-  // Run a single master step
-  const runMasterStep = async (stepIndex: number, jobId?: string, imageId?: string) => {
-    const params = generationParamsRef.current;
-    if (!params) return;
-
-    const stepLabels = ['Editorial', 'E-Ticaret', 'Model'];
-    setMasterWaitingForUser(false);
-    setCardStatuses(prev => {
-      const next = [...prev] as typeof prev;
-      next[stepIndex] = 'generating';
-      return next;
-    });
-    toast.info(`Adım ${stepIndex + 1}/3: ${stepLabels[stepIndex]} görseli oluşturuluyor...`);
-
-    const body: any = {
-      ...params,
-      stepIndex,
-      ...(stepIndex > 0 && jobId ? { existingJobId: jobId, existingImageId: imageId } : {}),
-    };
-
-    const { data: result, error } = await invokeWithRetry(body);
-
-    if (error || !result?.success) {
-      console.error(`Step ${stepIndex} failed:`, result?.errorMessage || error);
-      setCardStatuses(prev => {
-        const next = [...prev] as typeof prev;
-        next[stepIndex] = 'failed';
-        return next;
-      });
-      toast.error(`${stepLabels[stepIndex]} görseli oluşturulamadı.`);
-      
-      if (stepIndex === 0) {
-        setIsGenerating(false);
-        setGenerationStep('idle');
-        return;
-      }
-    } else {
-      const urls = Array.isArray(result.resultUrls) ? result.resultUrls as string[] : [];
-      setResultUrls([...urls]);
-      setCardStatuses(prev => {
-        const next = [...prev] as typeof prev;
-        next[stepIndex] = 'completed';
-        return next;
-      });
-      setCompletedImages(prev => prev + 1);
-      toast.success(`${stepLabels[stepIndex]} görseli hazır!`);
-    }
-
-    if (stepIndex === 0 && result?.success) {
-      setMasterJobId(result.jobId);
-      setMasterImageId(result.imageId);
-    }
-
-    setMasterCurrentStep(stepIndex + 1);
-
-    if (stepIndex === 2) {
-      const finalImageId = imageId || result?.imageId;
-      setTimeout(() => {
-        setIsGenerating(false);
-        setGenerationStep('idle');
-        navigate(`/sonuclar?id=${finalImageId}`);
-      }, 1500);
-    } else {
-      setMasterWaitingForUser(true);
-    }
-  };
-
-  const handleContinueMasterStep = () => {
-    runMasterStep(masterCurrentStep, masterJobId!, masterImageId!);
-  };
-
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
     setIsGenerating(true);
     setGenerationStep("generating");
-    setCurrentImageIndex(1);
-    setCompletedImages(0);
-    setResultUrls([]);
-    setCardStatuses(['waiting', 'waiting', 'waiting']);
-    setMasterJobId(null);
-    setMasterImageId(null);
-    setMasterCurrentStep(0);
-    setMasterWaitingForUser(false);
+    
 
     try {
       const imagePaths: string[] = [];
@@ -394,49 +272,35 @@ export default function Generate() {
         if (styleUploadError) throw styleUploadError;
         
         body.styleReferencePath = styleFilePath;
-      } else if (packageType === 'master') {
-        body.modelId = selectedModelId;
       } else {
         body.sceneId = selectedSceneId;
       }
 
-      // Store params for master package continuation steps
-      generationParamsRef.current = { ...body };
+      toast.info("Görsel oluşturuluyor...");
+      
+      const { data, error } = await invokeWithRetry(body);
 
-      if (packageType === 'master') {
-        // Master: Run only step 0, user will trigger rest
-        await runMasterStep(0);
-      } else {
-        // ═══ STANDARD / RETOUCH: Single synchronous call ═══
-        toast.info("Görsel oluşturuluyor...");
-        
-        const { data, error } = await invokeWithRetry(body);
+      if (error) throw error;
 
-        if (error) throw error;
-
-        if (!data?.success) {
-          throw new Error(data?.errorMessage || 'Görsel oluşturulamadı');
-        }
-
-        toast.success("Görseliniz başarıyla oluşturuldu!");
-        setTimeout(() => {
-          setIsGenerating(false);
-          setGenerationStep('idle');
-          navigate(`/sonuclar?id=${data.imageId}`);
-        }, 1500);
+      if (!data?.success) {
+        throw new Error(data?.errorMessage || 'Görsel oluşturulamadı');
       }
+
+      toast.success("Görseliniz başarıyla oluşturuldu!");
+      setTimeout(() => {
+        setIsGenerating(false);
+        setGenerationStep('idle');
+        navigate(`/sonuclar?id=${data.imageId}`);
+      }, 1500);
 
     } catch (error) {
       console.error("Generation error:", error);
       toast.error(error instanceof Error ? error.message : "Görsel oluşturulurken bir hata oluştu.");
       setIsGenerating(false);
       setGenerationStep("idle");
-      setCompletedImages(0);
-      setCardStatuses(['waiting', 'waiting', 'waiting']);
     }
   };
 
-  const selectedModel = userModels?.find(m => m.id === selectedModelId);
   const selectedScene = scenes?.find(s => s.id === selectedSceneId) || null;
 
   if (isGenerating) {
@@ -445,16 +309,8 @@ export default function Generate() {
         <div className="container py-10 max-w-2xl mx-auto">
           <GeneratingPanel 
             step={generationStep} 
-            currentImageIndex={currentImageIndex}
-            totalImages={totalImages}
-            completedImages={completedImages}
             packageType={packageType}
             previewImage={uploadedImages[0]?.preview || null}
-            resultUrls={resultUrls}
-            cardStatuses={cardStatuses}
-            waitingForUser={masterWaitingForUser}
-            onContinue={handleContinueMasterStep}
-            currentMasterStep={masterCurrentStep}
           />
         </div>
       </AppLayout>
@@ -719,58 +575,9 @@ export default function Generate() {
               )}
             </AnimatePresence>
 
-            {/* Step 5: Model Selection (Master Only) */}
+            {/* Step 5: Style Reference OR Scene Selection */}
             <AnimatePresence>
-              {packageType === 'master' && (
-                <motion.section
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
-                      5
-                    </div>
-                    <h2 className="text-sm font-semibold">Model Seçimi</h2>
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
-                  </div>
-                  <button
-                    onClick={() => setModelDialogOpen(true)}
-                    className="w-full p-4 rounded-xl border-2 border-border hover:border-primary/30 transition-all flex items-center justify-between bg-card"
-                  >
-                    <div className="flex items-center gap-3">
-                      {selectedModel?.preview_image_url ? (
-                        <img
-                          src={selectedModel.preview_image_url}
-                          alt={selectedModel.name}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <User className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="text-left">
-                        <p className="text-sm font-medium">
-                          {selectedModel?.name || 'Model seçilmedi'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedModel
-                            ? `${selectedModel.gender}, ${selectedModel.age_range}`
-                            : 'Manken görseli için model seçin'}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </motion.section>
-              )}
-            </AnimatePresence>
-
-            {/* Step 5/6: Style Reference OR Scene Selection (Standard Only) */}
-            <AnimatePresence>
-              {packageType === 'standard' && (
+              {!isRetouchMode && (
                 <motion.section
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -792,7 +599,7 @@ export default function Generate() {
                         styleReference={styleReference}
                         onUpload={(ref) => {
                           setStyleReference(ref);
-                          setSelectedSceneId(null); // Clear scene when style reference is added
+                          setSelectedSceneId(null);
                         }}
                         onRemove={() => setStyleReference(null)}
                         isCompressing={isStyleCompressing}
@@ -832,7 +639,7 @@ export default function Generate() {
               packageType={packageType}
               selectedProductType={selectedProductType}
               selectedMetalColor={selectedMetalColor}
-              selectedModel={selectedModel || null}
+              selectedModel={null}
               selectedScene={selectedScene}
               creditsNeeded={creditsNeeded}
               totalImages={totalImages}
@@ -846,79 +653,6 @@ export default function Generate() {
         </div>
       </div>
 
-      {/* Model Selection Dialog */}
-      <Dialog open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Model Seçin</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {/* No model option */}
-            <button
-              onClick={() => {
-                setSelectedModelId(null);
-                setModelDialogOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                selectedModelId === null
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/30'
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                <User className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-medium">Model Kullanma</p>
-                <p className="text-xs text-muted-foreground">Sadece ürün görseli</p>
-              </div>
-              {selectedModelId === null && <Check className="h-4 w-4 text-primary" />}
-            </button>
-
-            {userModels?.map((model) => (
-              <button
-                key={model.id}
-                onClick={() => {
-                  setSelectedModelId(model.id);
-                  setModelDialogOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                  selectedModelId === model.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/30'
-                }`}
-              >
-                {model.preview_image_url ? (
-                  <img
-                    src={model.preview_image_url}
-                    alt={model.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 text-left">
-                  <p className="font-medium">{model.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {model.gender} • {model.age_range} • {model.ethnicity}
-                  </p>
-                </div>
-                {selectedModelId === model.id && <Check className="h-4 w-4 text-primary" />}
-              </button>
-            ))}
-
-            {(!userModels || userModels.length === 0) && (
-              <div className="text-center py-8 text-muted-foreground">
-                <User className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Henüz model oluşturmadınız</p>
-                <p className="text-xs mt-1">Model galerisi sayfasından oluşturabilirsiniz</p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   );
 }

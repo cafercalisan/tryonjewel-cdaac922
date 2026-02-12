@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, Sparkles, Image as ImageIcon, Camera, Palmtree, User, ChevronDown } from "lucide-react";
+import { Check, Sparkles, Image as ImageIcon, Camera, Palmtree, User, Star } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 interface Scene {
@@ -23,6 +23,27 @@ interface SceneSelectorProps {
   selectedSceneId: string | null;
   onSelect: (sceneId: string) => void;
 }
+
+const FEATURED_CATEGORIES = [
+  {
+    key: 'editorial',
+    label: '📸 Editorial',
+    description: 'Lüks katalog çekimi',
+    filterCategory: 'urun',
+  },
+  {
+    key: 'ecommerce',
+    label: '🛒 E-Ticaret',
+    description: 'Temiz ürün görseli',
+    filterCategory: 'urun',
+  },
+  {
+    key: 'model',
+    label: '👤 Model',
+    description: 'Manken çekimi',
+    filterCategory: 'manken',
+  },
+];
 
 const categoryConfig: Record<string, { label: string; icon: React.ComponentType<any>; description: string }> = {
   'urun': { 
@@ -60,10 +81,45 @@ export function SceneSelector({ scenes, selectedSceneId, onSelect }: SceneSelect
     availableCategories[0] || 'urun'
   );
 
+  // Handle featured category click - switch to appropriate tab
+  const handleFeaturedClick = (featured: typeof FEATURED_CATEGORIES[0]) => {
+    setActiveCategory(featured.filterCategory);
+  };
+
   const currentScenes = groupedByCategory[activeCategory] || [];
+
+  // Check if selected scene belongs to a featured category
+  const selectedScene = scenes.find(s => s.id === selectedSceneId);
 
   return (
     <div className="space-y-4">
+      {/* Featured Quick-Select */}
+      <div className="grid grid-cols-3 gap-2">
+        {FEATURED_CATEGORIES.map((featured) => {
+          const isActive = activeCategory === featured.filterCategory && 
+            (featured.key === 'model' ? activeCategory === 'manken' : activeCategory === 'urun');
+          
+          return (
+            <motion.button
+              key={featured.key}
+              onClick={() => handleFeaturedClick(featured)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={cn(
+                "relative p-2.5 rounded-xl border-2 transition-all text-center",
+                isActive
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : "border-border hover:border-primary/30 bg-card"
+              )}
+            >
+              <div className="text-lg mb-0.5">{featured.label.split(' ')[0]}</div>
+              <p className="text-[10px] font-medium">{featured.label.split(' ').slice(1).join(' ')}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">{featured.description}</p>
+            </motion.button>
+          );
+        })}
+      </div>
+
       {/* Category Tabs */}
       <Tabs value={activeCategory} onValueChange={setActiveCategory}>
         <TabsList className="w-full grid grid-cols-3 h-auto p-1 bg-muted/50">
