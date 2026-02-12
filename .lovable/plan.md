@@ -1,68 +1,85 @@
 
+## Deep Analysis - 4 Critical Problems Found
 
-## Problem Analysis
+### Problem 1: Stuck Job Blocking Everything
+Job `e40cc12c` crashed with "Memory limit exceeded" but remains in `generating` status at progress 20. The 5-minute auto-cleanup hasn't triggered because `updated_at` is recent. This blocks ALL new generation attempts with the "ACTIVE_JOB_EXISTS" (409) error.
 
-Three interrelated issues are causing the WORKER_LIMIT (546) and Memory Limit errors:
+### Problem 2: Memory Limit Crashes During Generation
+The edge function requests **4K images** from Gemini (`imageSize: '4K'`). A 4K image (3072x4096 pixels) as base64 is ~15-30MB. Combined with the analysis data, input image, and response parsing, this easily exceeds the **150MB memory limit** of Supabase Edge Functions. This is why every standard generation crashes at progress 20 (right after analysis, when generation begins).
 
-1. **Synchronous execution blocks workers**: The edge function `await`s the entire generation process (60-120 seconds), occupying a worker the whole time. Supabase Edge Functions have strict compute limits -- this approach exhausts available workers.
+### Problem 3: Images Table Out of Sync
+When jobs fail (auto-cleaned or memory crash), the `processing_jobs` table gets updated to `failed`, but the `images` table stays stuck in `generating` status forever. There are 7+ orphaned image records stuck in `generating/analyzing` status.
 
-2. **Dead code inflates memory**: ~300 lines of Master package logic remain in the edge function despite being removed from the UI. This unnecessary code increases the function's memory footprint.
+### Problem 4: Only 1 Image Generated
+The current standard flow generates only 1 image. Previously there were 3 images per generation. The user explicitly wants 3 images back.
 
-3. **Single image output**: Since the Master package was removed, Standard and Retouch packages only generate 1 image. The previous 3-image output came from Master.
+---
 
-## Solution: Lightweight Dispatch + Background Processing + Polling
+## Solution Plan
 
-Switch to a **fire-and-forget** pattern: the edge function creates a job record, kicks off background processing with `EdgeRuntime.waitUntil()`, and returns immediately. The frontend polls the database for completion.
+### Step 1: Clean Stuck Data (SQL Migration)
+- Mark stuck job `e40cc12c` as failed
+- Fix all orphaned `images` records that have corresponding failed jobs -- update their status to `failed` too
+- This immediately unblocks the user
 
-```text
-Frontend                        Edge Function                    Background
-   |                                  |                              |
-   |-- POST generate-jewelry -------->|                              |
-   |                                  |-- Create job (pending)       |
-   |                                  |-- waitUntil(process...)  --->|
-   |<-- 200 { jobId, imageId } -------|  (~200ms)                    |
-   |                                  |                              |-- Analyze
-   |-- Poll DB every 3s ------------->|                              |-- Generate
-   |-- Poll DB every 3s ------------->|                              |-- Upload
-   |-- Poll DB (status=completed) --->|                              |-- Update DB
-   |                                  |                              |
-   |-- Navigate to /sonuclar -------->|                              |
-```
+### Step 2: Fix Memory Crashes - Reduce Image Size
+In `callGeminiImageGeneration()`:
+- Change `imageSize: '4K'` to `imageSize: '2K'`
+- This reduces the base64 response from ~20MB to ~5MB, well within 150MB limits
+- The images will still be high quality (2048x2730 pixels) -- more than enough for web display and downloads
+- The download function already upscales client-side via canvas for 4K output
 
-### Changes
+### Step 3: Restore 3-Image Generation
+In the `processGenerationInBackground` function, for standard (scene-based) generation:
+- Generate 3 images sequentially (not parallel, to avoid memory spikes)
+- After each generation + upload, explicitly null the image buffer
+- Update progress incrementally: 30% after image 1, 60% after image 2, 90% after image 3
+- Use slightly varied prompts for each (different lighting angle descriptions) to create meaningful variations
 
-**1. Edge Function (`supabase/functions/generate-jewelry/index.ts`)**
+For retouch and style-reference modes: keep at 1 image (these are single-output by nature).
 
-- Replace synchronous `await processGenerationInBackground(...)` with `EdgeRuntime.waitUntil(processGenerationInBackground(...))`
-- Return immediately with `{ jobId, imageId }` after job creation (~200ms response)
-- Remove all Master package dead code (~300 lines: master prompts, step logic, color maps, catalog backgrounds, model shot prompts for master)
-- Remove `isMasterPackage` references throughout
-- Keep single-flight control and auto-cleanup logic
+### Step 4: Fix Auto-Cleanup to Sync Images Table
+In the main handler's auto-cleanup section (line 968-973):
+- After marking stuck jobs as failed, also query those jobs for their `image_record_id`
+- Update the corresponding `images` records to `failed` status with error message
+- This prevents orphaned records
 
-**2. Frontend (`src/pages/Generate.tsx`)**
+### Step 5: Update Frontend for 3 Images
+- Change `totalImages` from 1 to 3 in `Generate.tsx`
+- Update `total_images` in the job creation from 1 to 3
+- The Results page already handles multiple images with thumbnails grid -- no changes needed there
 
-- After receiving `{ jobId, imageId }` from the edge function, start polling the `processing_jobs` table every 3 seconds
-- Poll query: `select status, result_urls, error_message from processing_jobs where id = jobId`
-- On `status = 'completed'`: navigate to results page
-- On `status = 'failed'`: show error toast, stop polling
-- Add a 3-minute timeout safety net (stop polling, show error)
-- Keep the existing `invokeWithRetry` wrapper for the initial HTTP call
+---
 
-**3. Generating Panel (`src/components/generate/GeneratingPanel.tsx`)**
-
-- Update to show progress based on polling status
-- Display current step information from the job record
-- Add timeout indicator if generation takes longer than expected
-
-### Why This Fixes the Issues
-
-- **WORKER_LIMIT**: Edge function returns in ~200ms instead of 60-120s. Worker is freed immediately.
-- **Memory**: Background processing runs independently; removing 300 lines of dead Master code reduces baseline memory.
-- **Reliability**: Even if background process crashes, the job stays in `generating` status and auto-cleanup marks it as failed after 5 minutes. Credits are refunded.
+## Technical Details
 
 ### Files to Change
 
-1. `supabase/functions/generate-jewelry/index.ts` -- waitUntil + remove Master dead code
-2. `src/pages/Generate.tsx` -- add polling logic
-3. `src/components/generate/GeneratingPanel.tsx` -- polling-aware progress display
+**1. SQL Migration** - Clean stuck data + sync images table
 
+```sql
+-- Clean stuck job
+UPDATE processing_jobs SET status = 'failed', error_message = 'Memory cleanup' 
+WHERE id = 'e40cc12c-655c-4884-a14c-48776c674daa' AND status = 'generating';
+
+-- Sync orphaned images with failed jobs
+UPDATE images SET status = 'failed', error_message = 'Generation failed'
+WHERE status IN ('generating', 'analyzing') 
+AND id IN (SELECT image_record_id FROM processing_jobs WHERE status = 'failed');
+```
+
+**2. `supabase/functions/generate-jewelry/index.ts`**
+- Line 59: Change `imageSize: '4K'` to `imageSize: '2K'`
+- Lines 783-820: Replace single standard generation with a loop that generates 3 images sequentially with memory cleanup
+- Lines 968-973: After auto-cleanup of stuck jobs, also update corresponding images table records
+- Line 1047: Change `total_images: 1` to `total_images: 3`
+
+**3. `src/pages/Generate.tsx`**
+- Line 260: Change `totalImages = 1` to `totalImages = 3`
+
+### Memory Budget After Fix
+- Input image base64: ~1.5MB
+- Analysis response: ~0.1MB
+- Generation response (2K): ~5MB per image
+- Only 1 image in memory at a time (sequential + null after upload)
+- Total peak: ~10MB -- well within 150MB limit
