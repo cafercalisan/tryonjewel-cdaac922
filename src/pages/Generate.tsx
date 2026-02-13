@@ -12,6 +12,9 @@ import {
   RectangleVertical,
   Square,
   RectangleHorizontal,
+  Focus,
+  LayoutGrid,
+  Contrast,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -123,7 +126,7 @@ export default function Generate() {
           setTotalImages(data.total_images || 3);
 
           // Map current_step to generationStep for UI
-          if (data.current_step === 'analyzing' || data.current_step === 'downloading') {
+          if (data.current_step === 'analyzing' || data.current_step === 'downloading' || data.current_step === 'analyzing_style') {
             setGenerationStep('analyzing');
           } else if (data.current_step?.startsWith('generating') || data.current_step === 'generating' || data.current_step === 'saving') {
             setGenerationStep('generating');
@@ -359,6 +362,7 @@ export default function Generate() {
       if (isRetouchMode) {
         // No additional configuration needed
       } else if (styleReference) {
+        // Style reference upload — works for all package types
         const styleFileExt = styleReference.file.name.split(".").pop();
         const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
 
@@ -697,17 +701,20 @@ export default function Generate() {
                         <Sparkles className="h-5 w-5 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-sm mb-0.5">3 Profesyonel Gorsel</h3>
+                        <h3 className="font-semibold text-sm mb-0.5">6 Profesyonel Gorsel</h3>
                         <p className="text-xs text-muted-foreground">
                           Her uretim benzersiz sahneler icerir
                         </p>
                       </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {[
-                        { Icon: Camera, label: 'Editorial', desc: 'Luks yaratici sahne kompozisyonu' },
-                        { Icon: ShoppingBag, label: 'E-Ticaret', desc: 'Temiz beyaz zemin urun cekimi' },
-                        { Icon: User, label: 'Model', desc: 'Gercek model uzerinde lifestyle' },
+                        { Icon: Camera, label: 'Editorial', desc: 'Luks yaratici sahne' },
+                        { Icon: ShoppingBag, label: 'E-Ticaret', desc: 'Temiz beyaz zemin' },
+                        { Icon: User, label: 'Model', desc: 'Lifestyle gorsel' },
+                        { Icon: Focus, label: 'Macro', desc: 'Ultra yakin detay' },
+                        { Icon: LayoutGrid, label: 'Flat Lay', desc: 'Ust aci sunum' },
+                        { Icon: Contrast, label: 'Dramatik', desc: 'Etkileyici aci' },
                       ].map((item) => (
                         <div key={item.label} className="flex items-center gap-3 bg-card/80 rounded-xl px-3 py-2.5 border-l-2 border-gold shadow-sm">
                           <item.Icon className="h-4 w-4 text-[hsl(38,45%,55%)] shrink-0" />
@@ -717,6 +724,30 @@ export default function Generate() {
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Optional style reference for master package editorial slot */}
+                    <div className="mt-4 pt-4 border-t border-gold/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Opsiyonel: Editorial icin stil referansi
+                        </p>
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                      </div>
+                      <StyleReferenceUpload
+                        styleReference={styleReference}
+                        onUpload={(ref) => {
+                          setStyleReference(ref);
+                        }}
+                        onRemove={() => setStyleReference(null)}
+                        isCompressing={isStyleCompressing}
+                        setIsCompressing={setIsStyleCompressing}
+                      />
+                      {styleReference && (
+                        <p className="text-[11px] text-muted-foreground mt-2">
+                          Editorial gorsel stil referansiniza gore olusturulacak
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.section>

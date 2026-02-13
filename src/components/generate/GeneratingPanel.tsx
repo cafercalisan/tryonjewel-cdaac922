@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User } from 'lucide-react';
+import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User, Focus, LayoutGrid, Contrast } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
@@ -17,6 +17,9 @@ const IMAGE_TYPE_CONFIG = [
   { label: 'Editorial', Icon: Camera, desc: 'Yaratici sahne' },
   { label: 'E-Ticaret', Icon: ShoppingBag, desc: 'Urun cekimi' },
   { label: 'Model', Icon: User, desc: 'Lifestyle gorsel' },
+  { label: 'Macro', Icon: Focus, desc: 'Detay cekim' },
+  { label: 'Flat Lay', Icon: LayoutGrid, desc: 'Ust aci sunum' },
+  { label: 'Dramatik', Icon: Contrast, desc: 'Etkileyici aci' },
 ];
 
 export function GeneratingPanel({
@@ -26,7 +29,7 @@ export function GeneratingPanel({
   currentStep = null,
   progress = 0,
   completedImages = 0,
-  totalImages = 3,
+  totalImages = 6,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -50,6 +53,7 @@ export function GeneratingPanel({
     'pending': 'Kuyrukta bekleniyor...',
     'downloading': 'Gorseller indiriliyor...',
     'analyzing': 'Mucevher analiz ediliyor...',
+    'analyzing_style': 'Stil referansi analiz ediliyor...',
     'generating': 'AI gorsel olusturuyor...',
     'generating_1': 'Gorsel 1/3 olusturuluyor...',
     'generating_2': 'Gorsel 2/3 olusturuluyor...',
@@ -57,6 +61,9 @@ export function GeneratingPanel({
     'generating_editorial': 'Editorial gorsel olusturuluyor...',
     'generating_ecommerce': 'E-Ticaret gorseli olusturuluyor...',
     'generating_model': 'Model gorseli olusturuluyor...',
+    'generating_macro': 'Macro detay gorseli olusturuluyor...',
+    'generating_flatlay': 'Flat Lay gorseli olusturuluyor...',
+    'generating_dramatic': 'Dramatik gorsel olusturuluyor...',
     'saving': 'Sonuclar kaydediliyor...',
     'completed': 'Tamamlandi!',
     'failed': 'Hata olustu',
@@ -74,6 +81,9 @@ export function GeneratingPanel({
     'generating_editorial': 0,
     'generating_ecommerce': 1,
     'generating_model': 2,
+    'generating_macro': 3,
+    'generating_flatlay': 4,
+    'generating_dramatic': 5,
   };
   const currentImageIndex = currentStep
     ? masterStepMap[currentStep] ?? (currentStep.startsWith('generating_') ? parseInt(currentStep.split('_')[1]) - 1 : completedImages)
@@ -115,7 +125,7 @@ export function GeneratingPanel({
       {!isRetouch && totalImages > 1 && (
         <div className="px-6 pb-3">
           <div className="grid grid-cols-3 gap-2">
-            {Array.from({ length: Math.min(totalImages, 3) }, (_, i) => {
+            {Array.from({ length: Math.min(totalImages, 6) }, (_, i) => {
               const isDone = i < completedImages;
               const isActive = i === currentImageIndex && !isDone && currentStep?.startsWith('generating');
               const config = IMAGE_TYPE_CONFIG[i];

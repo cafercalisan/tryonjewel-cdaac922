@@ -1,4 +1,4 @@
-import { Sparkles, Wand2, Check, Camera, ShoppingBag, User } from "lucide-react";
+import { Sparkles, Wand2, Check, Camera, ShoppingBag, User, Focus, LayoutGrid, Contrast } from "lucide-react";
 import { motion } from "framer-motion";
 
 type PackageType = 'standard' | 'retouch';
@@ -46,7 +46,7 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
         </div>
 
         <h3 className="font-semibold text-sm sm:text-base mb-0.5">Master Paket</h3>
-        <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">3 farkli profesyonel gorsel</p>
+        <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">6 farkli profesyonel gorsel</p>
 
         {/* Feature list */}
         <div className="space-y-1 mb-2 sm:mb-3">
@@ -54,6 +54,9 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
             { icon: Camera, label: 'Editorial' },
             { icon: ShoppingBag, label: 'E-Ticaret' },
             { icon: User, label: 'Model' },
+            { icon: Focus, label: 'Macro' },
+            { icon: LayoutGrid, label: 'Flat Lay' },
+            { icon: Contrast, label: 'Dramatik' },
           ].map((f) => (
             <div key={f.label} className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground">
               <f.icon className="h-3 w-3 shrink-0" />
@@ -67,7 +70,7 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
           <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium ${
             isStandardSelected ? 'gradient-gold text-white' : 'bg-muted'
           }`}>
-            3 gorsel
+            6 gorsel
           </span>
           <span className="text-muted-foreground hidden sm:inline">
             10 kredi
