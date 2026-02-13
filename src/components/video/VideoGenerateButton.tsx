@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Video, Loader2, Sparkles } from 'lucide-react';
+import { Video, Loader2, Sparkles, RectangleVertical, RectangleHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -55,6 +55,7 @@ export function VideoGenerateButton({
   const [isGenerating, setIsGenerating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('default');
+  const [selectedFormat, setSelectedFormat] = useState<'9:16' | '16:9'>('9:16');
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'starting' | 'processing' | 'completed' | 'error'>('idle');
 
   const handleGenerate = async () => {
@@ -74,7 +75,7 @@ export function VideoGenerateButton({
           user_id: user.id,
           source_image_url: imageUrl,
           status: 'pending',
-          aspect_ratio: '9:16'
+          aspect_ratio: selectedFormat
         })
         .select()
         .single();
@@ -90,7 +91,8 @@ export function VideoGenerateButton({
         body: {
           imageUrl,
           videoId: videoRecord.id,
-          promptType: selectedStyle
+          promptType: selectedStyle,
+          videoFormat: selectedFormat,
         }
       });
 
@@ -174,13 +176,48 @@ export function VideoGenerateButton({
               </Select>
             </div>
 
+            {/* Format Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Video Formati</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setSelectedFormat('9:16')}
+                  className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                    selectedFormat === '9:16'
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30 bg-card'
+                  }`}
+                >
+                  <RectangleVertical className={`h-5 w-5 ${selectedFormat === '9:16' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="text-left">
+                    <p className="text-xs font-medium">Dikey</p>
+                    <p className="text-[10px] text-muted-foreground">9:16</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setSelectedFormat('16:9')}
+                  className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                    selectedFormat === '16:9'
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30 bg-card'
+                  }`}
+                >
+                  <RectangleHorizontal className={`h-5 w-5 ${selectedFormat === '16:9' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="text-left">
+                    <p className="text-xs font-medium">Yatay</p>
+                    <p className="text-[10px] text-muted-foreground">16:9</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Info */}
             <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
               <ul className="space-y-1">
-                <li>• Ultra slow-motion, lüks his</li>
+                <li>• Sinematik slow-motion, luks rotasyon</li>
                 <li>• Metal rengi %100 korunur</li>
-                <li>• 5 saniye, 9:16 format</li>
-                <li>• Editorial kalite çıktı</li>
+                <li>• 5-8 saniye, Veo 3.1 kalitesi</li>
+                <li>• Editorial kampanya kalitesi</li>
               </ul>
             </div>
 

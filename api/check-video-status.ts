@@ -23,8 +23,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY is not configured');
+    const GOOGLE_API_KEY = process.env.GOOGLE_VEO_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_VEO_API_KEY or GOOGLE_API_KEY is not configured');
 
     const supabase = getServiceClient();
 

@@ -8,6 +8,10 @@ import {
   Camera,
   ShoppingBag,
   User,
+  Wand2,
+  RectangleVertical,
+  Square,
+  RectangleHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -64,6 +68,7 @@ export default function Generate() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(preselectedSceneId);
   const [packageType, setPackageType] = useState<PackageType>('standard');
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('3:4');
   
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
@@ -348,6 +353,7 @@ export default function Generate() {
         packageType,
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
+        aspectRatio: selectedAspectRatio,
       };
 
       if (isRetouchMode) {
@@ -608,6 +614,63 @@ export default function Generate() {
                   <p className="text-[11px] text-muted-foreground mt-2">
                     Ürün tek renk veya ayırt edilemiyorsa seçin
                   </p>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Aspect Ratio Selection - Hidden in Retouch mode */}
+            <AnimatePresence>
+              {!isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                      <RectangleVertical className="h-3 w-3" />
+                    </div>
+                    <h2 className="text-sm font-semibold">Gorsel Orani</h2>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: '3:4', label: 'Dikey', desc: '3:4', Icon: RectangleVertical },
+                      { id: '1:1', label: 'Kare', desc: '1:1', Icon: Square },
+                      { id: '4:3', label: 'Yatay', desc: '4:3', Icon: RectangleHorizontal },
+                    ].map((ratio) => {
+                      const isSelected = selectedAspectRatio === ratio.id;
+                      return (
+                        <motion.button
+                          key={ratio.id}
+                          onClick={() => setSelectedAspectRatio(ratio.id)}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`relative p-3 rounded-xl border-2 transition-all flex items-center gap-2.5 ${
+                            isSelected
+                              ? 'border-gold gradient-gold-subtle shadow-sm'
+                              : 'border-border hover:border-gold/30 bg-card'
+                          }`}
+                        >
+                          <ratio.Icon className={`h-5 w-5 ${isSelected ? 'text-[hsl(38,45%,55%)]' : 'text-muted-foreground'}`} />
+                          <div className="text-left">
+                            <p className="text-xs font-medium">{ratio.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{ratio.desc}</p>
+                          </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 gradient-gold rounded-full flex items-center justify-center shadow-sm"
+                            >
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </motion.section>
               )}
             </AnimatePresence>

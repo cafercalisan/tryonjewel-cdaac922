@@ -71,65 +71,108 @@ const CAMERA_PERSPECTIVES = [
 ];
 
 // ═══════════════════════════════════════════════════
+// CHARACTER IDENTITY DNA (for Model prompt)
+// ═══════════════════════════════════════════════════
+const CHARACTER_GAZE = [
+  'Direct eye contact with camera — confident, magnetic, editorial intensity',
+  'Looking slightly past camera (10° off-axis) — mysterious, editorial detachment',
+  'Downcast eyes with subtle smile — intimate, contemplative luxury moment',
+  'Gazing at the jewelry piece with admiration — drawing viewer attention to product',
+  'Three-quarter profile gaze toward soft light source — cinematic, painterly',
+  'Eyes closed, serene expression — meditative, haute-couture editorial stillness',
+];
+
+const CHARACTER_EXPRESSIONS = [
+  'Confident and poised — strong jawline, relaxed brow, slight knowing smile',
+  'Softly sensual — parted lips, relaxed gaze, effortless allure',
+  'Editorial stoic — neutral expression, high-fashion detachment, angular features',
+  'Warm and natural — genuine soft smile, crow\'s feet visible, approachable luxury',
+  'Regal and commanding — chin slightly raised, strong posture, aristocratic bearing',
+  'Dreamy and ethereal — soft focus expression, luminous skin, romantic atmosphere',
+];
+
+const CHARACTER_SKIN_TONES = [
+  'Mediterranean olive with warm golden undertones — sun-kissed radiance',
+  'Fair porcelain with subtle rosy undertones — luminous, translucent quality',
+  'Rich warm tan with honey undertones — bronze goddess glow',
+  'Light olive with neutral undertones — sophisticated, versatile canvas',
+];
+
+const CHARACTER_HAIR_STYLES = [
+  'Sleek pulled-back hair with clean lines — emphasizing facial structure and jewelry',
+  'Loose natural waves cascading over one shoulder — romantic, effortless',
+  'Structured updo revealing neck and ears — classic editorial elegance',
+  'Tousled windswept texture — editorial movement, editorial dynamism',
+  'Smooth straight hair tucked behind ear on jewelry side — focused reveal',
+];
+
+// ═══════════════════════════════════════════════════
 // MODEL POSE CONFIG BY PRODUCT TYPE
 // ═══════════════════════════════════════════════════
 const PRODUCT_TYPE_MODEL_CONFIG: Record<string, { bodyRegion: string; poses: string[] }> = {
   yuzuk: {
     bodyRegion: 'hand and fingers',
     poses: [
-      'Model\'s hand gracefully touching collarbone, ring prominently visible on finger, soft natural pose',
-      'Hand gently touching face near jawline, ring in sharp focus, dreamy expression',
-      'Hand running through hair, ring catching light beautifully, candid editorial moment',
-      'Both hands together near chin in contemplative pose, ring as centerpiece',
-      'Hand resting on shoulder, ring visible against skin, elegant three-quarter profile',
+      'Model\'s hand gracefully touching collarbone, ring prominently visible on finger. Fingers slightly spread for clarity. Natural hand curvature, visible knuckle detail, elegant wrist angle.',
+      'Hand gently framing face near jawline, ring in razor-sharp focus. Ring finger positioned at eye-level. Dreamy expression with soft eye contact. Skin texture visible on fingers.',
+      'Hand running through tousled hair, ring catching a spark of light. Candid editorial moment frozen in time. Natural finger spacing shows ring from optimal angle.',
+      'Both hands together near chin in contemplative pose, ring as absolute centerpiece. Interlocked fingers create elegant geometry. Ring positioned toward camera for maximum visibility.',
+      'Hand resting on bare shoulder, ring visible against luminous skin. Three-quarter profile with chin slightly raised. Ring catches rim light creating a golden highlight.',
+      'Hand elegantly draped over the edge of a dark surface, fingers cascading downward, ring catching dramatic side-light. Architectural hand pose, editorial precision.',
+      'Model examining the ring on her own hand at close range — intimate, admiring moment. Ring is the sharp focus point. Background softly blurred.',
     ],
   },
   bileklik: {
     bodyRegion: 'wrist',
     poses: [
-      'Wrist resting elegantly on a surface, bracelet draped naturally, relaxed confidence',
-      'Hand reaching for coffee cup, bracelet sliding on wrist, lifestyle moment',
-      'Arm raised with hand in hair, bracelet catching light on exposed wrist',
-      'Both wrists crossed casually, bracelet as focal point, editorial pose',
-      'Hand touching neckline, wrist and bracelet naturally framed in composition',
+      'Wrist resting elegantly on a marble surface, bracelet draped naturally with golden catch-light. Relaxed confidence, fingers slightly curled. Bracelet chain follows wrist contour perfectly.',
+      'Arm raised with hand in hair, bracelet sliding naturally on wrist. Gravity pulls bracelet to optimal viewing angle. Light catches each link/stone. Editorial movement frozen.',
+      'Both wrists crossed casually at collarbone level, bracelet as focal point. One wrist stacked, editorial symmetry. Bracelet creates visual anchor.',
+      'Hand touching neckline from below, wrist and bracelet naturally framed against décolletage. Bracelet catches warm skin-reflected light. Intimate gesture.',
+      'Wrist extended gracefully forward toward camera, bracelet in sharp macro focus. Arm angle creates depth. Background model face softly blurred. Product hero shot.',
+      'Forearm resting on knee in seated editorial pose, bracelet centered in frame. Natural wrist angle, visible skin texture around bracelet. Sophisticated luxury moment.',
     ],
   },
   kupe: {
     bodyRegion: 'ear and profile',
     poses: [
-      'Side profile with hair tucked behind ear, earring fully visible and catching light',
-      'Three-quarter view looking over shoulder, earring prominent against neck line',
-      'Head tilted slightly, earring swaying, natural movement captured mid-moment',
-      'Profile with chin slightly raised, earring creating elegant silhouette line',
-      'Hair swept up in loose style, both earrings visible from slight angle',
+      'Pure side profile with hair swept completely behind ear. Earring fully visible from lobe to lowest point. Clean jawline, neck elongated. Earring catches dramatic rim light. Magazine cover composition.',
+      'Three-quarter view looking over shoulder, earring prominent against neck silhouette. Chin slightly raised. Earring creates elegant line from ear to shoulder. Mysterious editorial gaze.',
+      'Head tilted 15° toward camera, earring swaying with captured micro-movement. Natural motion blur on hair tips, earring frozen sharp. Editorial action moment.',
+      'Profile with chin raised at 20°, earring creating sculptural silhouette against negative space. Strong jawline emphasized. Architectural, fashion-forward composition.',
+      'Hair swept up in elegant chignon, both earrings visible from frontal three-quarter angle. Neck fully exposed. Earrings frame the face symmetrically. Classic portrait.',
+      'Close-up profile from behind, showing ear and earring with shoulder and neck. Hair pulled to opposite side. Intimate, revealing angle that showcases earring construction.',
     ],
   },
   kolye: {
     bodyRegion: 'neck and décolletage',
     poses: [
-      'Straight décolletage view, necklace centered on chest, clean neckline with minimal clothing',
-      'Slight head tilt with soft smile, necklace draping naturally, warm portrait',
-      'Profile view showing necklace chain line along neck, artistic composition',
-      'Looking down slightly, necklace pendant as focal point, intimate editorial moment',
-      'Three-quarter view with one hand near collarbone, necklace framing the pose',
+      'Straight-on décolletage view, necklace centered on chest. Clean neckline — off-shoulder or strapless to maximize visibility. Pendant rests at natural drape point. Even skin tone, collar bones visible.',
+      'Slight head tilt with eyes lowered toward necklace, creating viewer\'s gaze path from face to product. Soft smile. Necklace draping naturally following gravity. Warm editorial portrait.',
+      'Profile view showing necklace chain line flowing along neck curve. Artistic negative space composition. Chain catches light creating a golden path. Sculptural beauty.',
+      'Looking directly at camera, chin slightly lowered, necklace pendant catching spotlight. Intimate eye contact draws viewer in, then gaze falls to jewelry. Power editorial.',
+      'Three-quarter view with one hand delicately touching pendant — drawing attention to it. Fingers gentle, not gripping. Natural interaction between model and jewelry.',
+      'Head thrown back slightly with closed eyes, necklace displayed on elongated neck. Sensual, luxury fragrance campaign aesthetic. Necklace catches overhead light beautifully.',
     ],
   },
   saat: {
     bodyRegion: 'wrist',
     poses: [
-      'Wrist check pose, looking at watch face with confident expression, business editorial',
-      'Arm resting on table or surface, watch dial clearly visible, relaxed luxury',
-      'Hand adjusting jacket cuff revealing watch, sophisticated lifestyle moment',
-      'Wrist resting on knee in seated pose, watch prominently displayed',
-      'Crossed arms with watch visible, power pose, executive editorial style',
+      'Wrist check pose — glancing at watch face with quiet confidence. Business editorial. Watch dial readable, crystal catching overhead light. Subtle smile of satisfaction.',
+      'Forearm resting on dark wood surface, watch dial angled toward camera for maximum readability. Crown and pushers visible. Relaxed luxury lifestyle moment.',
+      'Hand adjusting jacket sleeve cuff, revealing watch in a natural, unposed moment. Sophisticated lifestyle editorial. Watch partially emerging from fabric creates anticipation.',
+      'Wrist resting on knee in seated pose, watch dial facing outward. Full watch visible — crystal, bezel, bracelet links all sharp. Executive editorial power.',
+      'Crossed arms with watch prominently visible on top wrist, facing camera. Power pose, confident direct gaze. Watch as status symbol, editorial authority.',
+      'Hand gripping steering wheel or armrest, watch visible at natural wrist angle. Luxury lifestyle context. Watch catches dashboard ambient light.',
     ],
   },
   genel: {
     bodyRegion: 'full portrait',
     poses: [
-      'Elegant full portrait with jewelry as natural complement to outfit',
-      'Three-quarter profile with soft natural expression, jewelry catching light',
-      'Editorial fashion pose with strong posture, jewelry as statement piece',
+      'Elegant three-quarter portrait with jewelry as natural complement to minimal styling. Strong posture, confident expression. Jewelry catches light and draws eye naturally.',
+      'Editorial fashion pose — angular body position, architectural composition. Jewelry as statement piece creating visual focal point. High-fashion magazine aesthetic.',
+      'Soft natural portrait with genuine expression, jewelry adding sophistication. Approachable luxury — like a brand ambassador campaign. Warm, inviting, aspirational.',
+      'Dramatic profile silhouette with jewelry catching rim light. Dark background, moody atmosphere. Jewelry creates luminous accent in shadow. Art-house editorial.',
     ],
   },
 };
@@ -231,10 +274,14 @@ function buildModelPrompt(
 ): string {
   const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
   const pose = pickRandom(config.poses);
+  const gaze = pickRandom(CHARACTER_GAZE);
+  const expression = pickRandom(CHARACTER_EXPRESSIONS);
+  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
+  const hairStyle = pickRandom(CHARACTER_HAIR_STYLES);
 
-  console.log(`Model prompt — Product type: ${productType}, Body region: ${config.bodyRegion}, Pose: ${pose.substring(0, 50)}...`);
+  console.log(`Model prompt — Type: ${productType}, Region: ${config.bodyRegion}, Gaze: ${gaze.substring(0, 40)}..., Expression: ${expression.substring(0, 40)}...`);
 
-  return `LIFESTYLE MODEL PHOTOGRAPHY — Real human model wearing the jewelry piece.
+  return `EDITORIAL MODEL PHOTOGRAPHY — High-fashion portrait with real human model wearing the jewelry piece.
 
 ${productExtractionBlock}
 
@@ -245,29 +292,65 @@ ${fidelityBlock}
 - NO product-only output — the model IS required
 - NO mannequins, NO floating jewelry, NO disembodied body parts
 
-MODEL SPECIFICATIONS:
-- Turkish / Mediterranean aesthetic: olive to light skin tone, dark hair
-- Age range: 25-35, natural beauty
-- Real skin texture: visible pores, natural imperfections — absolutely NO plastic/CGI/airbrushed look
-- Anatomical accuracy: correct finger count (5 per hand), natural body proportions
-- Expression: confident, editorial, natural
+═══════════════════════════════════════════════════════════════
+CHARACTER DNA — UNIQUE IDENTITY FOR THIS SHOT
+═══════════════════════════════════════════════════════════════
 
-JEWELRY PLACEMENT:
-- Body region: ${config.bodyRegion.toUpperCase()}
-- Pose: ${pose}
-- The jewelry must be clearly visible, in focus, and accurately rendered on the model
+SKIN & COMPLEXION:
+- ${skinTone}
+- Real skin texture mandatory: visible pores, natural micro-imperfections, subtle vein patterns on hands/wrists
+- Absolutely NO plastic/CGI/airbrushed/beauty-filtered look
+- Natural skin sheen — not matte, not oily, just healthy luminous skin
+- Subsurface scattering visible in ear lobes, fingertips, and thin skin areas
+
+HAIR:
+- Dark hair (black to deep brunette), natural and healthy
+- Style: ${hairStyle}
+- Individual hair strands visible, natural flyaways for realism
+- Hair must not obstruct the jewelry — styled to reveal it
+
+EXPRESSION & GAZE:
+- ${expression}
+- ${gaze}
+- Micro-expression details: subtle muscle tension, natural lip position
+- Eyes: realistic iris detail with natural catch-lights
+
+BODY & ANATOMY:
+- Age range: 25-35, natural beauty
+- Turkish / Mediterranean aesthetic
+- Anatomical accuracy: correct finger count (5 per hand), natural proportions
+- Natural body weight — realistic, not idealized
+- Visible collarbone definition, natural neck length
+
+═══════════════════════════════════════════════════════════════
+POSE & JEWELRY PLACEMENT
+═══════════════════════════════════════════════════════════════
+
+BODY REGION: ${config.bodyRegion.toUpperCase()}
+POSE: ${pose}
+
+JEWELRY INTERACTION:
+- The jewelry must be the HERO — model supports, never competes
+- Sharp focus on jewelry, model slightly softer (but still detailed)
+- Natural jewelry-skin interaction: realistic weight, drape, and contact
+- Light must highlight the jewelry more than the model's features
 
 ENVIRONMENT:
-- Natural daylight, soft and flattering
-- Lifestyle setting: could be indoor elegant space or outdoor natural location
-- Shallow depth of field — model and jewelry sharp, background softly blurred
-- Warm, inviting atmosphere
+- Soft editorial lighting — cinematic and flattering
+- Neutral to warm luxury setting (not distracting)
+- Shallow depth of field — f/1.8 to f/2.8 bokeh
+- Background suggestion: soft gradient, architectural detail out of focus, or natural light source
+
+COLOR GRADING:
+- Warm, rich tones — luxury editorial palette
+- Skin tones accurate and flattering
+- Metal color of jewelry preserved exactly
 
 TECHNICAL:
-- 4:5 portrait aspect ratio
 - 4K ultra-high resolution output
 - Ultra photorealistic portrait photography
-- Fashion editorial meets lifestyle advertising quality`;
+- Fashion editorial meets luxury advertising campaign quality
+- Shot on 85mm f/1.4 — classic portrait compression and bokeh`;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -285,10 +368,12 @@ async function callGeminiImageGeneration({
   base64Images,
   prompt,
   temperature = 0.15,
+  aspectRatio = '3:4',
 }: {
   base64Images: string[];
   prompt: string;
   temperature?: number;
+  aspectRatio?: string;
 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
 
@@ -306,7 +391,7 @@ async function callGeminiImageGeneration({
         responseModalities: ['TEXT', 'IMAGE'],
         temperature,
         imageConfig: {
-          aspectRatio: '3:4',
+          aspectRatio,
           imageSize: '4K',
         },
       },
@@ -323,6 +408,7 @@ async function generateSingleImage(
   index: number,
   supabase: any,
   jobId: string,
+  aspectRatio: string = '3:4',
 ): Promise<string | null> {
   const temperatures = [0.15, 0.2, 0.25];
   const delays = [0, 3000, 5000];
@@ -343,6 +429,7 @@ async function generateSingleImage(
         base64Images,
         prompt,
         temperature: temperatures[attempt],
+        aspectRatio,
       });
 
       if (!genResponse.ok) {
@@ -410,6 +497,7 @@ async function processGeneration(params: {
   productType: string | null;
   metalColorOverride: string | null;
   styleReferencePath: string | null;
+  aspectRatio: string;
   creditsNeeded: number;
   isAdminUser: boolean;
 }) {
@@ -417,7 +505,7 @@ async function processGeneration(params: {
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
     sceneId, packageType, productType,
-    metalColorOverride, styleReferencePath, creditsNeeded, isAdminUser,
+    metalColorOverride, styleReferencePath, aspectRatio, creditsNeeded, isAdminUser,
   } = params;
 
   console.log(`Using model: Analysis=Gemini 2.5 Flash, Generation=Gemini 3 Pro (4K), Package=${packageType}`);
@@ -789,7 +877,7 @@ OUTPUT: Single professionally retouched jewelry image on pure white background.
 Ultra high resolution output.`.trim();
 
       await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
-      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, supabase, jobId);
+      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, supabase, jobId, aspectRatio);
 
       if (retouchUrl) {
         generatedUrls.push(retouchUrl);
@@ -841,7 +929,7 @@ Ultra high resolution output.`;
 
       await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
       const styleTransferImages = [styleReferenceBase64, ...base64Images];
-      const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecordId, 1, supabase, jobId);
+      const url = await generateSingleImage(styleTransferImages, styleTransferPrompt, userId, imageRecordId, 1, supabase, jobId, aspectRatio);
       if (url) generatedUrls.push(url);
 
       await supabase.from('processing_jobs').update({
@@ -908,6 +996,7 @@ Ultra high resolution output.`;
                 base64Images,
                 prompt,
                 temperature: temperatures[attempt],
+                aspectRatio,
               });
 
               if (!genResponse.ok) {
@@ -957,7 +1046,7 @@ Ultra high resolution output.`;
             }
           }
         } else {
-          url = await generateSingleImage(base64Images, prompt, userId, imageRecordId, i + 1, supabase, jobId);
+          url = await generateSingleImage(base64Images, prompt, userId, imageRecordId, i + 1, supabase, jobId, aspectRatio);
         }
 
         if (url) generatedUrls.push(url);
@@ -1065,8 +1154,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = authResult.userId;
     console.log('Authenticated user:', userId);
 
-    const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath } = req.body;
-    console.log('Generate request:', { imagePath, sceneId, packageType, productType, userId });
+    const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath, aspectRatio: requestedRatio } = req.body;
+    const validRatios = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+    const aspectRatio = validRatios.includes(requestedRatio) ? requestedRatio : '3:4';
+    console.log('Generate request:', { imagePath, sceneId, packageType, productType, aspectRatio, userId });
 
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
       return sendCorsResponse(res, 400, { error: 'Invalid image path' });
@@ -1202,6 +1293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       productType: productType || null,
       metalColorOverride: metalColorOverride || null,
       styleReferencePath: styleReferencePath || null,
+      aspectRatio,
       creditsNeeded,
       isAdminUser,
     }));

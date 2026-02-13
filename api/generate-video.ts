@@ -7,46 +7,76 @@ export const config = {
   maxDuration: 300,
 };
 
-const CORE_FRAMEWORK = `High-end editorial jewelry video.
-Minimal, controlled motion.
-Slow cinematic pacing, no exaggerated movement.
-Natural light behavior, soft highlights, realistic reflections.
-Camera movement is subtle and intentional.
-Luxury fashion campaign aesthetic.
-No fast cuts, no dramatic effects, no artificial glow.
+const CORE_FRAMEWORK = `ULTRA-PREMIUM LUXURY JEWELRY CINEMATOGRAPHY — Advertising campaign quality.
+
+CINEMATIC PHILOSOPHY:
+- Every frame is a work of art — museum-quality visual composition
+- Slow-motion elegance with breathtaking fluidity
+- Light dances across metal and gemstones with mesmerizing realism
+- Each second reveals new facets, reflections, and micro-details
+- The viewer should feel the weight, the craftsmanship, the luxury
 
 COMPLIANCE (CRITICAL):
-- No celebrity references
-- No real person's name
-- No real person's likeness
-- Use generic, non-identifiable model only (if a model is visible)`;
+- No celebrity references, no real person's name or likeness
+- Use generic, non-identifiable model only (if visible)
+- No text, no watermarks, no logos`;
 
 const JEWELRY_VIDEO_PROMPTS: Record<string, string> = {
   default: `${CORE_FRAMEWORK}
-CAMERA MOVEMENT: Slow Push-In. Almost imperceptible advance. Macro depth of field.
-LIGHTING: Natural diffused light. No artificial flares. Soft shadows. Cinematic lens (50mm/85mm).
-PRODUCT PRESERVATION: Metal color EXACT, proportions UNCHANGED, natural light only.
-FORBIDDEN: NO dramatic, NO dynamic motion, NO fast camera, NO glowing effects.`,
+
+SCENE: Ultra slow-motion 360° rotation on a dark velvet surface. The jewelry piece rotates imperceptibly slowly, like a museum turntable. Light catches each facet as it turns — diamonds fire, metal gleams, settings sparkle.
+
+CAMERA: Cinematic macro lens (100mm f/2.8). Extremely slow dolly-in combined with the rotation. Starts from medium shot, ends at intimate macro detail. Silky smooth motion, zero shake, tripod-mounted cinema rig feel.
+
+LIGHTING: Dramatic three-point lighting. Key light from upper-left creates sculpted shadows. Rim light from behind produces a luminous golden edge glow on metal. Subtle fill prevents black crush. Occasional caustic light patterns from gemstone refractions dance across the velvet surface.
+
+MOTION: Ultra slow-motion (240fps feel). The rotation is so slow it feels meditative. Light reflections move like liquid gold across metal surfaces. Each diamond facet triggers a brief, natural sparkle.
+
+PRODUCT INTEGRITY: Metal color EXACT — preserve gold warmth, silver coolness, or rose gold blush. Every prong, setting, and stone position unchanged. Natural material behavior only — real physics of light on metal and stone.
+
+ATMOSPHERE: Dark, moody, cinematic. Shallow depth of field with dreamy bokeh in background. Rich color grading — deep blacks, warm highlights, controlled midtones. Feels like a Cartier or Tiffany & Co. campaign.`,
 
   model: `${CORE_FRAMEWORK}
-MODEL: Standing still, natural breathing, subtle weight shift. Jewelry moves naturally.
-CAMERA: Slow horizontal drift. Smooth, continuous. Jewelry in sharp focus.
-LIGHTING: Natural diffused. Cinematic lens (50mm/85mm). Shallow DOF.
-PRODUCT: EXACT replication. Natural skin texture, pores visible. No beauty blur.
-FORBIDDEN: NO dramatic, NO dynamic motion, NO fast camera, NO glowing effects.`,
+
+SCENE: Elegant slow-motion lifestyle moment. Model in a luxury environment — soft natural light streaming through sheer curtains. The model makes a subtle, graceful movement — touching collarbone, adjusting hair, turning chin — that naturally showcases the jewelry.
+
+CAMERA: Cinema-grade portrait lens (85mm f/1.4). Slow drift from profile to three-quarter view. Ultra-smooth horizontal tracking. The jewelry remains in razor-sharp focus while the background melts into creamy cinematic bokeh.
+
+LIGHTING: Golden hour warmth flooding from one side. Soft, flattering, directional. Skin glows naturally. Metal catches warm highlights. Gemstones create subtle prismatic flashes as the model moves.
+
+MOTION: Slow-motion (120fps feel). The model's movement is graceful and minimal — barely a breath. Hair moves slightly. Fabric drapes softly. The jewelry catches and releases light with each micro-movement. Natural skin texture visible — pores, fine lines, real human beauty.
+
+PRODUCT INTEGRITY: Jewelry is the hero — always in focus, always prominent. Metal color preserved exactly. Stone settings accurate. Natural interaction between skin and metal — no floating, no CGI.
+
+ATMOSPHERE: Warm, intimate, aspirational. Like a luxury brand's hero campaign film. Soft film grain optional. Rich, warm color palette.`,
 
   product: `${CORE_FRAMEWORK}
-CAMERA: Micro Parallax. Subtle foreground/background shift. Jewelry perfectly stable.
-LIGHTING: Natural diffused. Cinematic lens (50mm/85mm). Shallow DOF.
-PRODUCT: 100% faithful. Metal EXACT. Proportions UNCHANGED. No enhancement.
-FORBIDDEN: NO dramatic, NO dynamic motion, NO fast camera, NO glowing effects.`,
+
+SCENE: Precision product showcase on pristine white-to-grey gradient surface. The jewelry sits perfectly centered. An invisible turntable produces an imperceptible slow rotation. Light plays across every surface with mathematical precision.
+
+CAMERA: Macro cinema lens (100mm). Extremely slow push-in from establishing shot to extreme close-up. The transition is so smooth it feels like floating toward the piece. Deep focus throughout — every detail razor sharp.
+
+LIGHTING: Soft studio lighting from multiple angles. Clean, even illumination that reveals every detail. Subtle catch lights in gemstones. Controlled reflections on polished metal. Minimal shadows — just enough for depth and dimension.
+
+MOTION: Ultra slow rotation — 15° over the entire clip. Combined with the push-in, it creates a hypnotic reveal of the jewelry's construction. Each second shows new angles of stone cuts, prong details, metal grain patterns.
+
+PRODUCT INTEGRITY: 100% faithful reproduction. Metal color exact. Proportions unchanged. No enhancement, no artistic license with the product itself. This is a product documentation piece — absolute accuracy.
+
+ATMOSPHERE: Clean, bright, commercial perfection. E-commerce meets cinematic quality. Professional, trustworthy, premium.`,
 
   closeup: `${CORE_FRAMEWORK}
-HAND: Mostly still, very slow finger relaxation. Natural skin texture.
-CAMERA: Slow Push-In. Almost imperceptible. Macro depth of field.
-LIGHTING: Natural diffused. Cinematic 85mm macro. Shallow DOF.
-PRODUCT: Metal color EXACT. Proportions UNCHANGED. Natural skin preserved.
-FORBIDDEN: NO dramatic, NO dynamic motion, NO fast camera, NO glowing effects.`,
+
+SCENE: Extreme macro close-up of the jewelry's finest details. The camera explores the piece like a scientific instrument discovering beauty. Diamond facets become landscapes. Metal grain becomes terrain. Prong settings become architecture.
+
+CAMERA: Extreme macro (1:1 magnification feel). Ultra-slow pan across the jewelry's surface. Moving from one point of interest to another — stone to setting to metal to engraving. Incredibly shallow depth of field creates dreamy bokeh even within the piece itself.
+
+LIGHTING: Precise spot lighting that follows the camera's exploration. As we move across the piece, light reveals hidden details — internal reflections in stones, micro-textures in brushed metal, the precise meeting point of stone and setting.
+
+MOTION: Glacially slow lateral pan across the piece. Each second reveals a new micro-world of detail. Light shifts create mesmerizing caustic patterns. Diamond fire appears and disappears. Metal reflects and absorbs.
+
+PRODUCT INTEGRITY: Ultimate fidelity. This is about revealing the real craftsmanship. Every scratch in brushed metal, every inclusion in natural stones, every imperfection that proves authenticity. No CGI cleanup.
+
+ATMOSPHERE: Intimate, reverent, awe-inspiring. Like watching a master craftsman's work under a jeweler's loupe. Deep, dark, focused.`,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -57,8 +87,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY is not configured');
+    const GOOGLE_API_KEY = process.env.GOOGLE_VEO_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_VEO_API_KEY or GOOGLE_API_KEY is not configured');
 
     const supabase = getServiceClient();
 
@@ -69,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error('Invalid authentication');
 
-    const { imageUrl, videoId, promptType = 'default' } = req.body;
+    const { imageUrl, videoId, promptType = 'default', videoFormat = '9:16' } = req.body;
     if (!imageUrl) throw new Error('Image URL is required');
     if (!videoId) throw new Error('Video ID is required');
 
@@ -133,10 +163,10 @@ GLOBAL CINEMATIC LOCKS:
 
     try {
       const operation: any = await ai.models.generateVideos({
-        model: 'veo-3.1-generate-preview',
+        model: 'veo-3.1-fast-generate-preview',
         prompt: fullPrompt,
         image: { imageBytes: base64Image, mimeType },
-        config: { aspectRatio: '9:16' },
+        config: { aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16' },
       });
       veo31OperationName = operation?.name;
     } catch (err) {
@@ -154,7 +184,7 @@ GLOBAL CINEMATIC LOCKS:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             instances: [{ prompt: fullPrompt }],
-            parameters: { aspectRatio: '9:16', sampleCount: 1, durationSeconds: 5, personGeneration: 'allow_adult' },
+            parameters: { aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16', sampleCount: 1, durationSeconds: 5, personGeneration: 'allow_adult' },
           }),
         }
       );
