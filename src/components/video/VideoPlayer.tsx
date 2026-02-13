@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, VolumeX, Maximize, Download, RotateCcw } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Download, RotateCcw, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface VideoPlayerProps {
@@ -22,44 +22,92 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [blobSrc, setBlobSrc] = useState<string | null>(null);
+
+  // Fetch video as blob to bypass CORS restrictions
+  useEffect(() => {
+    let cancelled = false;
+    setHasError(false);
+    setIsLoaded(false);
+    setBlobSrc(null);
+
+    async function fetchVideo() {
+      try {
+        const response = await fetch(src);
+        if (!response.ok) throw new Error('Failed to fetch video');
+        const blob = await response.blob();
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        setBlobSrc(url);
+      } catch (err) {
+        console.error('Video fetch error:', err);
+        if (!cancelled) setHasError(true);
+      }
+    }
+
+    fetchVideo();
+    return () => {
+      cancelled = true;
+      if (blobSrc) URL.revokeObjectURL(blobSrc);
+    };
+  }, [src]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      const progress = (video.currentTime / video.duration) * 100;
-      setProgress(isNaN(progress) ? 0 : progress);
+      const prog = (video.currentTime / video.duration) * 100;
+      setProgress(isNaN(prog) ? 0 : prog);
     };
 
     const handleEnded = () => {
       if (!loop) setIsPlaying(false);
     };
 
+    const handleCanPlay = () => {
+      setIsLoaded(true);
+      setHasError(false);
+      if (autoPlay) {
+        video.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+    };
+
+    const handleError = () => {
+      setHasError(true);
+      setIsPlaying(false);
+    };
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('error', handleError);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('error', handleError);
     };
-  }, [loop]);
+  }, [loop, autoPlay, blobSrc]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !isLoaded) return;
 
     if (isPlaying) {
       video.play().catch(() => setIsPlaying(false));
     } else {
       video.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, isLoaded]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -103,19 +151,48 @@ export function VideoPlayer({
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(!isPlaying)}
     >
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        loop={loop}
-        muted={isMuted}
-        playsInline
-        className="w-full h-full object-contain"
-        onClick={togglePlay}
-      />
+      {blobSrc && (
+        <video
+          ref={videoRef}
+          src={blobSrc}
+          poster={poster}
+          loop={loop}
+          muted={isMuted}
+          playsInline
+          preload="auto"
+          className="w-full h-full object-contain"
+          onClick={togglePlay}
+        />
+      )}
 
-      {/* Play Button Overlay - shown when paused */}
-      {!isPlaying && (
+      {/* Loading state */}
+      {!isLoaded && !hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <span className="text-xs text-white/70">Video yukleniyor...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <div className="flex flex-col items-center gap-3 text-center px-4">
+            <AlertCircle className="h-8 w-8 text-red-400" />
+            <p className="text-sm text-white/80">Video oynatılamadı</p>
+            {onDownload && (
+              <Button size="sm" variant="secondary" onClick={onDownload}>
+                <Download className="mr-1 h-3 w-3" />
+                Videoyu Indir
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Play Button Overlay - shown when paused and loaded */}
+      {!isPlaying && isLoaded && !hasError && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}

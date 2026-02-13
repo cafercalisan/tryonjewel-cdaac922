@@ -7,76 +7,79 @@ export const config = {
   maxDuration: 300,
 };
 
-const CORE_FRAMEWORK = `ULTRA-PREMIUM LUXURY JEWELRY CINEMATOGRAPHY — Advertising campaign quality.
+const ANIMATION_CORE = `⚠️ CRITICAL — IMAGE-TO-VIDEO ANIMATION TASK ⚠️
+The provided image is your EXACT FIRST FRAME.
+Your ONLY job is to bring THIS EXACT IMAGE to life with subtle, elegant motion.
 
-CINEMATIC PHILOSOPHY:
-- Every frame is a work of art — museum-quality visual composition
-- Slow-motion elegance with breathtaking fluidity
-- Light dances across metal and gemstones with mesmerizing realism
-- Each second reveals new facets, reflections, and micro-details
-- The viewer should feel the weight, the craftsmanship, the luxury
+ABSOLUTE RULES:
+- DO NOT create new products, new objects, or new compositions
+- DO NOT change the jewelry, the scene, the background, or the colors
+- DO NOT generate different or additional items
+- The video MUST start as a pixel-perfect match of the input image
+- Then add ONLY subtle cinematic motion to animate what already exists
+- Every element in the image stays exactly where it is
+- Product shape, metal color, stone positions — ALL UNCHANGED
 
-COMPLIANCE (CRITICAL):
+COMPLIANCE:
 - No celebrity references, no real person's name or likeness
-- Use generic, non-identifiable model only (if visible)
 - No text, no watermarks, no logos`;
 
 const JEWELRY_VIDEO_PROMPTS: Record<string, string> = {
-  default: `${CORE_FRAMEWORK}
+  default: `${ANIMATION_CORE}
 
-SCENE: Ultra slow-motion 360° rotation on a dark velvet surface. The jewelry piece rotates imperceptibly slowly, like a museum turntable. Light catches each facet as it turns — diamonds fire, metal gleams, settings sparkle.
+ANIMATE THIS IMAGE: Add a very slow, subtle camera push-in toward the jewelry. The camera drifts forward almost imperceptibly, revealing finer details as it approaches. Light gently shifts across the metal and stone surfaces creating natural sparkle and reflection movement.
 
-CAMERA: Cinematic macro lens (100mm f/2.8). Extremely slow dolly-in combined with the rotation. Starts from medium shot, ends at intimate macro detail. Silky smooth motion, zero shake, tripod-mounted cinema rig feel.
+MOTION DETAILS:
+- Ultra-slow dolly-in (barely noticeable advance over 5-8 seconds)
+- Light reflections on metal slowly shift as if a soft light source is breathing
+- Any gemstones produce subtle, natural scintillation — tiny flashes of fire
+- If there are fabric/surface textures in the image, they remain perfectly still
+- Shallow depth of field gradually reveals sharper focus on the jewelry
 
-LIGHTING: Dramatic three-point lighting. Key light from upper-left creates sculpted shadows. Rim light from behind produces a luminous golden edge glow on metal. Subtle fill prevents black crush. Occasional caustic light patterns from gemstone refractions dance across the velvet surface.
+SPEED: Extremely slow, meditative, luxurious. Every motion takes its time.
+FEEL: Like watching a premium jewelry ad in ultra slow-motion. Cartier, Tiffany level.`,
 
-MOTION: Ultra slow-motion (240fps feel). The rotation is so slow it feels meditative. Light reflections move like liquid gold across metal surfaces. Each diamond facet triggers a brief, natural sparkle.
+  model: `${ANIMATION_CORE}
 
-PRODUCT INTEGRITY: Metal color EXACT — preserve gold warmth, silver coolness, or rose gold blush. Every prong, setting, and stone position unchanged. Natural material behavior only — real physics of light on metal and stone.
+ANIMATE THIS IMAGE: The model in this image comes to life with minimal, elegant movement. A subtle breath, a very slight head turn, the tiniest shift in weight. The jewelry catches light naturally as the model moves.
 
-ATMOSPHERE: Dark, moody, cinematic. Shallow depth of field with dreamy bokeh in background. Rich color grading — deep blacks, warm highlights, controlled midtones. Feels like a Cartier or Tiffany & Co. campaign.`,
+MOTION DETAILS:
+- Model makes only micro-movements: gentle breathing, slight chin tilt, soft blink
+- Hair may move ever so slightly as if touched by a gentle breeze
+- Jewelry responds naturally to body movement — slight sway, light catching
+- Skin texture remains photorealistic — pores visible, no beauty blur
+- Camera holds steady or drifts imperceptibly
 
-  model: `${CORE_FRAMEWORK}
+SPEED: Ultra slow-motion feel (120fps). Every gesture is stretched and elegant.
+FEEL: Fashion editorial film. The model is almost a living sculpture.`,
 
-SCENE: Elegant slow-motion lifestyle moment. Model in a luxury environment — soft natural light streaming through sheer curtains. The model makes a subtle, graceful movement — touching collarbone, adjusting hair, turning chin — that naturally showcases the jewelry.
+  product: `${ANIMATION_CORE}
 
-CAMERA: Cinema-grade portrait lens (85mm f/1.4). Slow drift from profile to three-quarter view. Ultra-smooth horizontal tracking. The jewelry remains in razor-sharp focus while the background melts into creamy cinematic bokeh.
+ANIMATE THIS IMAGE: The jewelry in this image begins an imperceptibly slow rotation on its surface. The camera holds steady while the product turns just a few degrees, revealing different angles of light on its surfaces.
 
-LIGHTING: Golden hour warmth flooding from one side. Soft, flattering, directional. Skin glows naturally. Metal catches warm highlights. Gemstones create subtle prismatic flashes as the model moves.
+MOTION DETAILS:
+- Product rotates no more than 10-15 degrees total over the entire clip
+- Light plays across metal surfaces as the angle changes — reflections slide smoothly
+- Gemstone facets catch and release light creating natural sparkle patterns
+- Background and surface remain completely static
+- Deep focus — the entire product stays sharp
 
-MOTION: Slow-motion (120fps feel). The model's movement is graceful and minimal — barely a breath. Hair moves slightly. Fabric drapes softly. The jewelry catches and releases light with each micro-movement. Natural skin texture visible — pores, fine lines, real human beauty.
+SPEED: Glacially slow rotation. The viewer almost doesn't notice the motion.
+FEEL: Premium e-commerce product video. Clean, precise, professional.`,
 
-PRODUCT INTEGRITY: Jewelry is the hero — always in focus, always prominent. Metal color preserved exactly. Stone settings accurate. Natural interaction between skin and metal — no floating, no CGI.
+  closeup: `${ANIMATION_CORE}
 
-ATMOSPHERE: Warm, intimate, aspirational. Like a luxury brand's hero campaign film. Soft film grain optional. Rich, warm color palette.`,
+ANIMATE THIS IMAGE: A very slow lateral camera drift across the jewelry surface, exploring the fine details. The camera moves like a macro lens scanning across the piece, revealing textures and reflections.
 
-  product: `${CORE_FRAMEWORK}
+MOTION DETAILS:
+- Ultra-slow horizontal pan across the jewelry (a few millimeters per second feel)
+- As the camera position shifts, light reveals hidden facets and surface details
+- Gemstone fire patterns shift and dance as viewing angle changes minutely
+- Metal grain and texture become visible as light angle evolves
+- Extremely shallow depth of field — focus plane moves gently
 
-SCENE: Precision product showcase on pristine white-to-grey gradient surface. The jewelry sits perfectly centered. An invisible turntable produces an imperceptible slow rotation. Light plays across every surface with mathematical precision.
-
-CAMERA: Macro cinema lens (100mm). Extremely slow push-in from establishing shot to extreme close-up. The transition is so smooth it feels like floating toward the piece. Deep focus throughout — every detail razor sharp.
-
-LIGHTING: Soft studio lighting from multiple angles. Clean, even illumination that reveals every detail. Subtle catch lights in gemstones. Controlled reflections on polished metal. Minimal shadows — just enough for depth and dimension.
-
-MOTION: Ultra slow rotation — 15° over the entire clip. Combined with the push-in, it creates a hypnotic reveal of the jewelry's construction. Each second shows new angles of stone cuts, prong details, metal grain patterns.
-
-PRODUCT INTEGRITY: 100% faithful reproduction. Metal color exact. Proportions unchanged. No enhancement, no artistic license with the product itself. This is a product documentation piece — absolute accuracy.
-
-ATMOSPHERE: Clean, bright, commercial perfection. E-commerce meets cinematic quality. Professional, trustworthy, premium.`,
-
-  closeup: `${CORE_FRAMEWORK}
-
-SCENE: Extreme macro close-up of the jewelry's finest details. The camera explores the piece like a scientific instrument discovering beauty. Diamond facets become landscapes. Metal grain becomes terrain. Prong settings become architecture.
-
-CAMERA: Extreme macro (1:1 magnification feel). Ultra-slow pan across the jewelry's surface. Moving from one point of interest to another — stone to setting to metal to engraving. Incredibly shallow depth of field creates dreamy bokeh even within the piece itself.
-
-LIGHTING: Precise spot lighting that follows the camera's exploration. As we move across the piece, light reveals hidden details — internal reflections in stones, micro-textures in brushed metal, the precise meeting point of stone and setting.
-
-MOTION: Glacially slow lateral pan across the piece. Each second reveals a new micro-world of detail. Light shifts create mesmerizing caustic patterns. Diamond fire appears and disappears. Metal reflects and absorbs.
-
-PRODUCT INTEGRITY: Ultimate fidelity. This is about revealing the real craftsmanship. Every scratch in brushed metal, every inclusion in natural stones, every imperfection that proves authenticity. No CGI cleanup.
-
-ATMOSPHERE: Intimate, reverent, awe-inspiring. Like watching a master craftsman's work under a jeweler's loupe. Deep, dark, focused.`,
+SPEED: Glacially slow. Each second reveals a new micro-detail.
+FEEL: Like looking through a jeweler's loupe in slow motion.`,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
