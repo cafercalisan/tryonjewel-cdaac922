@@ -256,13 +256,43 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 // ═══════════════════════════════════════════════════
-// THREE PROMPT BUILDER FUNCTIONS
+// PRODUCT IDENTITY CARD (CROSS-IMAGE CONSISTENCY)
+// ═══════════════════════════════════════════════════
+
+function buildProductIdentityCard(analysisResult: any): string {
+  return `
+═══════════════════════════════════════════════════════════════
+PRODUCT IDENTITY CARD — THIS JEWELRY MUST LOOK IDENTICAL IN EVERY IMAGE
+═══════════════════════════════════════════════════════════════
+
+This is a CROSS-IMAGE CONSISTENCY ANCHOR. The jewelry piece described below
+MUST appear IDENTICALLY in this image as in all other images of this set.
+
+TYPE: ${analysisResult.type || 'jewelry'}
+${analysisResult.visual_fingerprint ? `FINGERPRINT: ${analysisResult.visual_fingerprint}` : ''}
+
+STONES: Exactly ${analysisResult.structure?.center_stone_count ?? '?'} center + ${analysisResult.structure?.accent_stone_count ?? '0'} accent stones.
+DO NOT add, remove, or reposition ANY stone. Count must be EXACT.
+
+PRONGS: Exactly ${analysisResult.structure?.total_prong_count ?? 'as shown'} prongs in ${analysisResult.structure?.prong_style ?? 'original'} style.
+DO NOT modify prong count or style.
+
+PROPORTIONS: ${analysisResult.proportions?.length_to_width_ratio ?? '1.0'} L:W ratio, ${analysisResult.proportions?.overall_profile ?? 'standard'} profile.
+DO NOT alter proportions. The piece must maintain its EXACT shape.
+
+ANY deviation from this identity card is a CRITICAL ERROR.
+═══════════════════════════════════════════════════════════════`.trim();
+}
+
+// ═══════════════════════════════════════════════════
+// PROMPT BUILDER FUNCTIONS
 // ═══════════════════════════════════════════════════
 
 function buildEditorialPrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
   // Category-based selection: each category gets equal chance
   const categories = [...new Set(EDITORIAL_SCENE_POOL.map(s => s.category))];
@@ -274,7 +304,9 @@ function buildEditorialPrompt(
 
   console.log(`Editorial scene: ${scene.name} [${scene.category}], Lighting: ${lighting.substring(0, 40)}..., Camera: ${camera.substring(0, 30)}...`);
 
-  return `EDITORIAL / CREATIVE LUXURY JEWELRY PHOTOGRAPHY — Magazine campaign quality, high-fashion editorial.
+  return `${identityCard}
+
+EDITORIAL / CREATIVE LUXURY JEWELRY PHOTOGRAPHY — Magazine campaign quality, high-fashion editorial.
 
 ${productExtractionBlock}
 
@@ -306,8 +338,11 @@ function buildEcommercePrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
-  return `E-COMMERCE PROFESSIONAL PRODUCT PHOTOGRAPHY — Clean, commercial, marketplace-ready.
+  return `${identityCard}
+
+E-COMMERCE PROFESSIONAL PRODUCT PHOTOGRAPHY — Clean, commercial, marketplace-ready.
 
 ${productExtractionBlock}
 
@@ -349,6 +384,7 @@ function buildModelPrompt(
   fidelityBlock: string,
   productExtractionBlock: string,
   productType: string,
+  identityCard: string,
 ): string {
   const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
   const pose = pickRandom(config.poses);
@@ -359,7 +395,9 @@ function buildModelPrompt(
 
   console.log(`Model prompt — Type: ${productType}, Region: ${config.bodyRegion}, Gaze: ${gaze.substring(0, 40)}..., Expression: ${expression.substring(0, 40)}...`);
 
-  return `EDITORIAL MODEL PHOTOGRAPHY — High-fashion portrait with real human model wearing the jewelry piece.
+  return `${identityCard}
+
+EDITORIAL MODEL PHOTOGRAPHY — High-fashion portrait with real human model wearing the jewelry piece.
 
 ${productExtractionBlock}
 
@@ -435,8 +473,11 @@ function buildMacroPrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
-  return `MACRO DETAIL PHOTOGRAPHY — Extreme close-up, ultra-high magnification jewelry detail shot.
+  return `${identityCard}
+
+MACRO DETAIL PHOTOGRAPHY — Extreme close-up, ultra-high magnification jewelry detail shot.
 
 ${productExtractionBlock}
 
@@ -475,6 +516,7 @@ function buildFlatLayPrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
   const lifestyleProps = pickRandom([
     'marble tray, dried eucalyptus sprigs, and a folded silk ribbon',
@@ -484,7 +526,9 @@ function buildFlatLayPrompt(
     'raw wood slice, cotton flowers, and a vintage brass dish',
   ]);
 
-  return `FLAT LAY STYLING PHOTOGRAPHY — Top-down overhead, lifestyle-curated presentation.
+  return `${identityCard}
+
+FLAT LAY STYLING PHOTOGRAPHY — Top-down overhead, lifestyle-curated presentation.
 
 ${productExtractionBlock}
 
@@ -522,6 +566,7 @@ function buildDramaticPrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
   const dramaticSetup = pickRandom([
     { angle: '15° low angle looking upward', light: 'Single hard spotlight from upper-right, deep shadows on left', mood: 'Chiaroscuro, Rembrandt-inspired' },
@@ -530,7 +575,9 @@ function buildDramaticPrompt(
     { angle: '25° low angle with slight Dutch tilt', light: 'Strong directional beam from upper-left cutting through darkness', mood: 'Art gallery, museum spotlight' },
   ]);
 
-  return `DRAMATIC ANGLE PHOTOGRAPHY — Low angle, bold directional lighting, powerful presentation.
+  return `${identityCard}
+
+DRAMATIC ANGLE PHOTOGRAPHY — Low angle, bold directional lighting, powerful presentation.
 
 ${productExtractionBlock}
 
@@ -571,6 +618,7 @@ function buildStyleTransferPrompt(
   productType: string | null,
   fidelityBlock: string,
   productExtractionBlock: string,
+  identityCard: string,
 ): string {
   const productTypePlacement: Record<string, { bodyPart: string; placement: string; removal: string }> = {
     'yuzuk': { bodyPart: 'hand/finger', placement: 'Place the ring on the finger in the exact position shown in the style reference.', removal: 'Remove any existing rings from the style reference model.' },
@@ -632,7 +680,9 @@ JEWELRY REPLACEMENT:
 - Remove existing: ${styleAnalysis.existing_jewelry.description} at ${styleAnalysis.existing_jewelry.location}
 - Replace with the product from reference images` : '';
 
-  return `[STYLE REFERENCE TRANSFER - ANALYZED PRODUCT INJECTION MODE]
+  return `${identityCard}
+
+[STYLE REFERENCE TRANSFER - ANALYZED PRODUCT INJECTION MODE]
 
 ⚠️ PRE-PROCESSING: ACCESSORY REMOVAL ⚠️
 1. REMOVE all existing jewelry from target: ${selectedPlacement.bodyPart}
@@ -673,7 +723,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 async function callGeminiImageGeneration({
   base64Images,
   prompt,
-  temperature = 0.15,
+  temperature = 0.12,
   aspectRatio = '3:4',
 }: {
   base64Images: string[];
@@ -715,7 +765,7 @@ async function generateSingleImage(
   supabase: any,
   jobId: string,
   aspectRatio: string = '3:4',
-  startTemperature: number = 0.15,
+  startTemperature: number = 0.12,
 ): Promise<string | null> {
   const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1];
   const delays = [0, 3000, 5000];
@@ -1023,11 +1073,18 @@ async function processGeneration(params: {
     }).eq('id', jobId);
 
     const base64Images: string[] = [];
-    const firstUrl = imageUrls[0];
-    const imageResponse = await fetch(firstUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
-    if (imageBuffer.byteLength <= MAX_IMAGE_SIZE) {
-      base64Images.push(arrayBufferToBase64(imageBuffer));
+    for (const url of imageUrls) {
+      try {
+        const resp = await fetch(url);
+        const buf = await resp.arrayBuffer();
+        if (buf.byteLength <= MAX_IMAGE_SIZE) {
+          base64Images.push(arrayBufferToBase64(buf));
+        } else {
+          console.warn(`Skipping image (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB exceeds limit)`);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch image:', err);
+      }
     }
 
     if (base64Images.length === 0) {
@@ -1067,9 +1124,38 @@ Return JSON:
       "cut": "round|princess|oval|cushion|emerald|pear|marquise|cabochon|baguette",
       "color": "description",
       "size_mm": "size",
-      "setting": "prong|bezel|channel|pave|tension|cluster|halo"
+      "setting": "prong|bezel|channel|pave|tension|cluster|halo",
+      "position": "center|side_left|side_right|halo|band|accent|bezel",
+      "relative_size": "dominant|medium|small|tiny",
+      "facet_count": number,
+      "clarity_visible": "eye_clean|included|heavily_included"
     }
   ],
+  "structure": {
+    "center_stone_count": number,
+    "accent_stone_count": number,
+    "total_prong_count": number,
+    "prong_style": "classic_4|classic_6|shared|cathedral|basket|tension",
+    "band_width_mm": number,
+    "band_profile": "flat|domed|knife_edge|comfort_fit",
+    "shank_design": "plain|split|tapered|twisted|pave_set",
+    "gallery_detail": "open|closed|basket|cathedral",
+    "setting_height_mm": number
+  },
+  "proportions": {
+    "length_to_width_ratio": number,
+    "stone_to_metal_ratio": "stone_dominant|balanced|metal_dominant",
+    "overall_profile": "low_set|medium_set|high_set",
+    "symmetry_grade": "excellent|very_good|good|fair"
+  },
+  "surface_details": {
+    "engravings": boolean,
+    "engraving_description": "description or empty",
+    "milgrain": boolean,
+    "filigree": boolean,
+    "texture_zones": "description of texture variation across the piece",
+    "hallmarks_visible": boolean
+  },
   "watch_details": {
     "dial_color": "white|black|blue|champagne|mother_of_pearl|other",
     "dial_finish": "sunburst|guilloché|enamel|textured|plain",
@@ -1081,7 +1167,8 @@ Return JSON:
   },
   "dimensions": {
     "estimated_width_mm": number,
-    "estimated_height_mm": number
+    "estimated_height_mm": number,
+    "estimated_depth_mm": number
   },
   "design_elements": {
     "style": "modern|vintage|art_deco|minimalist|ornate|classic|bohemian|sports|dress",
@@ -1089,8 +1176,16 @@ Return JSON:
     "symmetry": "symmetric|asymmetric",
     "complexity": "simple|moderate|intricate"
   },
-  "unique_identifiers": "unique features including brand indicators, logo placement, signature design elements"
+  "unique_identifiers": "unique features including brand indicators, logo placement, signature design elements",
+  "visual_fingerprint": "2-3 sentences describing what makes this piece UNIQUELY identifiable"
 }
+
+CRITICAL: Count EVERY stone precisely. Describe EXACT positions.
+For rings: describe the band profile, prong count, gallery style.
+For necklaces: describe chain type, pendant attachment, clasp style.
+For watches: describe dial indices, hand style, subdial positions.
+"visual_fingerprint" should be 2-3 sentences describing what makes this piece
+UNIQUELY identifiable — the features that distinguish it from similar pieces.
 
 NOTE: If analyzing a WATCH, pay special attention to:
 - Pearl/mother-of-pearl dial details
@@ -1169,6 +1264,43 @@ ONLY valid JSON.`
         ).join(', ')
       : '';
 
+    const stoneDetailBlock = analysisResult.stones?.length > 0
+      ? analysisResult.stones.map((s: any, i: number) =>
+          `Stone ${i + 1}: ${s.count || 1}x ${s.color || ''} ${s.type || 'gemstone'}, ` +
+          `${s.cut || 'round'} cut, ${s.setting || 'prong'} setting, ` +
+          `position: ${s.position || 'center'}, ` +
+          `relative size: ${s.relative_size || 'medium'}`
+        ).join('\n  ')
+      : 'No gemstones';
+
+    const structureBlock = analysisResult.structure ? `
+STRUCTURAL IDENTITY (MUST BE PRESERVED EXACTLY):
+- Center stones: ${analysisResult.structure.center_stone_count ?? 'unknown'}
+- Accent stones: ${analysisResult.structure.accent_stone_count ?? 0}
+- Total prongs: ${analysisResult.structure.total_prong_count ?? 'standard'}
+- Prong style: ${analysisResult.structure.prong_style ?? 'classic'}
+- Band: ${analysisResult.structure.band_width_mm ?? '?'}mm ${analysisResult.structure.band_profile ?? 'standard'}
+- Shank: ${analysisResult.structure.shank_design ?? 'plain'}
+- Gallery: ${analysisResult.structure.gallery_detail ?? 'standard'}` : '';
+
+    const proportionsBlock = analysisResult.proportions ? `
+PROPORTIONS (CRITICAL FOR CONSISTENCY):
+- L:W ratio: ${analysisResult.proportions.length_to_width_ratio ?? '1.0'}
+- Stone/Metal balance: ${analysisResult.proportions.stone_to_metal_ratio ?? 'balanced'}
+- Profile height: ${analysisResult.proportions.overall_profile ?? 'medium_set'}
+- Symmetry: ${analysisResult.proportions.symmetry_grade ?? 'good'}` : '';
+
+    const surfaceBlock = analysisResult.surface_details ? [
+      '\nSURFACE DETAILS (MUST APPEAR IN ALL IMAGES):',
+      analysisResult.surface_details.milgrain ? '- Milgrain edge detail PRESENT — must be visible' : '',
+      analysisResult.surface_details.filigree ? '- Filigree work PRESENT — must be visible' : '',
+      analysisResult.surface_details.engravings ? `- Engraving: ${analysisResult.surface_details.engraving_description}` : '',
+      analysisResult.surface_details.texture_zones ? `- Texture: ${analysisResult.surface_details.texture_zones}` : '',
+    ].filter(Boolean).join('\n') : '';
+
+    const fingerprintBlock = analysisResult.visual_fingerprint
+      ? `\nVISUAL FINGERPRINT (UNIQUE IDENTITY):\n${analysisResult.visual_fingerprint}` : '';
+
     const userOverrideNote = metalColorOverride
       ? `\n⚠️ USER SPECIFIED METAL COLOR: ${metalColorCategory} - THIS TAKES ABSOLUTE PRIORITY ⚠️\nThe user has explicitly specified that this jewelry is ${metalColorCategory}. Ignore any visual ambiguity and render as ${metalColorCategory}.\n`
       : '';
@@ -1227,6 +1359,14 @@ ${stoneDesc ? `- Stones: ${stoneDesc}` : ''}
 ${analysisResult.unique_identifiers ? `- Unique features: ${analysisResult.unique_identifiers}` : ''}
 ${watchDesc}
 ${userOverrideNote}
+
+DETAILED STONE MAP:
+  ${stoneDetailBlock}
+${structureBlock}
+${proportionsBlock}
+${surfaceBlock}
+${fingerprintBlock}
+
 ⚠️ ABSOLUTE METAL COLOR PRESERVATION (HIGHEST PRIORITY) ⚠️
 THE METAL COLOR MUST BE: ${metalColorCategory}
 - Metal type: ${metalType.replace('_', ' ').toUpperCase()}
@@ -1343,7 +1483,8 @@ Ultra high resolution output.`.trim();
       // STANDALONE STYLE REFERENCE MODE (non-standard package, 1 image)
       console.log('Standalone style reference generation mode...');
 
-      const styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock);
+      const identityCard = buildProductIdentityCard(analysisResult);
+      const styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
 
       await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
       const styleTransferImages = [styleReferenceBase64, ...base64Images];
@@ -1373,13 +1514,16 @@ Ultra high resolution output.`.trim();
 
       console.log(`Resolved product type: ${resolvedProductType}`);
 
+      const identityCard = buildProductIdentityCard(analysisResult);
+      console.log('Product Identity Card:', identityCard);
+
       const masterSteps = [
         { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
           buildPrompt: () => {
             if (hasStyleReference && styleReferenceBase64) {
-              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlock, productExtractionBlock);
+              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlock, productExtractionBlock, identityCard);
             }
-            return buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock);
+            return buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard);
           },
           getImages: (): string[] => {
             if (hasStyleReference && styleReferenceBase64) {
@@ -1387,18 +1531,23 @@ Ultra high resolution output.`.trim();
             }
             return base64Images;
           },
+          startTemperature: 0.12,
         },
         { key: 'ecommerce', step: 'generating_ecommerce', label: 'E-Commerce',
-          buildPrompt: () => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock),
-          startTemperature: 0.1 },
+          buildPrompt: () => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          startTemperature: 0.10 },
         { key: 'model', step: 'generating_model', label: 'Model',
-          buildPrompt: () => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType) },
+          buildPrompt: () => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
+          startTemperature: 0.12 },
         { key: 'macro', step: 'generating_macro', label: 'Macro Detail',
-          buildPrompt: () => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock) },
+          buildPrompt: () => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          startTemperature: 0.12 },
         { key: 'flatlay', step: 'generating_flatlay', label: 'Flat Lay',
-          buildPrompt: () => buildFlatLayPrompt(analysisResult, fidelityBlock, productExtractionBlock) },
+          buildPrompt: () => buildFlatLayPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          startTemperature: 0.12 },
         { key: 'dramatic', step: 'generating_dramatic', label: 'Dramatic',
-          buildPrompt: () => buildDramaticPrompt(analysisResult, fidelityBlock, productExtractionBlock) },
+          buildPrompt: () => buildDramaticPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          startTemperature: 0.12 },
       ];
 
       for (let i = 0; i < masterSteps.length; i++) {
@@ -1415,7 +1564,7 @@ Ultra high resolution output.`.trim();
 
         const prompt = ms.buildPrompt();
         const images = (ms as any).getImages ? (ms as any).getImages() : base64Images;
-        const temperature = (ms as any).startTemperature ?? 0.15;
+        const temperature = (ms as any).startTemperature ?? 0.12;
         const url = await generateSingleImage(images, prompt, userId, imageRecordId, i + 1, supabase, jobId, aspectRatio, temperature);
 
         if (url) generatedUrls.push(url);
