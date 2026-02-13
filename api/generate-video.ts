@@ -7,79 +7,69 @@ export const config = {
   maxDuration: 300,
 };
 
-const ANIMATION_CORE = `⚠️ CRITICAL — IMAGE-TO-VIDEO ANIMATION TASK ⚠️
-The provided image is your EXACT FIRST FRAME.
-Your ONLY job is to bring THIS EXACT IMAGE to life with subtle, elegant motion.
+const ANIMATION_CORE = `IMAGE-TO-VIDEO ANIMATION — Animate the provided image.
 
-ABSOLUTE RULES:
-- DO NOT create new products, new objects, or new compositions
-- DO NOT change the jewelry, the scene, the background, or the colors
-- DO NOT generate different or additional items
-- The video MUST start as a pixel-perfect match of the input image
-- Then add ONLY subtle cinematic motion to animate what already exists
-- Every element in the image stays exactly where it is
-- Product shape, metal color, stone positions — ALL UNCHANGED
+RULES:
+- The provided image is your first frame — preserve it exactly
+- DO NOT create new products, objects, scenes, or compositions
+- DO NOT add sparkle effects, lens flares, glowing halos, or artificial light bursts
+- DO NOT add particle effects, dust, or atmospheric fog that isn't in the original
+- Product shape, metal color, stone count, proportions — ALL UNCHANGED
+- Add ONLY subtle, physically realistic motion to what already exists
 
-COMPLIANCE:
-- No celebrity references, no real person's name or likeness
-- No text, no watermarks, no logos`;
+REALISM:
+- Light behaves like real physics — soft, gradual, no sudden flashes
+- Metal reflects like real metal — smooth, continuous highlights, no digital shimmer
+- Stones refract naturally — no exaggerated fire, no CGI sparkle overlay
+- Everything must look like it was filmed with a real cinema camera on a tripod
+
+FORBIDDEN:
+- NO sparkle/glitter particle effects
+- NO lens flare or light burst overlays
+- NO artificial glow or bloom on metal or stones
+- NO celebrity references or real person likeness
+- NO text, watermarks, logos`;
 
 const JEWELRY_VIDEO_PROMPTS: Record<string, string> = {
   default: `${ANIMATION_CORE}
 
-ANIMATE THIS IMAGE: Add a very slow, subtle camera push-in toward the jewelry. The camera drifts forward almost imperceptibly, revealing finer details as it approaches. Light gently shifts across the metal and stone surfaces creating natural sparkle and reflection movement.
+MOTION: Very slow camera push-in toward the jewelry. The camera advances barely a centimeter over 6 seconds. Tripod-mounted, zero shake. As the camera gets closer, finer surface details become visible — metal grain, setting construction.
 
-MOTION DETAILS:
-- Ultra-slow dolly-in (barely noticeable advance over 5-8 seconds)
-- Light reflections on metal slowly shift as if a soft light source is breathing
-- Any gemstones produce subtle, natural scintillation — tiny flashes of fire
-- If there are fabric/surface textures in the image, they remain perfectly still
-- Shallow depth of field gradually reveals sharper focus on the jewelry
+LIGHTING: The existing light in the image stays exactly as-is. As the camera angle shifts minutely, reflections on polished metal surfaces drift slowly and naturally — the way they would in real life when you lean slightly closer to look at a piece.
 
-SPEED: Extremely slow, meditative, luxurious. Every motion takes its time.
-FEEL: Like watching a premium jewelry ad in ultra slow-motion. Cartier, Tiffany level.`,
+ATMOSPHERE: Still, quiet, contemplative. Like examining a piece in a museum vitrine. No drama, no effects — just the honest beauty of real materials under real light.
+
+TECHNICAL: 24fps, locked tripod feel, natural color grading matching the source image.`,
 
   model: `${ANIMATION_CORE}
 
-ANIMATE THIS IMAGE: The model in this image comes to life with minimal, elegant movement. A subtle breath, a very slight head turn, the tiniest shift in weight. The jewelry catches light naturally as the model moves.
+MOTION: The model breathes — a gentle chest rise, an almost imperceptible weight shift. Nothing more. The jewelry moves naturally with the body: a necklace sways a millimeter, a ring shifts with finger micro-movement. Camera holds perfectly still.
 
-MOTION DETAILS:
-- Model makes only micro-movements: gentle breathing, slight chin tilt, soft blink
-- Hair may move ever so slightly as if touched by a gentle breeze
-- Jewelry responds naturally to body movement — slight sway, light catching
-- Skin texture remains photorealistic — pores visible, no beauty blur
-- Camera holds steady or drifts imperceptibly
+REALISM: Skin looks real — visible pores, natural sheen, no beauty filter. Hair doesn't move unless there's a reason. The model is nearly still, like a living photograph. No exaggerated gestures, no dramatic turns.
 
-SPEED: Ultra slow-motion feel (120fps). Every gesture is stretched and elegant.
-FEEL: Fashion editorial film. The model is almost a living sculpture.`,
+ATMOSPHERE: The quiet moment between shots in a real photo session. Natural, unstaged, authentic. The jewelry is prominent because the model is still, not because of effects.
+
+TECHNICAL: 24fps, locked camera, natural skin tones, no color manipulation beyond the source image.`,
 
   product: `${ANIMATION_CORE}
 
-ANIMATE THIS IMAGE: The jewelry in this image begins an imperceptibly slow rotation on its surface. The camera holds steady while the product turns just a few degrees, revealing different angles of light on its surfaces.
+MOTION: The product sits on its surface and does not move. The camera performs an extremely slow, barely perceptible lateral drift — shifting perspective by only a few degrees over the entire clip. This reveals how light falls differently across the metal and stone surfaces.
 
-MOTION DETAILS:
-- Product rotates no more than 10-15 degrees total over the entire clip
-- Light plays across metal surfaces as the angle changes — reflections slide smoothly
-- Gemstone facets catch and release light creating natural sparkle patterns
-- Background and surface remain completely static
-- Deep focus — the entire product stays sharp
+LIGHTING: No changes to lighting. The existing light in the image produces natural reflections that shift subtly as the viewing angle changes. Polished metal shows smooth, continuous highlight movement. Matte surfaces stay still. Stones show natural internal refraction — no added sparkle.
 
-SPEED: Glacially slow rotation. The viewer almost doesn't notice the motion.
-FEEL: Premium e-commerce product video. Clean, precise, professional.`,
+ATMOSPHERE: Clean, professional, catalog-quality. Like a high-end product video for an auction house. Precision and restraint.
+
+TECHNICAL: 24fps, locked smooth dolly movement, deep focus, true-to-life colors.`,
 
   closeup: `${ANIMATION_CORE}
 
-ANIMATE THIS IMAGE: A very slow lateral camera drift across the jewelry surface, exploring the fine details. The camera moves like a macro lens scanning across the piece, revealing textures and reflections.
+MOTION: Ultra-slow lateral pan across the jewelry surface at macro scale. The camera drifts horizontally, revealing different areas of the piece in sequence — a stone, a prong, a section of metalwork. Movement is glacially slow and perfectly smooth.
 
-MOTION DETAILS:
-- Ultra-slow horizontal pan across the jewelry (a few millimeters per second feel)
-- As the camera position shifts, light reveals hidden facets and surface details
-- Gemstone fire patterns shift and dance as viewing angle changes minutely
-- Metal grain and texture become visible as light angle evolves
-- Extremely shallow depth of field — focus plane moves gently
+LIGHTING: As the macro camera position shifts, the angle of incidence changes on reflective surfaces. This creates natural, physics-based highlight movement on polished metal. No added effects — just real optics.
 
-SPEED: Glacially slow. Each second reveals a new micro-detail.
-FEEL: Like looking through a jeweler's loupe in slow motion.`,
+ATMOSPHERE: Intimate, reverent, documentary. Like a craftsman examining their own work through a loupe. The beauty comes from the real craftsmanship, not from effects.
+
+TECHNICAL: 24fps, macro depth of field, focus plane may shift gently, natural color.`,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -131,13 +121,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const selectedPrompt = JEWELRY_VIDEO_PROMPTS[promptType] || JEWELRY_VIDEO_PROMPTS.default;
     const fullPrompt = `${selectedPrompt}
 
-GLOBAL CINEMATIC LOCKS:
-- Frame rate: 24fps smooth cinematic feel
-- Duration: 5-8 seconds of elegant stillness
-- Motion speed: Very slow, almost imperceptible
-- Camera shake: ZERO (tripod-mounted cinema feel)
-- Color grading: Neutral, preserves metal truth
-- Quality: Advertising-grade production value`;
+GLOBAL LOCKS:
+- 24fps, 6-8 seconds duration
+- Zero camera shake — locked tripod
+- Motion speed: barely perceptible, real-time slow
+- Color grading: match the source image exactly, no stylization
+- NO post-processing effects: no sparkle, no glow, no flare, no bloom, no particles
+- The video should look like it was shot on a RED or ARRI cinema camera — clean, real, unprocessed`;
 
     await supabase.from('videos').update({ status: 'generating', prompt: fullPrompt, error_message: 'Video API\'ye bağlanılıyor...' }).eq('id', videoId);
 
