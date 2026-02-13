@@ -1,12 +1,13 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2, Camera, ShoppingBag, User } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2, Camera, ShoppingBag, User, Focus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { downloadOriginalImage } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 
@@ -43,7 +44,37 @@ export default function Results() {
     },
   });
 
-  const imageTypeFileNames = ['editorial', 'ecommerce', 'model'];
+  const generatedUrlsCount = image?.generated_image_urls?.length || 0;
+
+  const goToPrev = useCallback(() => {
+    setSelectedIndex(i => (i > 0 ? i - 1 : generatedUrlsCount - 1));
+  }, [generatedUrlsCount]);
+
+  const goToNext = useCallback(() => {
+    setSelectedIndex(i => (i < generatedUrlsCount - 1 ? i + 1 : 0));
+  }, [generatedUrlsCount]);
+
+  // Keyboard navigation: arrow keys to switch images, Escape to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lightboxOpen) {
+        setLightboxOpen(false);
+        return;
+      }
+      if (generatedUrlsCount <= 1) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goToNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [generatedUrlsCount, goToPrev, goToNext, lightboxOpen]);
+
+  const imageTypeFileNames = ['editorial', 'ecommerce', 'model', 'macro', 'model-closeup', 'model-lifestyle'];
 
   const handleDownload = async (url: string, index: number) => {
     if (!imageId) return;
@@ -134,9 +165,9 @@ export default function Results() {
   const generatedUrls = image.generated_image_urls || [];
   const selectedUrl = generatedUrls[selectedIndex];
 
-  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model'];
-  const imageTypeDescriptions = ['Yaratici Sahne', 'Urun Cekimi', 'Model Gorsel'];
-  const imageTypeIcons = [Camera, ShoppingBag, User];
+  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model', 'Macro', 'Yakin Cekim', 'Yasam Tarzi'];
+  const imageTypeDescriptions = ['Yaratici Sahne', 'Urun Cekimi', 'Model Gorsel', 'Detay Cekim', 'Model Yakin Plan', 'Model Yasam Tarzi'];
+  const imageTypeIcons = [Camera, ShoppingBag, User, Focus, User, User];
 
   return (
     <AppLayout showFooter={false}>
@@ -156,9 +187,9 @@ export default function Results() {
               {image.scenes && (
                 <p className="text-muted-foreground">{(image.scenes as any).name_tr}</p>
               )}
-              {generatedUrls.length > 0 && generatedUrls.length < 3 && (
+              {generatedUrls.length > 0 && generatedUrls.length < 6 && (
                 <p className="text-xs text-amber-600 mt-1">
-                  {generatedUrls.length}/3 görsel başarıyla oluşturuldu
+                  {generatedUrls.length}/6 görsel başarıyla oluşturuldu
                 </p>
               )}
             </div>
@@ -167,15 +198,15 @@ export default function Results() {
           <div className="grid md:grid-cols-[1fr,300px] gap-8">
             {/* Main Image */}
             <div>
-              <div 
+              <div
                 className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted shadow-luxury-lg mb-4 cursor-zoom-in relative group"
                 onClick={openLightbox}
               >
                 {selectedUrl && (
                   <>
-                    <img 
-                      src={selectedUrl} 
-                      alt="Generated jewelry" 
+                    <img
+                      src={selectedUrl}
+                      alt="Generated jewelry"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -185,10 +216,27 @@ export default function Results() {
                     </div>
                   </>
                 )}
+                {/* Arrow navigation buttons */}
+                {generatedUrlsCount > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/90"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); goToNext(); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/90"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
               </div>
               
               {/* Thumbnails */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
                 {generatedUrls.map((url, index) => (
                   <button
                     key={index}
@@ -283,8 +331,9 @@ export default function Results() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Slow-motion lüks animasyon ile görselinizi canlandırın
                 </p>
-                <VideoGenerateButton 
-                  imageUrl={selectedUrl} 
+                <VideoGenerateButton
+                  imageUrl={selectedUrl}
+                  allImageUrls={generatedUrls}
                   variant="default"
                   className="w-full"
                 />
@@ -362,6 +411,24 @@ export default function Results() {
               </Button>
             </div>
 
+            {/* Lightbox arrow navigation */}
+            {generatedUrlsCount > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-secondary/80 backdrop-blur-sm rounded-full p-3 hover:bg-secondary transition-colors"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); goToNext(); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-secondary/80 backdrop-blur-sm rounded-full p-3 hover:bg-secondary transition-colors"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+
             {/* HD Image with zoom */}
             <motion.img
               src={selectedUrl}
@@ -381,7 +448,7 @@ export default function Results() {
             {/* Instructions */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-4 py-2 rounded-full">
               <span className="text-sm text-muted-foreground">
-                Yakınlaştırmak için + / - kullanın • Sürükleyerek hareket ettirin
+                ← → ok tuşları ile gezin • + / - yakınlaştır • sürükle
               </span>
             </div>
           </motion.div>

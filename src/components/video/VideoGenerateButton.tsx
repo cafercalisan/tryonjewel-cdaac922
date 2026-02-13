@@ -22,6 +22,7 @@ import {
 
 interface VideoGenerateButtonProps {
   imageUrl: string;
+  allImageUrls?: string[];
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
@@ -45,11 +46,12 @@ const VIDEO_STYLES = [
   },
 ];
 
-export function VideoGenerateButton({ 
-  imageUrl, 
+export function VideoGenerateButton({
+  imageUrl,
+  allImageUrls,
   variant = 'outline',
   size = 'default',
-  className 
+  className
 }: VideoGenerateButtonProps) {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -57,6 +59,8 @@ export function VideoGenerateButton({
   const [selectedStyle, setSelectedStyle] = useState('default');
   const [selectedFormat, setSelectedFormat] = useState<'9:16' | '16:9'>('9:16');
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'starting' | 'processing' | 'completed' | 'error'>('idle');
+  const [multiFrameMode, setMultiFrameMode] = useState(false);
+  const [endFrameIndex, setEndFrameIndex] = useState<number | null>(null);
 
   const handleGenerate = async () => {
     if (!user) {
@@ -87,9 +91,14 @@ export function VideoGenerateButton({
       setGenerationStatus('processing');
 
       // Call edge function
+      const endImageUrl = multiFrameMode && endFrameIndex !== null && allImageUrls
+        ? allImageUrls[endFrameIndex]
+        : undefined;
+
       const { data, error } = await invokeApi('generate-video', {
         body: {
           imageUrl,
+          endImageUrl,
           videoId: videoRecord.id,
           promptType: selectedStyle,
           videoFormat: selectedFormat,
@@ -134,24 +143,24 @@ export function VideoGenerateButton({
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               Premium Video Animasyonu
             </DialogTitle>
             <DialogDescription>
-              Görselinizi zarif slow-motion video'ya dönüştürün. 
+              Görselinizi zarif slow-motion video'ya dönüştürün.
               Google Veo 3 ile premium kalitede çıktı.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {/* Preview */}
             <div className="aspect-[9/16] max-h-48 mx-auto rounded-lg overflow-hidden bg-muted">
-              <img 
-                src={imageUrl} 
-                alt="Video source" 
+              <img
+                src={imageUrl}
+                alt="Video source"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -175,6 +184,56 @@ export function VideoGenerateButton({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Multi-Frame Mode */}
+            {allImageUrls && allImageUrls.length > 1 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Multi-Frame Gecis</label>
+                <button
+                  onClick={() => {
+                    setMultiFrameMode(!multiFrameMode);
+                    if (multiFrameMode) setEndFrameIndex(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                    multiFrameMode
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30 bg-card'
+                  }`}
+                >
+                  <Video className={`h-5 w-5 ${multiFrameMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="text-left">
+                    <p className="text-xs font-medium">Bitis Karesi Sec</p>
+                    <p className="text-[10px] text-muted-foreground">Iki gorsel arasi sinematik gecis</p>
+                  </div>
+                </button>
+
+                {multiFrameMode && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {allImageUrls.map((url, idx) => {
+                      if (url === imageUrl) return null;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setEndFrameIndex(idx)}
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            endFrameIndex === idx
+                              ? 'border-primary shadow-sm'
+                              : 'border-border/50 opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={url} alt={`Frame ${idx + 1}`} className="w-full h-full object-cover" />
+                          {endFrameIndex === idx && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <span className="text-[10px] font-bold text-white bg-primary/80 px-1.5 py-0.5 rounded">Bitis</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Format Selection */}
             <div className="space-y-2">
@@ -230,16 +289,16 @@ export function VideoGenerateButton({
             )}
           </div>
 
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-3 px-6 pb-6 pt-3 border-t">
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={() => setDialogOpen(false)}
               disabled={isGenerating}
             >
               İptal
             </Button>
-            <Button 
+            <Button
               className="flex-1"
               onClick={handleGenerate}
               disabled={isGenerating}

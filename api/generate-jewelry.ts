@@ -320,18 +320,16 @@ LIGHTING: ${lighting}
 CAMERA: ${camera}
 
 CREATIVE DIRECTION:
-- Magazine cover / double-page spread quality
-- Dramatic depth of field with cinematic bokeh
-- Rich texture realism on both the jewelry and the scene surface
-- Hyper-detailed macro-level rendering of every facet, prong, and metal grain
-- The jewelry must be the hero element — scene supports but never competes
-- Color grading: rich, moody, luxury fashion editorial palette
+- Natural, realistic luxury product photography
+- Shallow depth of field with soft bokeh background
+- The jewelry is the clear focal point — scene complements, never distracts
+- Authentic color grading — warm, natural, not over-processed
 
 TECHNICAL:
 - 4:5 portrait aspect ratio
 - 4K ultra-high resolution output
-- Ultra photorealistic — no CGI look
-- Macro photography quality with perfect focus on the jewelry`;
+- Photorealistic — natural look, no CGI artifacts
+- Sharp focus on jewelry, natural lighting`;
 }
 
 function buildEcommercePrompt(
@@ -512,105 +510,119 @@ TECHNICAL:
 - Shot on 100mm macro lens with ring light`;
 }
 
-function buildFlatLayPrompt(
+function buildModelCloseUpPrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  productType: string,
   identityCard: string,
 ): string {
-  const lifestyleProps = pickRandom([
-    'marble tray, dried eucalyptus sprigs, and a folded silk ribbon',
-    'linen cloth, fresh white peonies, and a ceramic dish',
-    'dark slate board, gold leaf flakes, and velvet pouch',
-    'terrazzo surface, dried lavender, and a small perfume bottle',
-    'raw wood slice, cotton flowers, and a vintage brass dish',
-  ]);
+  const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
+  const pose = pickRandom(config.poses);
+  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
 
   return `${identityCard}
 
-FLAT LAY STYLING PHOTOGRAPHY — Top-down overhead, lifestyle-curated presentation.
+MODEL CLOSE-UP PHOTOGRAPHY — Tight crop, intimate detail shot of jewelry on a real model.
 
 ${productExtractionBlock}
 
 ${fidelityBlock}
 
-CAMERA:
-- Perfect 90° top-down camera angle — absolutely perpendicular to surface
-- Product centered in the composition, occupying 40-50% of frame
-- Surrounding props arranged in balanced, editorial flat-lay composition
+⚠️ MANDATORY: A REAL HUMAN MODEL MUST BE WEARING THE JEWELRY ⚠️
 
-STYLING PROPS:
-- ${lifestyleProps}
-- Props support the jewelry's luxury aesthetic but never compete
-- Careful negative space between elements — airy, not cluttered
-- Color palette harmonizes with the jewelry's metal tone
+CLOSE-UP FRAMING:
+- Extreme close-up / tight crop on the ${config.bodyRegion} area
+- The jewelry fills 60-70% of the frame
+- Model skin visible as context — natural pores, texture, warmth
+- Very shallow depth of field: f/1.8-2.0, only jewelry plane is sharp
+
+MODEL:
+- Skin: ${skinTone}
+- Real skin texture: visible pores, natural imperfections
+- No plastic/CGI look — authentic human warmth
+- Age 25-35, Turkish / Mediterranean aesthetic
+
+POSE:
+- ${pose}
+- Natural, relaxed interaction with the jewelry
+- Body region: ${config.bodyRegion}
 
 LIGHTING:
-- Soft, even overhead lighting with minimal shadows
-- Diffused natural daylight quality — bright and airy
-- Subtle shadow edges for depth without drama
-- Clean, Instagram/Pinterest editorial aesthetic
-
-SURFACE:
-- Clean, premium surface as the base layer
-- Visible texture adds depth — marble veining, linen weave, wood grain
+- Soft, warm directional light from one side
+- Gentle skin glow with natural highlights on jewelry
+- Subtle shadow on the opposite side for depth
+- No harsh studio lighting — intimate, natural feel
 
 TECHNICAL:
 - 4:5 portrait aspect ratio
-- 4K ultra-high resolution output
-- Ultra photorealistic flat-lay photography
-- Shot overhead with 35mm lens, even illumination`;
+- 4K ultra-high resolution
+- Photorealistic close-up portrait photography
+- Shot on 85mm f/1.4 — shallow DOF, beautiful bokeh`;
 }
 
-function buildDramaticPrompt(
+function buildModelLifestylePrompt(
   analysisResult: any,
   fidelityBlock: string,
   productExtractionBlock: string,
+  productType: string,
   identityCard: string,
 ): string {
-  const dramaticSetup = pickRandom([
-    { angle: '15° low angle looking upward', light: 'Single hard spotlight from upper-right, deep shadows on left', mood: 'Chiaroscuro, Rembrandt-inspired' },
-    { angle: '20° low angle, slightly off-center', light: 'Rim lighting from behind with warm amber glow, minimal front fill', mood: 'Cinematic noir, mysterious' },
-    { angle: '10° low angle, straight-on heroic', light: 'Split lighting — half illuminated in warm gold, half in cool shadow', mood: 'High-fashion editorial drama' },
-    { angle: '25° low angle with slight Dutch tilt', light: 'Strong directional beam from upper-left cutting through darkness', mood: 'Art gallery, museum spotlight' },
+  const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
+  const pose = pickRandom(config.poses);
+  const gaze = pickRandom(CHARACTER_GAZE);
+  const expression = pickRandom(CHARACTER_EXPRESSIONS);
+  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
+  const hairStyle = pickRandom(CHARACTER_HAIR_STYLES);
+
+  const lifestyleScene = pickRandom([
+    { setting: 'Parisian café terrace at golden hour', mood: 'warm, romantic, European luxury' },
+    { setting: 'Luxury hotel suite with soft morning light through sheer curtains', mood: 'intimate, serene, private luxury' },
+    { setting: 'Art gallery opening with warm ambient lighting', mood: 'sophisticated, cultural, modern elegance' },
+    { setting: 'Rooftop bar at sunset with city skyline bokeh', mood: 'urban, cosmopolitan, aspirational' },
+    { setting: 'Mediterranean seaside restaurant with natural daylight', mood: 'effortless, sun-kissed, resort luxury' },
   ]);
 
   return `${identityCard}
 
-DRAMATIC ANGLE PHOTOGRAPHY — Low angle, bold directional lighting, powerful presentation.
+MODEL LIFESTYLE PHOTOGRAPHY — Real model wearing jewelry in a natural luxury setting.
 
 ${productExtractionBlock}
 
 ${fidelityBlock}
 
-CAMERA ANGLE:
-- ${dramaticSetup.angle}
-- Product appears monumental, grand, and imposing
-- Perspective distortion adds visual power and presence
-- Slight convergence of vertical lines enhances drama
+⚠️ MANDATORY: A REAL HUMAN MODEL MUST BE WEARING THE JEWELRY ⚠️
+
+CHARACTER:
+- Skin: ${skinTone}
+- Hair: ${hairStyle}
+- Expression: ${expression}
+- Gaze: ${gaze}
+- Age 25-35, Turkish / Mediterranean aesthetic
+- Real skin texture, natural beauty — no airbrushing
+
+POSE & PLACEMENT:
+- Body region: ${config.bodyRegion}
+- ${pose}
+- Natural, candid moment — as if captured mid-life
+- Jewelry is prominent but the scene feels authentic, not staged
+
+SCENE:
+- ${lifestyleScene.setting}
+- Mood: ${lifestyleScene.mood}
+- Background softly blurred (f/2.0-2.8 bokeh)
+- Environment adds context without competing with jewelry
 
 LIGHTING:
-- ${dramaticSetup.light}
-- Strong contrast ratio — deep blacks and bright highlights coexist
-- Light sculpts the form of the jewelry, revealing dimensionality
-- Specular highlights on metal are intense but controlled
-
-MOOD:
-- ${dramaticSetup.mood}
-- Dark, moody atmosphere — background fades to deep black/charcoal
-- The jewelry is the only bright element — commanding attention
-- Art gallery / auction house / haute-couture campaign presentation
-
-BACKGROUND:
-- Deep dark gradient — near-black with subtle tonal variation
-- No props, no distractions — pure product hero shot
-- Subtle ground reflection or contact shadow for grounding
+- Natural, warm lighting appropriate to the setting
+- Soft directional light that flatters both model and jewelry
+- No harsh studio lighting — environmental and authentic
 
 TECHNICAL:
 - 4:5 portrait aspect ratio
-- 4K ultra-high resolution output
-- Ultra photorealistic dramatic photography
-- Shot on 85mm lens with dramatic studio lighting setup`;
+- 4K ultra-high resolution
+- Photorealistic lifestyle photography
+- Shot on 50mm f/1.8 — natural perspective, soft background`;
 }
 
 function buildStyleTransferPrompt(
@@ -1542,11 +1554,11 @@ Ultra high resolution output.`.trim();
         { key: 'macro', step: 'generating_macro', label: 'Macro Detail',
           buildPrompt: () => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
           startTemperature: 0.12 },
-        { key: 'flatlay', step: 'generating_flatlay', label: 'Flat Lay',
-          buildPrompt: () => buildFlatLayPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+        { key: 'model_closeup', step: 'generating_model_closeup', label: 'Model Close-Up',
+          buildPrompt: () => buildModelCloseUpPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
           startTemperature: 0.12 },
-        { key: 'dramatic', step: 'generating_dramatic', label: 'Dramatic',
-          buildPrompt: () => buildDramaticPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+        { key: 'model_lifestyle', step: 'generating_model_lifestyle', label: 'Model Lifestyle',
+          buildPrompt: () => buildModelLifestylePrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
           startTemperature: 0.12 },
       ];
 
