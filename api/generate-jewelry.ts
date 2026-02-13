@@ -518,7 +518,6 @@ async function processGeneration(params: {
     await supabase.from('processing_jobs').update({
       status: 'generating',
       current_step: 'downloading',
-      started_at: new Date().toISOString(),
       progress: 2,
     }).eq('id', jobId);
 
