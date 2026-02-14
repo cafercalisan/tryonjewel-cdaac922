@@ -31,6 +31,14 @@ import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
 import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
 
+// Scene preview images (blurred on cards)
+import previewEditorial from "@/assets/showcase/emerald-bracelet-result-1.webp";
+import previewEcommerce from "@/assets/showcase/ring-result.webp";
+import previewModel from "@/assets/showcase/earring-result.webp";
+import previewMacro from "@/assets/showcase/emerald-bracelet-result-2.webp";
+import previewCloseup from "@/assets/showcase/sapphire-bracelet-result.webp";
+import previewLifestyle from "@/assets/showcase/blue-sapphire-bracelet-result.webp";
+
 interface Scene {
   id: string;
   name: string;
@@ -721,17 +729,17 @@ export default function Generate() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
                       { key: 'editorial', label: 'Editorial', desc: 'Yaratici luks sahne', Icon: Camera,
-                        gradient: 'from-amber-500/20 to-orange-500/10' },
+                        gradient: 'from-amber-500/20 to-orange-500/10', preview: previewEditorial },
                       { key: 'ecommerce', label: 'E-Ticaret', desc: 'Temiz beyaz zemin', Icon: ShoppingBag,
-                        gradient: 'from-blue-500/20 to-cyan-500/10' },
+                        gradient: 'from-blue-500/20 to-cyan-500/10', preview: previewEcommerce },
                       { key: 'model', label: 'Model', desc: 'Manken uzerinde', Icon: User,
-                        gradient: 'from-pink-500/20 to-rose-500/10' },
+                        gradient: 'from-pink-500/20 to-rose-500/10', preview: previewModel },
                       { key: 'macro', label: 'Macro', desc: 'Ultra yakin detay', Icon: Focus,
-                        gradient: 'from-emerald-500/20 to-green-500/10' },
+                        gradient: 'from-emerald-500/20 to-green-500/10', preview: previewMacro },
                       { key: 'model_closeup', label: 'Yakin Cekim', desc: 'Model yakin plan', Icon: User,
-                        gradient: 'from-violet-500/20 to-purple-500/10' },
+                        gradient: 'from-violet-500/20 to-purple-500/10', preview: previewCloseup },
                       { key: 'model_lifestyle', label: 'Yasam Tarzi', desc: 'Gunluk yasam', Icon: User,
-                        gradient: 'from-sky-500/20 to-indigo-500/10' },
+                        gradient: 'from-sky-500/20 to-indigo-500/10', preview: previewLifestyle },
                     ].map((scene) => {
                       const isSelected = selectedMasterScenes.includes(scene.key);
                       const selectionIndex = selectedMasterScenes.indexOf(scene.key);
@@ -757,11 +765,17 @@ export default function Generate() {
                               : 'border-2 border-transparent hover:border-gold/40'
                           }`}
                         >
-                          {/* Gradient background */}
-                          <div className={`absolute inset-0 bg-gradient-to-br ${scene.gradient}`} />
+                          {/* Blurred preview image background */}
+                          <img
+                            src={scene.preview}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover scale-110"
+                            style={{ filter: 'blur(6px)' }}
+                            loading="lazy"
+                          />
 
-                          {/* Gradient overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                          {/* Gradient overlay for text readability */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
 
                           {/* Content */}
                           <div className="absolute bottom-0 left-0 right-0 p-3">
