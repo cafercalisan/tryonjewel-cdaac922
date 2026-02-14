@@ -769,8 +769,8 @@ export default function Generate() {
                           <img
                             src={scene.preview}
                             alt=""
-                            className="absolute inset-0 w-full h-full object-cover scale-110"
-                            style={{ filter: 'blur(6px)' }}
+                            className="absolute inset-0 w-full h-full object-cover scale-105"
+                            style={{ filter: 'blur(2px)' }}
                             loading="lazy"
                           />
 
