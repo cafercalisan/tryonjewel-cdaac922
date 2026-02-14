@@ -4,12 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2, Camera, ShoppingBag, User, Focus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { downloadOriginalImage } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
+
+const SCENE_LABEL_MAP: Record<string, { label: string; desc: string; Icon: typeof Camera; fileName: string }> = {
+  editorial: { label: 'Editorial', desc: 'Yaratici Sahne', Icon: Camera, fileName: 'editorial' },
+  ecommerce: { label: 'E-Ticaret', desc: 'Urun Cekimi', Icon: ShoppingBag, fileName: 'ecommerce' },
+  model: { label: 'Model', desc: 'Model Gorsel', Icon: User, fileName: 'model' },
+  macro: { label: 'Macro', desc: 'Detay Cekim', Icon: Focus, fileName: 'macro' },
+  model_closeup: { label: 'Yakin Cekim', desc: 'Model Yakin Plan', Icon: User, fileName: 'model-closeup' },
+  model_lifestyle: { label: 'Yasam Tarzi', desc: 'Model Yasam Tarzi', Icon: User, fileName: 'model-lifestyle' },
+};
+
+const DEFAULT_6_KEYS = ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
 
 export default function Results() {
   const [searchParams] = useSearchParams();
@@ -19,6 +30,16 @@ export default function Results() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [isDownloading, setIsDownloading] = useState<number | null>(null);
+
+  // Get scene keys from URL or use default 6
+  const sceneKeys = useMemo(() => {
+    const scenesParam = searchParams.get('scenes');
+    if (scenesParam) {
+      const keys = scenesParam.split(',').filter(k => SCENE_LABEL_MAP[k]);
+      if (keys.length > 0) return keys;
+    }
+    return DEFAULT_6_KEYS;
+  }, [searchParams]);
 
   const { data: image, isLoading } = useQuery({
     queryKey: ['image', imageId],
@@ -74,13 +95,13 @@ export default function Results() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [generatedUrlsCount, goToPrev, goToNext, lightboxOpen]);
 
-  const imageTypeFileNames = ['editorial', 'ecommerce', 'model', 'macro', 'model-closeup', 'model-lifestyle'];
-
   const handleDownload = async (url: string, index: number) => {
     if (!imageId) return;
     setIsDownloading(index);
     try {
-      const typeName = imageTypeFileNames[index] || `${index + 1}`;
+      const sceneKey = sceneKeys[index];
+      const sceneMeta = sceneKey ? SCENE_LABEL_MAP[sceneKey] : null;
+      const typeName = sceneMeta?.fileName || `${index + 1}`;
       await downloadOriginalImage(url, `jewelry-${imageId}-${typeName}-4K`);
       toast.success('4K gorsel indirildi');
     } catch (error) {
@@ -114,9 +135,9 @@ export default function Results() {
       <AppLayout showFooter={false}>
         <div className="container py-8 md:py-12">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-2xl font-semibold mb-4">Görsel bulunamadı</h1>
+            <h1 className="text-2xl font-semibold mb-4">Gorsel bulunamadi</h1>
             <Link to="/gorsellerim">
-              <Button>Görsellerime Dön</Button>
+              <Button>Gorsellerime Don</Button>
             </Link>
           </div>
         </div>
@@ -132,12 +153,12 @@ export default function Results() {
           <div className="max-w-lg mx-auto text-center animate-fade-in">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-6" />
             <h1 className="text-2xl font-semibold mb-2">
-              {image.status === 'analyzing' ? 'Ürün Analiz Ediliyor...' : 'Görsel Oluşturuluyor...'}
+              {image.status === 'analyzing' ? 'Urun Analiz Ediliyor...' : 'Gorsel Olusturuluyor...'}
             </h1>
             <p className="text-muted-foreground">
-              {image.status === 'analyzing' 
-                ? 'Mücevherinizin detayları inceleniyor' 
-                : 'Premium görseliniz hazırlanıyor'}
+              {image.status === 'analyzing'
+                ? 'Mucevherinizin detaylari inceleniyor'
+                : 'Premium gorseliniz hazirlaniyor'}
             </p>
           </div>
         </div>
@@ -151,8 +172,8 @@ export default function Results() {
       <AppLayout showFooter={false}>
         <div className="container py-8 md:py-12">
           <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-2xl font-semibold mb-2 text-destructive">Hata Oluştu</h1>
-            <p className="text-muted-foreground mb-6">{image.error_message || 'Görsel oluşturulurken bir hata oluştu.'}</p>
+            <h1 className="text-2xl font-semibold mb-2 text-destructive">Hata Olustu</h1>
+            <p className="text-muted-foreground mb-6">{image.error_message || 'Gorsel olusturulurken bir hata olustu.'}</p>
             <Link to="/olustur">
               <Button>Tekrar Dene</Button>
             </Link>
@@ -165,9 +186,18 @@ export default function Results() {
   const generatedUrls = image.generated_image_urls || [];
   const selectedUrl = generatedUrls[selectedIndex];
 
-  const imageTypeLabels = ['Editorial', 'E-Ticaret', 'Model', 'Macro', 'Yakin Cekim', 'Yasam Tarzi'];
-  const imageTypeDescriptions = ['Yaratici Sahne', 'Urun Cekimi', 'Model Gorsel', 'Detay Cekim', 'Model Yakin Plan', 'Model Yasam Tarzi'];
-  const imageTypeIcons = [Camera, ShoppingBag, User, Focus, User, User];
+  // Derive labels from sceneKeys
+  const getSceneMeta = (index: number) => {
+    const key = sceneKeys[index];
+    return key ? SCENE_LABEL_MAP[key] : null;
+  };
+
+  // Determine grid cols based on image count
+  const thumbnailGridCols = generatedUrls.length === 1
+    ? 'hidden' // single image: no thumbnails needed
+    : generatedUrls.length <= 3
+    ? 'grid-cols-3'
+    : 'grid-cols-3 md:grid-cols-6';
 
   return (
     <AppLayout showFooter={false}>
@@ -176,20 +206,20 @@ export default function Results() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <button 
+              <button
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-2"
               >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm">Geri</span>
               </button>
-              <h1 className="text-2xl font-semibold">Sonuçlar</h1>
+              <h1 className="text-2xl font-semibold">Sonuclar</h1>
               {image.scenes && (
                 <p className="text-muted-foreground">{(image.scenes as any).name_tr}</p>
               )}
-              {generatedUrls.length > 0 && generatedUrls.length < 6 && (
+              {generatedUrls.length > 0 && generatedUrls.length < sceneKeys.length && (
                 <p className="text-xs text-amber-600 mt-1">
-                  {generatedUrls.length}/6 görsel başarıyla oluşturuldu
+                  {generatedUrls.length}/{sceneKeys.length} gorsel basariyla olusturuldu
                 </p>
               )}
             </div>
@@ -234,53 +264,67 @@ export default function Results() {
                   </>
                 )}
               </div>
-              
+
               {/* Thumbnails */}
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                {generatedUrls.map((url, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedIndex(index)}
-                    className={`relative aspect-[4/5] rounded-xl overflow-hidden transition-all ${
-                      selectedIndex === index
-                        ? 'ring-2 ring-offset-2 shadow-luxury'
-                        : 'opacity-70 hover:opacity-100'
-                    }`}
-                    style={selectedIndex === index ? { '--tw-ring-color': 'hsl(38, 45%, 55%)' } as React.CSSProperties : undefined}
-                  >
-                    <img
-                      src={url}
-                      alt={imageTypeLabels[index] || `Variation ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 backdrop-blur-[2px]">
-                      <div className="flex items-center gap-1">
-                        {imageTypeIcons[index] && (() => { const Icon = imageTypeIcons[index]; return <Icon className="h-3 w-3 text-white/80" />; })()}
-                        <span className="text-[10px] font-medium text-white">
-                          {imageTypeLabels[index] || `Varyasyon ${index + 1}`}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedIndex === index && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/20">
-                        <Check className="h-6 w-6 text-primary" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
+              {generatedUrls.length > 1 && (
+                <div className={`grid ${thumbnailGridCols} gap-3`}>
+                  {generatedUrls.map((url, index) => {
+                    const meta = getSceneMeta(index);
+                    const TypeIcon = meta?.Icon || Camera;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedIndex(index)}
+                        className={`relative aspect-[4/5] rounded-xl overflow-hidden transition-all ${
+                          selectedIndex === index
+                            ? 'ring-2 ring-offset-2 shadow-luxury'
+                            : 'opacity-70 hover:opacity-100'
+                        }`}
+                        style={selectedIndex === index ? { '--tw-ring-color': 'hsl(38, 45%, 55%)' } as React.CSSProperties : undefined}
+                      >
+                        <img
+                          src={url}
+                          alt={meta?.label || `Variation ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 backdrop-blur-[2px]">
+                          <div className="flex items-center gap-1">
+                            <TypeIcon className="h-3 w-3 text-white/80" />
+                            <span className="text-[10px] font-medium text-white">
+                              {meta?.label || `Varyasyon ${index + 1}`}
+                            </span>
+                          </div>
+                        </div>
+                        {selectedIndex === index && (
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/20">
+                            <Check className="h-6 w-6 text-primary" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Sidebar */}
             <div className="space-y-4">
               <div className="bg-card rounded-xl p-6 shadow-luxury border-l-2 border-gold">
-                <div className="flex items-center gap-2 mb-1">
-                  {imageTypeIcons[selectedIndex] && (() => { const Icon = imageTypeIcons[selectedIndex]; return <Icon className="h-4 w-4" style={{ color: 'hsl(38, 45%, 55%)' }} />; })()}
-                  <h3 className="font-medium">{imageTypeLabels[selectedIndex] || `Varyasyon ${selectedIndex + 1}`}</h3>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {imageTypeDescriptions[selectedIndex] || `Varyasyon ${selectedIndex + 1} / ${generatedUrls.length}`}
-                </p>
+                {(() => {
+                  const meta = getSceneMeta(selectedIndex);
+                  const TypeIcon = meta?.Icon || Camera;
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <TypeIcon className="h-4 w-4" style={{ color: 'hsl(38, 45%, 55%)' }} />
+                        <h3 className="font-medium">{meta?.label || `Varyasyon ${selectedIndex + 1}`}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {meta?.desc || `Varyasyon ${selectedIndex + 1} / ${generatedUrls.length}`}
+                      </p>
+                    </>
+                  );
+                })()}
                 <Button
                   className="w-full gradient-gold text-white border-0 hover:opacity-90"
                   onClick={() => handleDownload(selectedUrl, selectedIndex)}
@@ -291,7 +335,7 @@ export default function Results() {
                   ) : (
                     <Download className="mr-2 h-4 w-4" />
                   )}
-                  {imageTypeLabels[selectedIndex] || 'Gorsel'} (4K) Indir
+                  {getSceneMeta(selectedIndex)?.label || 'Gorsel'} (4K) Indir
                 </Button>
               </div>
 
@@ -299,7 +343,8 @@ export default function Results() {
                 <h3 className="font-medium mb-4">Tum Gorselleri Indir</h3>
                 <div className="space-y-2">
                   {generatedUrls.map((url, index) => {
-                    const TypeIcon = imageTypeIcons[index];
+                    const meta = getSceneMeta(index);
+                    const TypeIcon = meta?.Icon || Camera;
                     return (
                       <Button
                         key={index}
@@ -310,12 +355,10 @@ export default function Results() {
                       >
                         {isDownloading === index ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : TypeIcon ? (
-                          <TypeIcon className="mr-2 h-4 w-4" />
                         ) : (
-                          <Download className="mr-2 h-4 w-4" />
+                          <TypeIcon className="mr-2 h-4 w-4" />
                         )}
-                        {imageTypeLabels[index] || `Varyasyon ${index + 1}`} (4K)
+                        {meta?.label || `Varyasyon ${index + 1}`} (4K)
                       </Button>
                     );
                   })}
@@ -329,7 +372,7 @@ export default function Results() {
                   Premium Video
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Slow-motion lüks animasyon ile görselinizi canlandırın
+                  Slow-motion luks animasyon ile gorselinizi canlandirin
                 </p>
                 <VideoGenerateButton
                   imageUrl={selectedUrl}
@@ -343,7 +386,7 @@ export default function Results() {
                 <Link to="/olustur" className="flex-1">
                   <Button variant="outline" className="w-full">
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Yeni Oluştur
+                    Yeni Olustur
                   </Button>
                 </Link>
                 <Link to="/gorsellerim" className="flex-1">
@@ -442,13 +485,13 @@ export default function Results() {
               drag
               dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
               dragElastic={0.1}
-              style={{ imageRendering: zoomScale > 1 ? 'auto' : 'auto' }}
+              style={{ imageRendering: 'auto' }}
             />
 
             {/* Instructions */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-4 py-2 rounded-full">
               <span className="text-sm text-muted-foreground">
-                ← → ok tuşları ile gezin • + / - yakınlaştır • sürükle
+                ← → ok tuslari ile gezin  +  - yakinlastir  surukle
               </span>
             </div>
           </motion.div>

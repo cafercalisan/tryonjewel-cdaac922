@@ -126,19 +126,100 @@ const CHARACTER_EXPRESSIONS = [
   'Dreamy and ethereal — soft focus expression, luminous skin, romantic atmosphere',
 ];
 
-const CHARACTER_SKIN_TONES = [
-  'Mediterranean olive with warm golden undertones — sun-kissed radiance',
-  'Fair porcelain with subtle rosy undertones — luminous, translucent quality',
-  'Rich warm tan with honey undertones — bronze goddess glow',
-  'Light olive with neutral undertones — sophisticated, versatile canvas',
-];
+// ═══════════════════════════════════════════════════
+// CHARACTER PERSONAS (8 unique fashion model identities)
+// ═══════════════════════════════════════════════════
+interface CharacterPersona {
+  name: string;
+  age: number;
+  heritage: string;
+  skinTone: string;
+  skinUndertone: string;
+  hairColor: string;
+  hairTexture: string;
+  hairSignature: string;
+  eyeColor: string;
+  faceShape: string;
+  bodyType: string;
+  height: string;
+  signatureLook: string;
+  fashionVibe: string;
+  bestFor: string[];
+}
 
-const CHARACTER_HAIR_STYLES = [
-  'Sleek pulled-back hair with clean lines — emphasizing facial structure and jewelry',
-  'Loose natural waves cascading over one shoulder — romantic, effortless',
-  'Structured updo revealing neck and ears — classic editorial elegance',
-  'Tousled windswept texture — editorial movement, editorial dynamism',
-  'Smooth straight hair tucked behind ear on jewelry side — focused reveal',
+const CHARACTER_PERSONAS: CharacterPersona[] = [
+  {
+    name: 'Defne Aydin', age: 27, heritage: 'Turkish-Mediterranean',
+    skinTone: 'Olive gold', skinUndertone: 'warm',
+    hairColor: 'Dark chestnut with honey highlights', hairTexture: 'waves', hairSignature: 'Loose cascading waves with sun-kissed honey highlights',
+    eyeColor: 'Amber-brown', faceShape: 'Oval with elegant jawline',
+    bodyType: 'Slim-athletic', height: '175cm',
+    signatureLook: 'Cartier & Bulgari campaign warmth', fashionVibe: 'Mediterranean luxury, warm golden tones',
+    bestFor: ['yuzuk', 'kolye', 'kupe'],
+  },
+  {
+    name: 'Elif Kara', age: 24, heritage: 'Turkish-Anatolian',
+    skinTone: 'Fair porcelain', skinUndertone: 'cool pink',
+    hairColor: 'Jet black', hairTexture: 'straight sleek', hairSignature: 'Perfectly sleek straight hair with mirror-like shine',
+    eyeColor: 'Green-hazel', faceShape: 'Heart-shaped',
+    bodyType: 'Slim', height: '178cm',
+    signatureLook: 'Chanel haute couture editorial', fashionVibe: 'Cool-toned elegance, high-fashion precision',
+    bestFor: ['kupe', 'kolye', 'saat'],
+  },
+  {
+    name: 'Zeynep Demir', age: 30, heritage: 'Turkish-Aegean',
+    skinTone: 'Warm honey-tan', skinUndertone: 'golden',
+    hairColor: 'Rich dark brown', hairTexture: 'loose waves', hairSignature: 'Voluminous loose waves with natural movement',
+    eyeColor: 'Deep brown', faceShape: 'Angular diamond with high cheekbones',
+    bodyType: 'Proportional', height: '173cm',
+    signatureLook: 'Piaget & Van Cleef warmth', fashionVibe: 'Warm approachable luxury, natural radiance',
+    bestFor: ['bileklik', 'yuzuk', 'genel'],
+  },
+  {
+    name: 'Selin Ozturk', age: 26, heritage: 'Turkish-Balkan',
+    skinTone: 'Light olive', skinUndertone: 'neutral',
+    hairColor: 'Dark auburn', hairTexture: 'structured updo', hairSignature: 'Architecturally structured updo revealing neck and ears',
+    eyeColor: 'Hazel with gold flecks', faceShape: 'Square jawline, strong features',
+    bodyType: 'Athletic', height: '176cm',
+    signatureLook: 'Tom Ford & Saint Laurent edge', fashionVibe: 'Sharp editorial power, modern edge',
+    bestFor: ['saat', 'bileklik', 'yuzuk'],
+  },
+  {
+    name: 'Naz Yilmaz', age: 32, heritage: 'Turkish-Persian',
+    skinTone: 'Rich warm olive', skinUndertone: 'deep golden',
+    hairColor: 'Black voluminous', hairTexture: 'wavy', hairSignature: 'Full voluminous black waves with dramatic body',
+    eyeColor: 'Dark brown', faceShape: 'Oval, soft features',
+    bodyType: 'Curvy-proportional', height: '170cm',
+    signatureLook: 'Dolce & Gabbana Mediterranean glam', fashionVibe: 'Rich, sensual Mediterranean glamour',
+    bestFor: ['kolye', 'kupe', 'genel'],
+  },
+  {
+    name: 'Ceren Aksoy', age: 25, heritage: 'Turkish-Circassian',
+    skinTone: 'Fair luminous', skinUndertone: 'warm peach',
+    hairColor: 'Platinum-highlighted brown', hairTexture: 'tousled', hairSignature: 'Effortlessly tousled platinum-highlighted waves',
+    eyeColor: 'Blue-grey', faceShape: 'High cheekbones, delicate features',
+    bodyType: 'Slim', height: '177cm',
+    signatureLook: 'Dior & Tiffany ethereal', fashionVibe: 'Ethereal, dreamlike, luminous beauty',
+    bestFor: ['kupe', 'kolye', 'yuzuk'],
+  },
+  {
+    name: 'Asli Korkmaz', age: 29, heritage: 'Turkish-Kurdish',
+    skinTone: 'Medium-tan', skinUndertone: 'warm caramel',
+    hairColor: 'Very dark brown', hairTexture: 'slicked-back', hairSignature: 'Sleek slicked-back hair emphasizing strong bone structure',
+    eyeColor: 'Brown-amber', faceShape: 'Strong angular, defined jawline',
+    bodyType: 'Athletic-slim', height: '174cm',
+    signatureLook: 'Versace & Boucheron power', fashionVibe: 'Powerful, commanding, bold luxury',
+    bestFor: ['saat', 'bileklik', 'genel'],
+  },
+  {
+    name: 'Ipek Sahin', age: 28, heritage: 'Turkish-Levantine',
+    skinTone: 'Medium olive', skinUndertone: 'neutral-warm',
+    hairColor: 'Dark brown', hairTexture: 'side-parted elegant', hairSignature: 'Elegant side-parted dark brown with soft drape',
+    eyeColor: 'Warm brown', faceShape: 'Soft round, gentle features',
+    bodyType: 'Proportional', height: '171cm',
+    signatureLook: 'Chopard & Bvlgari classic', fashionVibe: 'Timeless classic elegance, refined warmth',
+    bestFor: ['yuzuk', 'kolye', 'bileklik', 'genel'],
+  },
 ];
 
 // ═══════════════════════════════════════════════════
@@ -388,10 +469,9 @@ function buildModelPrompt(
   const pose = pickRandom(config.poses);
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
-  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
-  const hairStyle = pickRandom(CHARACTER_HAIR_STYLES);
+  const persona = pickRandom(CHARACTER_PERSONAS);
 
-  console.log(`Model prompt — Type: ${productType}, Region: ${config.bodyRegion}, Gaze: ${gaze.substring(0, 40)}..., Expression: ${expression.substring(0, 40)}...`);
+  console.log(`Model prompt — Persona: ${persona.name}, Type: ${productType}, Region: ${config.bodyRegion}, Gaze: ${gaze.substring(0, 40)}...`);
 
   return `${identityCard}
 
@@ -407,31 +487,36 @@ ${fidelityBlock}
 - NO mannequins, NO floating jewelry, NO disembodied body parts
 
 ═══════════════════════════════════════════════════════════════
-CHARACTER DNA — UNIQUE IDENTITY FOR THIS SHOT
+CHARACTER DNA — ${persona.name.toUpperCase()} (${persona.heritage})
 ═══════════════════════════════════════════════════════════════
 
 SKIN & COMPLEXION:
-- ${skinTone}
+- Skin tone: ${persona.skinTone} with ${persona.skinUndertone} undertone
 - Real skin texture mandatory: visible pores, natural micro-imperfections, subtle vein patterns on hands/wrists
 - Absolutely NO plastic/CGI/airbrushed/beauty-filtered look
 - Natural skin sheen — not matte, not oily, just healthy luminous skin
 - Subsurface scattering visible in ear lobes, fingertips, and thin skin areas
 
 HAIR:
-- Dark hair (black to deep brunette), natural and healthy
-- Style: ${hairStyle}
+- Color: ${persona.hairColor}, texture: ${persona.hairTexture}
+- Signature: ${persona.hairSignature}
 - Individual hair strands visible, natural flyaways for realism
 - Hair must not obstruct the jewelry — styled to reveal it
+
+FACE & EYES:
+- Eye color: ${persona.eyeColor}
+- Face shape: ${persona.faceShape}
+- Realistic iris detail with natural catch-lights
 
 EXPRESSION & GAZE:
 - ${expression}
 - ${gaze}
 - Micro-expression details: subtle muscle tension, natural lip position
-- Eyes: realistic iris detail with natural catch-lights
 
 BODY & ANATOMY:
-- Age range: 25-35, natural beauty
-- Turkish / Mediterranean aesthetic
+- Age: ${persona.age}, ${persona.heritage}
+- Body type: ${persona.bodyType}, Height: ${persona.height}
+- Fashion vibe: ${persona.fashionVibe}
 - Anatomical accuracy: correct finger count (5 per hand), natural proportions
 - Natural body weight — realistic, not idealized
 - Visible collarbone definition, natural neck length
@@ -519,7 +604,9 @@ function buildModelCloseUpPrompt(
 ): string {
   const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
   const pose = pickRandom(config.poses);
-  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
+  const persona = pickRandom(CHARACTER_PERSONAS);
+
+  console.log(`Model Close-Up — Persona: ${persona.name}`);
 
   return `${identityCard}
 
@@ -537,11 +624,13 @@ CLOSE-UP FRAMING:
 - Model skin visible as context — natural pores, texture, warmth
 - Very shallow depth of field: f/1.8-2.0, only jewelry plane is sharp
 
-MODEL:
-- Skin: ${skinTone}
+MODEL — ${persona.name} (${persona.heritage}):
+- Skin: ${persona.skinTone} with ${persona.skinUndertone} undertone
+- Hair: ${persona.hairColor}, ${persona.hairSignature}
+- Eyes: ${persona.eyeColor}, Face: ${persona.faceShape}
 - Real skin texture: visible pores, natural imperfections
 - No plastic/CGI look — authentic human warmth
-- Age 25-35, Turkish / Mediterranean aesthetic
+- Age ${persona.age}, ${persona.heritage}
 
 POSE:
 - ${pose}
@@ -572,8 +661,7 @@ function buildModelLifestylePrompt(
   const pose = pickRandom(config.poses);
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
-  const skinTone = pickRandom(CHARACTER_SKIN_TONES);
-  const hairStyle = pickRandom(CHARACTER_HAIR_STYLES);
+  const persona = pickRandom(CHARACTER_PERSONAS);
 
   const lifestyleScene = pickRandom([
     { setting: 'Parisian café terrace at golden hour', mood: 'warm, romantic, European luxury' },
@@ -582,6 +670,8 @@ function buildModelLifestylePrompt(
     { setting: 'Rooftop bar at sunset with city skyline bokeh', mood: 'urban, cosmopolitan, aspirational' },
     { setting: 'Mediterranean seaside restaurant with natural daylight', mood: 'effortless, sun-kissed, resort luxury' },
   ]);
+
+  console.log(`Model Lifestyle — Persona: ${persona.name}`);
 
   return `${identityCard}
 
@@ -593,12 +683,15 @@ ${fidelityBlock}
 
 ⚠️ MANDATORY: A REAL HUMAN MODEL MUST BE WEARING THE JEWELRY ⚠️
 
-CHARACTER:
-- Skin: ${skinTone}
-- Hair: ${hairStyle}
+CHARACTER — ${persona.name} (${persona.heritage}):
+- Skin: ${persona.skinTone} with ${persona.skinUndertone} undertone
+- Hair: ${persona.hairColor}, ${persona.hairSignature}
+- Eyes: ${persona.eyeColor}, Face: ${persona.faceShape}
 - Expression: ${expression}
 - Gaze: ${gaze}
-- Age 25-35, Turkish / Mediterranean aesthetic
+- Age ${persona.age}, ${persona.heritage}
+- Body: ${persona.bodyType}, ${persona.height}
+- Fashion vibe: ${persona.fashionVibe}
 - Real skin texture, natural beauty — no airbrushing
 
 POSE & PLACEMENT:
@@ -623,6 +716,37 @@ TECHNICAL:
 - 4K ultra-high resolution
 - Photorealistic lifestyle photography
 - Shot on 50mm f/1.8 — natural perspective, soft background`;
+}
+
+function buildCustomPrompt(
+  analysisResult: any,
+  fidelityBlock: string,
+  productExtractionBlock: string,
+  identityCard: string,
+  customText: string,
+): string {
+  return `${identityCard}
+
+CUSTOM JEWELRY PHOTOGRAPHY — User-directed creative vision.
+
+${productExtractionBlock}
+
+${fidelityBlock}
+
+USER CREATIVE DIRECTION:
+${customText}
+
+IMPORTANT CONSTRAINTS:
+- The jewelry piece MUST be the hero of the image
+- Preserve ALL jewelry details exactly as analyzed
+- Apply the user's creative direction to scene, lighting, and atmosphere
+- Maintain photorealistic quality — 4K, no CGI artifacts
+- If user mentions a model/person, include a real human model wearing the jewelry
+
+TECHNICAL:
+- 4:5 portrait aspect ratio
+- 4K ultra-high resolution output
+- Photorealistic professional photography`;
 }
 
 function buildStyleTransferPrompt(
@@ -990,12 +1114,15 @@ async function processGeneration(params: {
   aspectRatio: string;
   creditsNeeded: number;
   isAdminUser: boolean;
+  selectedScenes?: string[];
+  customPrompt?: string;
 }) {
   const supabase = getServiceClient();
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
     sceneId, packageType, productType,
     metalColorOverride, styleReferencePath, aspectRatio, creditsNeeded, isAdminUser,
+    selectedScenes: paramSelectedScenes, customPrompt: paramCustomPrompt,
   } = params;
 
   console.log(`Using model: Analysis=Gemini 2.5 Flash, Generation=Gemini 3 Pro (4K), Package=${packageType}`);
@@ -1491,6 +1618,41 @@ Ultra high resolution output.`.trim();
         progress: 90,
       }).eq('id', jobId);
 
+    } else if (packageType === 'single') {
+      // SINGLE (TEKIL) PACKAGE: 1 custom image
+      console.log('Single (Tekil) Package: Custom single image generation...');
+
+      const identityCard = buildProductIdentityCard(analysisResult);
+      let singlePrompt: string;
+      let singleImages: string[];
+
+      if (hasStyleReference && styleReferenceBase64) {
+        // Style reference takes priority
+        singlePrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+        singleImages = [styleReferenceBase64, ...base64Images];
+      } else if (paramCustomPrompt) {
+        // Custom text prompt
+        singlePrompt = buildCustomPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard, paramCustomPrompt);
+        singleImages = base64Images;
+      } else {
+        // Fallback to editorial
+        singlePrompt = buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard);
+        singleImages = base64Images;
+      }
+
+      await supabase.from('processing_jobs').update({
+        progress: 28, current_step: 'generating',
+        total_images: 1,
+      }).eq('id', jobId);
+
+      const url = await generateSingleImage(singleImages, singlePrompt, userId, imageRecordId, 1, supabase, jobId, aspectRatio);
+      if (url) generatedUrls.push(url);
+
+      await supabase.from('processing_jobs').update({
+        completed_images: generatedUrls.length,
+        progress: 90,
+      }).eq('id', jobId);
+
     } else if (hasStyleReference && styleReferenceBase64 && packageType !== 'standard') {
       // STANDALONE STYLE REFERENCE MODE (non-standard package, 1 image)
       console.log('Standalone style reference generation mode...');
@@ -1509,9 +1671,8 @@ Ultra high resolution output.`.trim();
       }).eq('id', jobId);
 
     } else {
-      // MASTER PAKET: 6 fundamentally different images
-      // 1) Editorial  2) E-Commerce  3) Model  4) Macro  5) Flat Lay  6) Dramatic
-      console.log('Master Paket generation (6 images, 4K)...');
+      // MASTER PAKET: selected scenes or all 6
+      console.log(`Master Paket generation (${paramSelectedScenes ? paramSelectedScenes.length : 6} images, 4K)...`);
 
       // Resolve productType: use analysis if not provided
       const resolvedProductType = productType || (() => {
@@ -1562,12 +1723,28 @@ Ultra high resolution output.`.trim();
           startTemperature: 0.12 },
       ];
 
-      for (let i = 0; i < masterSteps.length; i++) {
-        const ms = masterSteps[i];
-        console.log(`Generating ${ms.label} image (${i + 1}/${masterSteps.length})...`);
+      // Filter steps if selectedScenes is provided (Master 3-scene selection)
+      const filteredSteps = paramSelectedScenes
+        ? masterSteps.filter(s => paramSelectedScenes.includes(s.key))
+        : masterSteps;
 
-        const startProgress = 25 + (i * 10);
-        const endProgress = 35 + (i * 10);
+      console.log(`Generating ${filteredSteps.length} scenes: ${filteredSteps.map(s => s.key).join(', ')}`);
+
+      // Update total_images in job to match filtered count
+      if (paramSelectedScenes) {
+        await supabase.from('processing_jobs').update({
+          total_images: filteredSteps.length,
+        }).eq('id', jobId);
+      }
+
+      for (let i = 0; i < filteredSteps.length; i++) {
+        const ms = filteredSteps[i];
+        console.log(`Generating ${ms.label} image (${i + 1}/${filteredSteps.length})...`);
+
+        const progressRange = 65; // 25% to 90%
+        const perStep = progressRange / filteredSteps.length;
+        const startProgress = Math.round(25 + (i * perStep));
+        const endProgress = Math.round(25 + ((i + 1) * perStep));
 
         await supabase.from('processing_jobs').update({
           progress: startProgress,
@@ -1583,7 +1760,7 @@ Ultra high resolution output.`.trim();
 
         await supabase.from('processing_jobs').update({
           completed_images: generatedUrls.length,
-          current_step: i < masterSteps.length - 1 ? masterSteps[i + 1].step : 'saving',
+          current_step: i < filteredSteps.length - 1 ? filteredSteps[i + 1].step : 'saving',
           progress: endProgress,
         }).eq('id', jobId);
 
@@ -1684,10 +1861,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = authResult.userId;
     console.log('Authenticated user:', userId);
 
-    const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath, aspectRatio: requestedRatio } = req.body;
+    const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath, aspectRatio: requestedRatio, selectedScenes, customPrompt } = req.body;
     const validRatios = ['1:1', '3:4', '4:3', '9:16', '16:9'];
     const aspectRatio = validRatios.includes(requestedRatio) ? requestedRatio : '3:4';
-    console.log('Generate request:', { imagePath, sceneId, packageType, productType, aspectRatio, userId });
+    console.log('Generate request:', { imagePath, sceneId, packageType, productType, aspectRatio, userId, selectedScenes, customPrompt: customPrompt?.substring(0, 50) });
 
     if (!imagePath || typeof imagePath !== 'string' || !imagePath.startsWith(`${userId}/originals/`)) {
       return sendCorsResponse(res, 400, { error: 'Invalid image path' });
@@ -1706,11 +1883,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isRetouchPackage = packageType === 'retouch';
 
-    // Standard (Master) package doesn't need sceneId — only style-reference-less, non-retouch, non-standard needs it
+    // Standard (Master) and Single packages don't need sceneId
     const isStandardPackage = packageType === 'standard' || !packageType;
-    if (!hasStyleReference && !isRetouchPackage && !isStandardPackage && (!sceneId || !uuidRegex.test(sceneId))) {
+    const isSinglePackage = packageType === 'single';
+    if (!hasStyleReference && !isRetouchPackage && !isStandardPackage && !isSinglePackage && (!sceneId || !uuidRegex.test(sceneId))) {
       return sendCorsResponse(res, 400, { error: 'Invalid scene ID' });
     }
+
+    // Validate selectedScenes for standard package
+    const validSceneKeys = ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
+    let validatedSelectedScenes: string[] | undefined;
+    if (Array.isArray(selectedScenes) && selectedScenes.length > 0) {
+      validatedSelectedScenes = selectedScenes.filter((s: string) => validSceneKeys.includes(s));
+      if (validatedSelectedScenes.length === 0) validatedSelectedScenes = undefined;
+    }
+
+    // Validate customPrompt for single package
+    const validatedCustomPrompt = isSinglePackage && typeof customPrompt === 'string' ? customPrompt.trim().substring(0, 500) : undefined;
 
     const supabase = getServiceClient();
 
@@ -1790,6 +1979,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (insertError) throw insertError;
     const imageRecordId = imageRecord.id;
 
+    // Calculate total images based on package type and selected scenes
+    const totalImages = isSinglePackage || isRetouchPackage ? 1
+      : validatedSelectedScenes ? validatedSelectedScenes.length
+      : 6;
+
     // Create processing job
     const { data: jobRecord, error: jobError } = await supabase
       .from('processing_jobs')
@@ -1797,7 +1991,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_id: userId,
         image_record_id: imageRecordId,
         status: 'pending',
-        total_images: 6,
+        total_images: totalImages,
         completed_images: 0,
         progress: 0,
         current_step: 'pending',
@@ -1826,6 +2020,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       aspectRatio,
       creditsNeeded,
       isAdminUser,
+      selectedScenes: validatedSelectedScenes,
+      customPrompt: validatedCustomPrompt,
     }));
 
     return sendCorsResponse(res, 200, {

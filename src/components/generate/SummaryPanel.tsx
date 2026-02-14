@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Sparkles, User, Check, Wand2 } from "lucide-react";
+import { Image as ImageIcon, Sparkles, User, Check, Wand2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { metalColors } from "./MetalColorSelector";
 import { productTypes } from "./ProductTypeSelector";
@@ -16,8 +16,17 @@ interface UserModel {
   age_range: string;
 }
 
+const SCENE_LABELS: Record<string, string> = {
+  editorial: 'Editorial',
+  ecommerce: 'E-Ticaret',
+  model: 'Model',
+  macro: 'Macro',
+  model_closeup: 'Yakin Cekim',
+  model_lifestyle: 'Yasam Tarzi',
+};
+
 interface SummaryPanelProps {
-  packageType: 'standard' | 'retouch';
+  packageType: 'standard' | 'single' | 'retouch';
   selectedProductType: string | null;
   selectedMetalColor: string | null;
   selectedModel: UserModel | null;
@@ -29,6 +38,7 @@ interface SummaryPanelProps {
   canGenerate: boolean;
   onGenerate: () => void;
   hasStyleReference?: boolean;
+  selectedMasterScenes?: string[];
 }
 
 export function SummaryPanel({
@@ -44,6 +54,7 @@ export function SummaryPanel({
   canGenerate,
   onGenerate,
   hasStyleReference = false,
+  selectedMasterScenes = [],
 }: SummaryPanelProps) {
   const hasInsufficientCredits = !isAdminUser && currentCredits !== undefined && currentCredits < creditsNeeded;
 
@@ -70,15 +81,28 @@ export function SummaryPanel({
       icon: <User className="h-4 w-4 text-muted-foreground" />,
       label: selectedModel.name,
     },
+    // Show selected scenes for master package
+    selectedMasterScenes.length > 0 && {
+      icon: <Sparkles className="h-4 w-4" style={{ color: 'hsl(38, 45%, 55%)' }} />,
+      label: selectedMasterScenes.map(k => SCENE_LABELS[k] || k).join(', '),
+    },
     hasStyleReference && {
       icon: <Sparkles className="h-4 w-4 text-primary" />,
-      label: 'Stil Referansı',
+      label: 'Stil Referansi',
     },
     selectedScene && !hasStyleReference && {
       icon: <Sparkles className="h-4 w-4 text-muted-foreground" />,
       label: selectedScene.name_tr,
     },
   ].filter(Boolean);
+
+  const packageLabel = packageType === 'retouch' ? 'Retouch'
+    : packageType === 'single' ? 'Tekil Uretim'
+    : 'Master Paket';
+
+  const packageDesc = packageType === 'retouch' ? 'Profesyonel rotus islemi'
+    : packageType === 'single' ? '1 serbest yaratici gorsel'
+    : `${totalImages} gorsel olusturulacak`;
 
   return (
     <div className="space-y-4">
@@ -91,18 +115,18 @@ export function SummaryPanel({
             <div className="p-2 rounded-xl bg-primary/10">
               <Wand2 className="h-5 w-5 text-primary" />
             </div>
+          ) : packageType === 'single' ? (
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Pencil className="h-5 w-5 text-primary" />
+            </div>
           ) : (
             <div className="p-2 rounded-xl gradient-gold shadow-sm">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
           )}
           <div>
-            <h3 className="font-semibold">
-              {packageType === 'retouch' ? 'Retouch' : 'Master Paket'}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {packageType === 'retouch' ? 'Profesyonel rotus islemi' : `${totalImages} gorsel olusturulacak`}
-            </p>
+            <h3 className="font-semibold">{packageLabel}</h3>
+            <p className="text-xs text-muted-foreground">{packageDesc}</p>
           </div>
         </div>
 

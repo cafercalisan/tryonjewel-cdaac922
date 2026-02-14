@@ -1,26 +1,36 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User, Focus, LayoutGrid, Contrast } from 'lucide-react';
+import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User, Focus } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
   step: 'idle' | 'analyzing' | 'generating' | 'finalizing';
-  packageType?: 'standard' | 'retouch';
+  packageType?: 'standard' | 'single' | 'retouch';
   previewImage?: string | null;
   currentStep?: string | null;
   progress?: number;
   completedImages?: number;
   totalImages?: number;
+  selectedScenes?: string[];
 }
 
-const IMAGE_TYPE_CONFIG = [
-  { label: 'Editorial', Icon: Camera, desc: 'Yaratici sahne' },
-  { label: 'E-Ticaret', Icon: ShoppingBag, desc: 'Urun cekimi' },
-  { label: 'Model', Icon: User, desc: 'Lifestyle gorsel' },
-  { label: 'Macro', Icon: Focus, desc: 'Detay cekim' },
-  { label: 'Flat Lay', Icon: LayoutGrid, desc: 'Ust aci sunum' },
-  { label: 'Dramatik', Icon: Contrast, desc: 'Etkileyici aci' },
-];
+const SCENE_CONFIG: Record<string, { label: string; desc: string; Icon: typeof Camera; gradient: string }> = {
+  editorial: { label: 'Editorial', desc: 'Yaratici sahne', Icon: Camera, gradient: 'from-amber-500/20 to-orange-500/10' },
+  ecommerce: { label: 'E-Ticaret', desc: 'Urun cekimi', Icon: ShoppingBag, gradient: 'from-blue-500/20 to-cyan-500/10' },
+  model: { label: 'Model', desc: 'Manken gorsel', Icon: User, gradient: 'from-pink-500/20 to-rose-500/10' },
+  macro: { label: 'Macro', desc: 'Detay cekim', Icon: Focus, gradient: 'from-emerald-500/20 to-green-500/10' },
+  model_closeup: { label: 'Yakin Cekim', desc: 'Model yakin plan', Icon: User, gradient: 'from-violet-500/20 to-purple-500/10' },
+  model_lifestyle: { label: 'Yasam Tarzi', desc: 'Gunluk yasam', Icon: User, gradient: 'from-sky-500/20 to-indigo-500/10' },
+};
+
+const STEP_TO_SCENE: Record<string, string> = {
+  generating_editorial: 'editorial',
+  generating_ecommerce: 'ecommerce',
+  generating_model: 'model',
+  generating_macro: 'macro',
+  generating_model_closeup: 'model_closeup',
+  generating_model_lifestyle: 'model_lifestyle',
+};
 
 export function GeneratingPanel({
   step,
@@ -29,7 +39,8 @@ export function GeneratingPanel({
   currentStep = null,
   progress = 0,
   completedImages = 0,
-  totalImages = 6,
+  totalImages = 3,
+  selectedScenes = [],
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -47,7 +58,9 @@ export function GeneratingPanel({
   }, [facts.length]);
 
   const isRetouch = packageType === 'retouch';
-  const title = isRetouch ? 'Rotus Yapiliyor' : 'Gorsel Olusturuluyor';
+  const isSingle = packageType === 'single';
+  const isStandard = packageType === 'standard';
+  const title = isRetouch ? 'Rotus Yapiliyor' : isSingle ? 'Gorsel Olusturuluyor' : 'Gorsel Olusturuluyor';
 
   const stepLabels: Record<string, string> = {
     'pending': 'Kuyrukta bekleniyor...',
@@ -55,15 +68,12 @@ export function GeneratingPanel({
     'analyzing': 'Mucevher analiz ediliyor...',
     'analyzing_style': 'Stil referansi analiz ediliyor...',
     'generating': 'AI gorsel olusturuyor...',
-    'generating_1': 'Gorsel 1/3 olusturuluyor...',
-    'generating_2': 'Gorsel 2/3 olusturuluyor...',
-    'generating_3': 'Gorsel 3/3 olusturuluyor...',
     'generating_editorial': 'Editorial gorsel olusturuluyor...',
     'generating_ecommerce': 'E-Ticaret gorseli olusturuluyor...',
     'generating_model': 'Model gorseli olusturuluyor...',
     'generating_macro': 'Macro detay gorseli olusturuluyor...',
-    'generating_flatlay': 'Flat Lay gorseli olusturuluyor...',
-    'generating_dramatic': 'Dramatik gorsel olusturuluyor...',
+    'generating_model_closeup': 'Yakin cekim gorseli olusturuluyor...',
+    'generating_model_lifestyle': 'Yasam tarzi gorseli olusturuluyor...',
     'saving': 'Sonuclar kaydediliyor...',
     'completed': 'Tamamlandi!',
     'failed': 'Hata olustu',
@@ -77,17 +87,15 @@ export function GeneratingPanel({
 
   const displayProgress = progress > 0 ? progress : (step === 'analyzing' ? 15 : step === 'generating' ? 40 : 5);
 
-  const masterStepMap: Record<string, number> = {
-    'generating_editorial': 0,
-    'generating_ecommerce': 1,
-    'generating_model': 2,
-    'generating_macro': 3,
-    'generating_flatlay': 4,
-    'generating_dramatic': 5,
-  };
-  const currentImageIndex = currentStep
-    ? masterStepMap[currentStep] ?? (currentStep.startsWith('generating_') ? parseInt(currentStep.split('_')[1]) - 1 : completedImages)
-    : completedImages;
+  // Determine which scene is currently active
+  const activeSceneKey = currentStep ? STEP_TO_SCENE[currentStep] : null;
+
+  // Build completed scenes list
+  const sceneOrder = selectedScenes.length > 0 ? selectedScenes : ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
+  const activeSceneIndex = activeSceneKey ? sceneOrder.indexOf(activeSceneKey) : -1;
+
+  // Show 3-card layout for standard package with selected scenes
+  const showSceneCards = isStandard && selectedScenes.length > 0;
 
   return (
     <motion.div
@@ -121,14 +129,88 @@ export function GeneratingPanel({
         </div>
       </div>
 
-      {/* Per-image progress cards (only for standard package) */}
-      {!isRetouch && totalImages > 1 && (
+      {/* 3-card scene progress (standard with selected scenes) */}
+      {showSceneCards && (
+        <div className="px-6 pb-3">
+          <div className="grid grid-cols-3 gap-3">
+            {selectedScenes.map((sceneKey, i) => {
+              const config = SCENE_CONFIG[sceneKey];
+              if (!config) return null;
+
+              const isDone = i < completedImages;
+              const isActive = sceneKey === activeSceneKey && !isDone;
+              const isPending = !isDone && !isActive;
+
+              return (
+                <motion.div
+                  key={sceneKey}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.15 }}
+                  className={`relative aspect-[4/5] rounded-2xl overflow-hidden transition-all ${
+                    isDone
+                      ? 'ring-2 ring-green-500/60'
+                      : isActive
+                      ? 'ring-2 ring-gold animate-glow-gold'
+                      : ''
+                  }`}
+                >
+                  {/* Background gradient */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${config.gradient} ${isPending ? 'opacity-40' : ''}`} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
+                  {/* Shimmer effect for active card */}
+                  {isActive && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      animate={{ x: ['-100%', '100%'] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'linear', repeatDelay: 0.5 }}
+                    />
+                  )}
+
+                  {/* Center icon/status */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {isDone ? (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 300 }}
+                      >
+                        <CheckCircle2 className="h-10 w-10 text-green-400" />
+                      </motion.div>
+                    ) : isActive ? (
+                      <Loader2 className="h-10 w-10 animate-spin" style={{ color: 'hsl(38, 45%, 55%)' }} />
+                    ) : (
+                      <config.Icon className="h-10 w-10 text-white/30" />
+                    )}
+                  </div>
+
+                  {/* Bottom label */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3 text-center">
+                    <span className={`text-xs font-semibold ${isDone ? 'text-green-300' : isActive ? 'text-white' : 'text-white/40'}`}>
+                      {config.label}
+                    </span>
+                    <p className={`text-[9px] ${isDone ? 'text-green-200/70' : isActive ? 'text-white/70' : 'text-white/20'}`}>
+                      {config.desc}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Simple per-image cards for standard without selectedScenes (backward compat) */}
+      {isStandard && selectedScenes.length === 0 && totalImages > 1 && (
         <div className="px-6 pb-3">
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: Math.min(totalImages, 6) }, (_, i) => {
+              const sceneKeys = ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
+              const key = sceneKeys[i];
+              const config = key ? SCENE_CONFIG[key] : null;
               const isDone = i < completedImages;
-              const isActive = i === currentImageIndex && !isDone && currentStep?.startsWith('generating');
-              const config = IMAGE_TYPE_CONFIG[i];
+              const isActive = i === (activeSceneKey ? sceneOrder.indexOf(activeSceneKey) : completedImages) && !isDone && currentStep?.startsWith('generating');
 
               return (
                 <motion.div
@@ -146,17 +228,13 @@ export function GeneratingPanel({
                 >
                   <div className="flex items-center gap-2 mb-1">
                     {isDone ? (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 300 }}
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      </motion.div>
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
                     ) : isActive ? (
                       <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'hsl(38, 45%, 55%)' }} />
-                    ) : (
+                    ) : config ? (
                       <config.Icon className="h-4 w-4 text-muted-foreground/40" />
+                    ) : (
+                      <Camera className="h-4 w-4 text-muted-foreground/40" />
                     )}
                     <span className={`text-[11px] font-semibold ${
                       isDone ? 'text-green-600 dark:text-green-400' : isActive ? 'text-foreground' : 'text-muted-foreground/50'
@@ -176,8 +254,8 @@ export function GeneratingPanel({
         </div>
       )}
 
-      {/* Blurred preview */}
-      {previewImage && (
+      {/* Blurred preview (for single/retouch) */}
+      {(isSingle || isRetouch) && previewImage && (
         <div className="relative h-48 mx-6 rounded-xl overflow-hidden">
           <motion.img
             src={previewImage}
@@ -217,7 +295,7 @@ export function GeneratingPanel({
               {description}
             </span>
             <div className="flex items-center gap-1.5">
-              {!isRetouch && totalImages > 1 && (
+              {totalImages > 1 && (
                 <span className="text-muted-foreground mr-1">
                   {completedImages}/{totalImages}
                 </span>

@@ -13,8 +13,7 @@ import {
   Square,
   RectangleHorizontal,
   Focus,
-  LayoutGrid,
-  Contrast,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -47,7 +46,7 @@ interface Scene {
 }
 
 
-type PackageType = 'standard' | 'retouch';
+type PackageType = 'standard' | 'single' | 'retouch';
 type GenerationStep = 'idle' | 'analyzing' | 'generating' | 'finalizing';
 
 interface UploadedImage {
@@ -76,6 +75,11 @@ export default function Generate() {
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
   const [isStyleCompressing, setIsStyleCompressing] = useState(false);
+
+  // Master scene selection state
+  const [selectedMasterScenes, setSelectedMasterScenes] = useState<string[]>([]);
+  // Custom prompt for single package
+  const [customPromptText, setCustomPromptText] = useState('');
   
   const MAX_IMAGES = 4;
   
@@ -145,7 +149,8 @@ export default function Generate() {
               setGenerationStep('idle');
               setPollingJobId(null);
               setPollingImageId(null);
-              navigate(`/sonuclar?id=${imageId}`);
+              const scenesParam = selectedMasterScenes.length > 0 ? `&scenes=${selectedMasterScenes.join(',')}` : '';
+              navigate(`/sonuclar?id=${imageId}${scenesParam}`);
             }, 1500);
           } else if (data.status === 'failed') {
             // Stop polling
@@ -273,6 +278,7 @@ export default function Generate() {
 
   const creditsNeeded = 10;
   const isRetouchMode = packageType === 'retouch';
+  const isSingleMode = packageType === 'single';
 
   // When style reference is uploaded, scene selection is disabled
   const hasStyleReference = styleReference !== null;
@@ -294,14 +300,17 @@ export default function Generate() {
       if (!profile || profile.credits < creditsNeeded) return false;
     }
 
-    // Standard (Master) package: no scene needed
-    if (packageType === 'standard') return true;
+    // Standard (Master) package: needs 3 scenes selected
+    if (packageType === 'standard') return selectedMasterScenes.length === 3;
+
+    // Single package: needs style reference or custom prompt
+    if (isSingleMode) return hasStyleReference || customPromptText.trim().length > 0;
 
     // If style reference is used, no scene needed
     if (hasStyleReference) return true;
 
     return !!selectedSceneId;
-  }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode, packageType]);
+  }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode, isSingleMode, packageType, selectedMasterScenes, customPromptText]);
 
   // Retry wrapper for transient errors
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
@@ -359,6 +368,16 @@ export default function Generate() {
         aspectRatio: selectedAspectRatio,
       };
 
+      // Standard: pass selected scenes
+      if (packageType === 'standard' && selectedMasterScenes.length > 0) {
+        body.selectedScenes = selectedMasterScenes;
+      }
+
+      // Single: pass custom prompt
+      if (isSingleMode && customPromptText.trim()) {
+        body.customPrompt = customPromptText.trim();
+      }
+
       if (isRetouchMode) {
         // No additional configuration needed
       } else if (styleReference) {
@@ -373,8 +392,8 @@ export default function Generate() {
         if (styleUploadError) throw styleUploadError;
 
         body.styleReferencePath = styleFilePath;
-      } else if (packageType !== 'standard') {
-        // Only non-standard packages need sceneId
+      } else if (packageType !== 'standard' && !isSingleMode) {
+        // Only non-standard, non-single packages need sceneId
         body.sceneId = selectedSceneId;
       }
 
@@ -413,6 +432,7 @@ export default function Generate() {
             progress={jobProgress}
             completedImages={completedImages}
             totalImages={totalImages}
+            selectedScenes={selectedMasterScenes}
           />
         </div>
       </AppLayout>
@@ -679,11 +699,11 @@ export default function Generate() {
               )}
             </AnimatePresence>
 
-            {/* Step 5: Master Paket Info OR Style Reference + Scene Selection */}
+            {/* Step 5: Scene Selection (Standard) / Custom Prompt (Single) / Style+Scene (other) */}
             <AnimatePresence>
               {!isRetouchMode && packageType === 'standard' && (
                 <motion.section
-                  key="master-info"
+                  key="master-scenes"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -693,40 +713,82 @@ export default function Generate() {
                     <div className="w-6 h-6 rounded-full gradient-gold text-white text-xs font-bold flex items-center justify-center">
                       5
                     </div>
-                    <h2 className="text-sm font-semibold">Master Paket</h2>
+                    <h2 className="text-sm font-semibold">Sahne Secin</h2>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {selectedMasterScenes.length}/3
+                    </span>
                   </div>
-                  <div className="gradient-gold-subtle rounded-2xl border border-gold/20 p-5 shadow-luxury">
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="p-2 rounded-xl gradient-gold shrink-0 shadow-sm">
-                        <Sparkles className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-sm mb-0.5">6 Profesyonel Gorsel</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Her uretim benzersiz sahneler icerir
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { Icon: Camera, label: 'Editorial', desc: 'Luks yaratici sahne' },
-                        { Icon: ShoppingBag, label: 'E-Ticaret', desc: 'Temiz beyaz zemin' },
-                        { Icon: User, label: 'Model', desc: 'Lifestyle gorsel' },
-                        { Icon: Focus, label: 'Macro', desc: 'Ultra yakin detay' },
-                        { Icon: LayoutGrid, label: 'Flat Lay', desc: 'Ust aci sunum' },
-                        { Icon: Contrast, label: 'Dramatik', desc: 'Etkileyici aci' },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center gap-3 bg-card/80 rounded-xl px-3 py-2.5 border-l-2 border-gold shadow-sm">
-                          <item.Icon className="h-4 w-4 text-[hsl(38,45%,55%)] shrink-0" />
-                          <div className="min-w-0">
-                            <span className="text-xs font-medium block">{item.label}</span>
-                            <span className="text-muted-foreground text-[10px] leading-tight block">{item.desc}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      { key: 'editorial', label: 'Editorial', desc: 'Yaratici luks sahne', Icon: Camera,
+                        gradient: 'from-amber-500/20 to-orange-500/10' },
+                      { key: 'ecommerce', label: 'E-Ticaret', desc: 'Temiz beyaz zemin', Icon: ShoppingBag,
+                        gradient: 'from-blue-500/20 to-cyan-500/10' },
+                      { key: 'model', label: 'Model', desc: 'Manken uzerinde', Icon: User,
+                        gradient: 'from-pink-500/20 to-rose-500/10' },
+                      { key: 'macro', label: 'Macro', desc: 'Ultra yakin detay', Icon: Focus,
+                        gradient: 'from-emerald-500/20 to-green-500/10' },
+                      { key: 'model_closeup', label: 'Yakin Cekim', desc: 'Model yakin plan', Icon: User,
+                        gradient: 'from-violet-500/20 to-purple-500/10' },
+                      { key: 'model_lifestyle', label: 'Yasam Tarzi', desc: 'Gunluk yasam', Icon: User,
+                        gradient: 'from-sky-500/20 to-indigo-500/10' },
+                    ].map((scene) => {
+                      const isSelected = selectedMasterScenes.includes(scene.key);
+                      const selectionIndex = selectedMasterScenes.indexOf(scene.key);
+                      const isDisabled = !isSelected && selectedMasterScenes.length >= 3;
 
-                    {/* Optional style reference for master package editorial slot */}
+                      return (
+                        <motion.button
+                          key={scene.key}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedMasterScenes(prev => prev.filter(k => k !== scene.key));
+                            } else if (selectedMasterScenes.length < 3) {
+                              setSelectedMasterScenes(prev => [...prev, scene.key]);
+                            }
+                          }}
+                          whileHover={!isDisabled ? { scale: 1.02 } : undefined}
+                          whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+                          className={`relative aspect-[4/3] rounded-2xl overflow-hidden transition-all ${
+                            isSelected
+                              ? 'border-2 border-gold shadow-luxury'
+                              : isDisabled
+                              ? 'opacity-40 cursor-not-allowed border-2 border-transparent'
+                              : 'border-2 border-transparent hover:border-gold/40'
+                          }`}
+                        >
+                          {/* Gradient background */}
+                          <div className={`absolute inset-0 bg-gradient-to-br ${scene.gradient}`} />
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
+                          {/* Content */}
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <scene.Icon className="h-3.5 w-3.5 text-white/90" />
+                              <span className="text-xs font-semibold text-white">{scene.label}</span>
+                            </div>
+                            <span className="text-[10px] text-white/70">{scene.desc}</span>
+                          </div>
+
+                          {/* Selection badge */}
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-2 right-2 w-6 h-6 gradient-gold rounded-full flex items-center justify-center shadow-sm"
+                            >
+                              <span className="text-[11px] font-bold text-white">{selectionIndex + 1}</span>
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Optional style reference for master package editorial slot */}
+                  {selectedMasterScenes.includes('editorial') && (
                     <div className="mt-4 pt-4 border-t border-gold/20">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-medium text-muted-foreground">
@@ -736,9 +798,7 @@ export default function Generate() {
                       </div>
                       <StyleReferenceUpload
                         styleReference={styleReference}
-                        onUpload={(ref) => {
-                          setStyleReference(ref);
-                        }}
+                        onUpload={(ref) => setStyleReference(ref)}
                         onRemove={() => setStyleReference(null)}
                         isCompressing={isStyleCompressing}
                         setIsCompressing={setIsStyleCompressing}
@@ -749,10 +809,65 @@ export default function Generate() {
                         </p>
                       )}
                     </div>
+                  )}
+                </motion.section>
+              )}
+              {!isRetouchMode && isSingleMode && (
+                <motion.section
+                  key="single-config"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                      5
+                    </div>
+                    <h2 className="text-sm font-semibold">Yaratici Yon</h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Style Reference */}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Stil Referansi</p>
+                      <StyleReferenceUpload
+                        styleReference={styleReference}
+                        onUpload={(ref) => setStyleReference(ref)}
+                        onRemove={() => setStyleReference(null)}
+                        isCompressing={isStyleCompressing}
+                        setIsCompressing={setIsStyleCompressing}
+                      />
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">ve/veya</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Custom prompt textarea */}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Serbest Metin</p>
+                      <textarea
+                        value={customPromptText}
+                        onChange={(e) => setCustomPromptText(e.target.value)}
+                        placeholder="Olusturmak istediginiz sahneyi tarif edin..."
+                        maxLength={500}
+                        className="w-full bg-card border border-border rounded-xl p-3 text-sm resize-none max-h-32 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
+                      />
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[10px] text-muted-foreground">
+                          Stil referansi veya metin giriniz (en az birini)
+                        </p>
+                        <span className="text-[10px] text-muted-foreground">{customPromptText.length}/500</span>
+                      </div>
+                    </div>
                   </div>
                 </motion.section>
               )}
-              {!isRetouchMode && packageType !== 'standard' && (
+              {!isRetouchMode && !isSingleMode && packageType !== 'standard' && (
                 <motion.section
                   key="style-scene"
                   initial={{ opacity: 0, height: 0 }}
@@ -818,12 +933,13 @@ export default function Generate() {
               selectedModel={null}
               selectedScene={selectedScene}
               creditsNeeded={creditsNeeded}
-              totalImages={totalImages}
+              totalImages={packageType === 'standard' ? 3 : 1}
               currentCredits={profile?.credits}
               isAdminUser={isAdminUser}
               canGenerate={canGenerate}
               onGenerate={handleGenerate}
               hasStyleReference={hasStyleReference}
+              selectedMasterScenes={selectedMasterScenes}
             />
           </div>
         </div>
