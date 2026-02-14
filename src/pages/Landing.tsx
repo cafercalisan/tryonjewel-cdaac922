@@ -1,159 +1,552 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Sparkles, Image, Shield, ArrowRight, Camera, Palette, Download, Clock, Zap, TrendingUp, X, Check, Share2, Instagram, Calendar, Repeat, MessageCircle, Mail } from 'lucide-react';
-import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
-import { AnimatedWord } from '@/components/landing/AnimatedWord';
-import { useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  ArrowRight, Camera, Palette, Download, Clock, Zap,
+  TrendingUp, X, Check, Mail, Sparkles, Image, Shield
+} from 'lucide-react';
+import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
+import { useState, useEffect } from 'react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 
+// ─── Gold Animated Word (for dark hero) ─────────────────────────────────────
+function GoldAnimatedWord({ words, interval = 3000 }: { words: string[]; interval?: number }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIndex(i => (i + 1) % words.length), interval);
+    return () => clearInterval(t);
+  }, [words.length, interval]);
+
+  return (
+    <span className="relative inline-block">
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={index}
+          initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, y: -30, filter: 'blur(8px)' }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="inline-block italic font-serif"
+          style={{ color: 'hsl(38, 45%, 60%)' }}
+        >
+          {words[index]}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+// ─── Gallery pair data ──────────────────────────────────────────────────────
+const GALLERY_PAIRS = [
+  {
+    before: '/landing/before-4.jpg',
+    after: '/landing/after-4.jpg',
+    jewelry: 'Pırlanta Kolye',
+    scene: 'Macro Çekim',
+    story: 'Karanlık atölye fotoğrafından profesyonel macro ürün çekimine.',
+  },
+  {
+    before: '/landing/before-5.jpg',
+    after: '/landing/after-5.jpg',
+    jewelry: 'Pırlanta Küpe',
+    scene: 'E-Ticaret',
+    story: 'Basit kutu üstü fotoğraftan, stüdyo kalitesinde ürün çekimine.',
+  },
+  {
+    before: '/landing/before-3.jpg',
+    after: '/landing/after-3.jpg',
+    jewelry: 'Pırlanta Yüzük',
+    scene: 'Model Yakın Çekim',
+    story: 'Beyaz fon ürün görselinden, model üzerinde kampanya görseline.',
+  },
+  {
+    before: '/landing/before-custom.jpg',
+    after: '/landing/after-custom.jpg',
+    jewelry: 'Marquise Pırlanta Yüzük',
+    scene: 'Model Editorial',
+    story: 'Basit ürün fotoğrafından, haute couture kampanya çekimine.',
+  },
+];
+
+// ─── Noise overlay (reusable) ───────────────────────────────────────────────
+const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+
+// ─── Main Landing Page ──────────────────────────────────────────────────────
 export default function Landing() {
   const [showContactModal, setShowContactModal] = useState(false);
 
-  return <AppLayout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-background">
-        <div className="container pt-6 md:pt-10 pb-16 md:pb-20">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-              {/* Left - Text Content */}
-              <motion.div initial={{
-              opacity: 0,
-              y: 30
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.8,
-              ease: "easeOut"
-            }} className="order-2 lg:order-1 text-center lg:text-left mx-0">
-                <motion.h1 initial={{
-                opacity: 0,
-                y: 20
-              }} animate={{
-                opacity: 1,
-                y: 0
-              }} transition={{
-                duration: 0.6,
-                delay: 0.2
-              }} className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-5 leading-[1.1] font-sans">
-                  Satış Getiren
-                  <br />
-                  <AnimatedWord words={['Görseller', 'Hikayeler']} interval={3000} /> Yaratın
-                </motion.h1>
-                
-                <motion.p initial={{
-                opacity: 0,
-                y: 20
-              }} animate={{
-                opacity: 1,
-                y: 0
-              }} transition={{
-                duration: 0.6,
-                delay: 0.3
-              }} className="text-base md:text-lg text-muted-foreground mb-6 max-w-md mx-auto lg:mx-0 leading-relaxed font-serif">Ham mücevher fotoğraflarınızı saniyeler içinde lüks kampanya görsellerine dönüştürün.Stüdyo maliyetlerini geride bırakın.</motion.p>
-                
-                <motion.div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start" initial={{
-                opacity: 0,
-                y: 20
-              }} animate={{
-                opacity: 1,
-                y: 0
-              }} transition={{
-                duration: 0.6,
-                delay: 0.4
-              }}>
-                  <Link to="/kayit">
-                    <Button size="lg" className="w-full sm:w-auto text-sm font-medium tracking-wider px-8 rounded-full">
-                      HEMEN ÜRET
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                </motion.div>
+  return (
+    <AppLayout>
+      {/* ═══════════════════ HERO ═══════════════════ */}
+      <section
+        className="relative min-h-[92vh] flex items-center overflow-hidden"
+        style={{ background: 'linear-gradient(180deg, #050505 0%, #0a0a0a 60%, #111 100%)' }}
+      >
+        {/* Ambient glow + grain */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute -top-[30%] right-[-15%] w-[70vw] h-[70vw] rounded-full opacity-[0.04]"
+            style={{ background: 'radial-gradient(circle, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          />
+          <div
+            className="absolute bottom-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full opacity-[0.03]"
+            style={{ background: 'radial-gradient(circle, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          />
+          <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: NOISE_BG }} />
+        </div>
+
+        <div className="container relative z-10 py-12 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            {/* Headline */}
+            <motion.div
+              className="text-center mb-10 md:mb-14"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <motion.p
+                className="text-[10px] md:text-xs tracking-[0.3em] uppercase mb-5"
+                style={{ color: 'hsl(38,45%,55%)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                Yapay Zeka ile Mücevher Görsel Üretimi
+              </motion.p>
+
+              <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] font-semibold text-white leading-[1.08] tracking-tight">
+                Atölye Fotoğrafınız
+                <br />
+                <GoldAnimatedWord words={['Kampanyaya', 'Vitrine', 'Satışa']} />{' '}
+                Dönüşsün
+              </h1>
+
+              <motion.p
+                className="mt-6 text-sm md:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                Ham mücevher fotoğraflarınızı saniyeler içinde 4K profesyonel
+                kampanya görsellerine dönüştürün. Stüdyo maliyetlerini geride bırakın.
+              </motion.p>
+
+              <motion.div
+                className="mt-8 flex flex-col sm:flex-row gap-3 justify-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <Link to="/kayit">
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none bg-white text-black hover:bg-white/90"
+                  >
+                    HEMEN DENEYIN
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link to="/ornekler">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none border-white/20 text-white hover:bg-white/5"
+                  >
+                    ÖRNEKLERİ İNCELE
+                  </Button>
+                </Link>
               </motion.div>
-              
-              {/* Right - Hero Image */}
-              <motion.div className="order-1 lg:order-2 flex justify-center lg:justify-end" initial={{
-              opacity: 0,
-              scale: 0.95
-            }} animate={{
-              opacity: 1,
-              scale: 1
-            }} transition={{
-              duration: 0.8,
-              ease: "easeOut",
-              delay: 0.2
-            }}>
-                <div className="relative">
-                  <motion.div className="w-[260px] md:w-[300px] lg:w-[340px] aspect-[3/4] rounded-3xl overflow-hidden shadow-luxury-lg" whileHover={{
-                  scale: 1.02
-                }} transition={{
-                  duration: 0.3
-                }}>
-                    <img alt="Profesyonel mücevher görseli" className="w-full h-full object-cover" src="/lovable-uploads/d9abf31c-925c-4750-961f-11908e4e649a.webp" />
+            </motion.div>
+
+            {/* Hero Before → After */}
+            <motion.div
+              className="relative max-w-4xl mx-auto"
+              initial={{ opacity: 0, y: 60 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex items-end justify-center gap-3 sm:gap-5 md:gap-8">
+                {/* Before — small, tilted */}
+                <motion.div
+                  className="w-[28%] sm:w-[26%] md:w-[24%]"
+                  initial={{ opacity: 0, x: -30, rotate: -3 }}
+                  animate={{ opacity: 1, x: 0, rotate: -2 }}
+                  transition={{ delay: 0.5, duration: 0.8 }}
+                >
+                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-white/10 bg-neutral-900 shadow-lg">
+                    <img src="/landing/before-1.jpg" alt="Önce" className="w-full h-full object-cover opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/5" />
+                    <span className="absolute bottom-2 left-2 md:bottom-3 md:left-3 text-[7px] sm:text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase text-white/50">
+                      Önce
+                    </span>
+                  </div>
+                </motion.div>
+
+                {/* AI spark indicator */}
+                <motion.div
+                  className="flex flex-col items-center mb-6 sm:mb-8 md:mb-12"
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
+                >
+                  <motion.div
+                    className="w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 rounded-full flex items-center justify-center"
+                    style={{
+                      background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))',
+                      boxShadow: '0 0 30px hsla(38,45%,55%,0.25)',
+                    }}
+                    animate={{
+                      boxShadow: [
+                        '0 0 20px hsla(38,45%,55%,0.15)',
+                        '0 0 40px hsla(38,45%,55%,0.35)',
+                        '0 0 20px hsla(38,45%,55%,0.15)',
+                      ],
+                    }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 text-white" />
                   </motion.div>
-                  {/* Decorative element */}
-                  <motion.div className="absolute -z-10 -bottom-3 -right-3 w-full h-full rounded-3xl border-2 border-primary/20" initial={{
-                  opacity: 0,
-                  scale: 0.9
-                }} animate={{
-                  opacity: 1,
-                  scale: 1
-                }} transition={{
-                  duration: 0.6,
-                  delay: 0.5
-                }} />
+                  <span
+                    className="text-[7px] sm:text-[8px] md:text-[9px] tracking-[0.3em] uppercase mt-1.5"
+                    style={{ color: 'hsl(38,45%,55%)' }}
+                  >
+                    AI
+                  </span>
+                </motion.div>
+
+                {/* After — large, premium */}
+                <motion.div
+                  className="w-[52%] sm:w-[50%] md:w-[52%]"
+                  initial={{ opacity: 0, x: 30, rotate: 1 }}
+                  animate={{ opacity: 1, x: 0, rotate: 1 }}
+                  transition={{ delay: 0.6, duration: 0.8 }}
+                >
+                  <div
+                    className="relative aspect-[3/4] rounded-lg overflow-hidden shadow-2xl"
+                    style={{
+                      border: '1px solid hsla(38,45%,55%,0.12)',
+                      boxShadow: '0 25px 60px -12px rgba(0,0,0,0.6), 0 0 0 1px hsla(38,45%,55%,0.06)',
+                    }}
+                  >
+                    <img src="/landing/after-1.jpg" alt="Sonra" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+                    <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex justify-between items-end">
+                      <span className="text-[7px] sm:text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase text-white/50">
+                        Sonra
+                      </span>
+                      <span className="text-[6px] sm:text-[7px] md:text-[9px] tracking-wider text-white/30">
+                        4K · AI
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ TRANSFORMATION GALLERY ═══════════════════ */}
+      <section className="relative py-20 md:py-32 overflow-hidden" style={{ background: '#0a0a0a' }}>
+        <div className="container">
+          <motion.div
+            className="text-center mb-16 md:mb-24"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            viewport={{ once: true }}
+          >
+            <p
+              className="text-[10px] md:text-xs tracking-[0.3em] uppercase mb-4"
+              style={{ color: 'hsl(38,45%,55%)' }}
+            >
+              Dönüşüm Galerisi
+            </p>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
+              Gerçek Sonuçlar,{' '}
+              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>
+                Gerçek Dönüşüm
+              </span>
+            </h2>
+          </motion.div>
+
+          <div className="max-w-6xl mx-auto space-y-16 md:space-y-28">
+            {GALLERY_PAIRS.map((pair, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                viewport={{ once: true, margin: '-80px' }}
+              >
+                <div className={`flex flex-col gap-4 md:gap-8 ${i % 2 !== 0 ? 'md:flex-row-reverse' : 'md:flex-row'} md:items-center`}>
+                  {/* Before — compact */}
+                  <div className="md:w-[30%] flex-shrink-0">
+                    <div className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-neutral-900">
+                      <img src={pair.before} alt="Önce" className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <span className="absolute top-3 left-3 px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-black/50 text-white/60 backdrop-blur-sm rounded">
+                        Önce
+                      </span>
+                    </div>
+                    <div className="mt-3 md:mt-4">
+                      <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'hsl(38,45%,55%)' }}>
+                        {pair.scene}
+                      </p>
+                      <p className="text-sm font-medium text-white mt-0.5">{pair.jewelry}</p>
+                      <p className="text-xs text-white/35 mt-1 hidden md:block">{pair.story}</p>
+                    </div>
+                  </div>
+
+                  {/* After — large */}
+                  <div className="md:flex-1">
+                    <div
+                      className="relative aspect-[4/5] overflow-hidden rounded-lg shadow-2xl"
+                      style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
+                    >
+                      <img src={pair.after} alt="Sonra" className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+                      <span className="absolute bottom-3 right-3 px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-black/50 text-white/40 backdrop-blur-sm rounded">
+                        AI · 4K
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ ONE → MANY ═══════════════════ */}
+      <section className="relative py-20 md:py-32 overflow-hidden" style={{ background: '#111' }}>
+        <div className="container">
+          <motion.div
+            className="text-center mb-12 md:mb-20"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            viewport={{ once: true }}
+          >
+            <p className="text-[10px] md:text-xs tracking-[0.3em] uppercase mb-4" style={{ color: 'hsl(38,45%,55%)' }}>
+              Tek Fotoğraf, Çoklu Sahne
+            </p>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
+              Bir Fotoğraf.{' '}
+              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>Üç Kampanya.</span>
+            </h2>
+            <p className="mt-4 text-sm md:text-base max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Tek bir ürün fotoğrafından farklı sahne türlerinde profesyonel görseller üretin.
+            </p>
+          </motion.div>
+
+          <div className="max-w-5xl mx-auto">
+            {/* Original centered */}
+            <motion.div
+              className="flex justify-center mb-6 md:mb-10"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <div className="w-32 sm:w-40 md:w-48">
+                <div className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-neutral-900">
+                  <img src="/landing/before-2.jpg" alt="Orijinal" className="w-full h-full object-cover" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  <span className="absolute bottom-2 left-2 text-[8px] font-mono tracking-widest uppercase text-white/50">
+                    Orijinal
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Connecting line */}
+            <div className="flex justify-center mb-6">
+              <motion.div
+                className="w-px h-8 md:h-12"
+                style={{ background: 'linear-gradient(180deg, hsla(38,45%,55%,0.4), hsla(38,45%,55%,0.05))' }}
+                initial={{ scaleY: 0 }}
+                whileInView={{ scaleY: 1 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                viewport={{ once: true }}
+              />
+            </div>
+
+            {/* 3 results */}
+            <div className="grid grid-cols-3 gap-3 md:gap-6">
+              {[
+                { src: '/landing/after-2a.jpg', label: 'Editorial', desc: 'Lüks sahne' },
+                { src: '/landing/after-2b.jpg', label: 'E-Ticaret', desc: 'Temiz çekim' },
+                { src: '/landing/after-2c.jpg', label: 'Macro', desc: 'Detay plan' },
+              ].map((item, i) => (
+                <motion.div
+                  key={item.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: i * 0.15 }}
+                  viewport={{ once: true }}
+                >
+                  <div
+                    className="relative aspect-[4/5] rounded-lg overflow-hidden shadow-xl"
+                    style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
+                  >
+                    <img src={item.src} alt={item.label} className="w-full h-full object-cover" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
+                      <p className="text-[9px] sm:text-[10px] tracking-[0.15em] uppercase" style={{ color: 'hsl(38,45%,60%)' }}>
+                        {item.label}
+                      </p>
+                      <p className="text-[8px] sm:text-xs text-white/50 hidden sm:block">{item.desc}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section - MOVED BEFORE CAROUSEL */}
-      <section className="py-20 md:py-28 bg-muted/20">
+      {/* ═══════════════════ VALUE / STATS ═══════════════════ */}
+      <section
+        className="relative py-20 md:py-28 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, hsl(38,30%,8%) 0%, hsl(38,20%,5%) 50%, #0a0a0a 100%)' }}
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[60vw] h-[40vh] rounded-full opacity-[0.05]"
+            style={{ background: 'radial-gradient(ellipse, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          />
+        </div>
+
+        <div className="container relative z-10">
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
+              Neden{' '}
+              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>MooreLabs?</span>
+            </h2>
+          </motion.div>
+
+          {/* Stats */}
+          <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {[
+              { value: '%90', label: 'Maliyet Tasarrufu', desc: 'Stüdyo & model yerine' },
+              { value: '60s', label: 'Üretim Süresi', desc: 'Saniyeler içinde hazır' },
+              { value: '4K', label: 'Çözünürlük', desc: 'Ultra yüksek kalite' },
+              { value: '3+', label: 'Sahne Seçeneği', desc: 'Tek fotoğraftan' },
+            ].map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                className="text-center p-5 md:p-6 rounded-xl border border-white/[0.06]"
+                style={{ background: 'rgba(255,255,255,0.02)' }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <p className="text-3xl md:text-4xl lg:text-5xl font-bold" style={{ color: 'hsl(38,45%,55%)' }}>
+                  {stat.value}
+                </p>
+                <p className="text-sm font-medium text-white mt-2">{stat.label}</p>
+                <p className="text-[11px] text-white/35 mt-1">{stat.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Comparison */}
+          <div className="max-w-4xl mx-auto mt-16 grid md:grid-cols-2 gap-6">
+            <motion.div
+              className="rounded-xl p-6 md:p-8 border border-white/[0.06]"
+              style={{ background: 'rgba(255,255,255,0.02)' }}
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <X className="h-4 w-4 text-red-400" />
+                </div>
+                <h3 className="text-base font-semibold text-white/60">Geleneksel Yöntem</h3>
+              </div>
+              <ul className="space-y-3">
+                {['Profesyonel stüdyo kirası', 'Model ve manken ücretleri', 'Günlerce süren çekim süreci', 'Sınırlı revizyon hakkı'].map(item => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/40">
+                    <span className="w-1 h-1 rounded-full bg-red-400/60 mt-2 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              className="rounded-xl p-6 md:p-8"
+              style={{
+                background: 'linear-gradient(135deg, hsla(38,45%,55%,0.08), rgba(255,255,255,0.03))',
+                border: '1px solid hsla(38,45%,55%,0.15)',
+              }}
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              viewport={{ once: true }}
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'hsla(38,45%,55%,0.15)' }}>
+                  <Check className="h-4 w-4" style={{ color: 'hsl(38,45%,55%)' }} />
+                </div>
+                <h3 className="text-base font-semibold text-white">MooreLabs ile</h3>
+              </div>
+              <ul className="space-y-3">
+                {['Yapay zeka ile anında üretim', 'Kendi AI modeliniz, manken tasarrufu', 'Saniyeler içinde profesyonel sonuç', "%90'a varan maliyet tasarrufu"].map(item => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/70">
+                    <span className="w-1 h-1 rounded-full mt-2 flex-shrink-0" style={{ background: 'hsl(38,45%,55%)' }} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ DARK→LIGHT TRANSITION ═══════════════════ */}
+      <div className="h-24 md:h-32" style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, hsl(var(--background)) 100%)' }} />
+
+      {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
+      <section className="py-16 md:py-24 bg-background">
         <div className="container">
-          <motion.div className="text-center mb-16" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }} viewport={{
-          once: true
-        }}>
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold">
               Nasıl <span className="italic text-primary font-serif">Çalışır?</span>
             </h2>
           </motion.div>
-          
-          {/* Steps with elegant flowing animation */}
+
           <div className="max-w-5xl mx-auto">
             <div className="grid md:grid-cols-3 gap-8 md:gap-6 relative">
-              {/* Animated flowing line between steps */}
               <div className="hidden md:block absolute top-24 left-[20%] right-[20%] h-[2px] overflow-hidden">
-                <motion.div className="h-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" initial={{
-                x: '-100%'
-              }} whileInView={{
-                x: '100%'
-              }} transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear"
-              }} viewport={{
-                once: false
-              }} />
+                <motion.div
+                  className="h-full bg-gradient-to-r from-transparent via-primary/40 to-transparent"
+                  initial={{ x: '-100%' }}
+                  whileInView={{ x: '100%' }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  viewport={{ once: false }}
+                />
               </div>
-              
               <HowItWorksStep number={1} title="Ürünü Çek" description="Doğru ışıklandırma ve belirgin detaylar ile ürününüzü fotoğraflayın." icon={<Camera className="h-6 w-6" />} delay={0} />
               <HowItWorksStep number={2} title="Stilini Seç" description="Koleksiyonunuza en uygun kampanya temasını belirleyin." icon={<Palette className="h-6 w-6" />} delay={0.15} />
               <HowItWorksStep number={3} title="4K Görselini İndir" description="Yayınlamaya hazır, yüksek çözünürlüklü görselleri indirin." icon={<Download className="h-6 w-6" />} delay={0.3} />
@@ -162,23 +555,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Infinite Product Showcase - MOVED AFTER HOW IT WORKS */}
+      {/* ═══════════════════ INFINITE SHOWCASE ═══════════════════ */}
       <InfiniteProductShowcase />
-      
-      {/* Example Works Button */}
+
       <section className="py-8 bg-background">
         <div className="container">
-          <motion.div className="flex justify-center" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.5
-        }} viewport={{
-          once: true
-        }}>
+          <motion.div
+            className="flex justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+          >
             <Link to="/ornekler">
               <Button size="lg" variant="outline" className="rounded-full px-10 py-6 text-base font-medium border-2 border-primary/30 hover:border-primary hover:bg-primary/5 transition-all duration-300 group">
                 <Sparkles className="mr-2 h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
@@ -190,329 +578,16 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why MooreLabs - Modern Comparison Section */}
+      {/* ═══════════════════ PRICING ═══════════════════ */}
       <section className="py-20 md:py-28 bg-background">
         <div className="container">
-          <motion.div className="text-center mb-16" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }} viewport={{
-          once: true
-        }}>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold">
-              Geleneksel Yöntemleri <span className="italic text-primary font-serif">Bırakın</span>
-            </h2>
-          </motion.div>
-          
-          {/* Comparison Cards */}
-          <div className="max-w-5xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-              {/* Traditional Method Card */}
-              <motion.div className="relative rounded-3xl border-2 border-border/30 bg-muted/20 p-8 md:p-10" initial={{
-              opacity: 0,
-              x: -30
-            }} whileInView={{
-              opacity: 1,
-              x: 0
-            }} transition={{
-              duration: 0.6
-            }} viewport={{
-              once: true
-            }}>
-                <div className="absolute top-6 right-6">
-                  <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                    <X className="h-5 w-5 text-destructive" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold mb-6 text-muted-foreground">Geleneksel Yöntem</h3>
-                <ul className="space-y-4">
-                  <li className="flex items-start gap-3">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Profesyonel görseller için yüzlerce dolar</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Günlerce süren stüdyo çekimleri</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Image className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Manken ve model ücretleri</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Shield className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Sınırlı revizyon hakkı</span>
-                  </li>
-                </ul>
-              </motion.div>
-              
-              {/* MooreLabs Method Card */}
-              <motion.div className="relative rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-8 md:p-10 shadow-luxury" initial={{
-              opacity: 0,
-              x: 30
-            }} whileInView={{
-              opacity: 1,
-              x: 0
-            }} transition={{
-              duration: 0.6,
-              delay: 0.1
-            }} viewport={{
-              once: true
-            }}>
-                <div className="absolute top-6 right-6">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Check className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold mb-6">MooreLabs ile</h3>
-                <ul className="space-y-4">
-                  <li className="flex items-start gap-3">
-                    <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>İşinizi yapay zekaya bırakın</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Zamandan tasarruf edin</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Image className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Kendi modeliniz ile manken ücretlerinden tasarruf</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <TrendingUp className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>%90'a varan maliyet tasarrufu</span>
-                  </li>
-                </ul>
-              </motion.div>
-            </div>
-            
-            {/* Feature highlights */}
-            <motion.div className="grid grid-cols-3 gap-4 mt-12" initial={{
-            opacity: 0,
-            y: 20
-          }} whileInView={{
-            opacity: 1,
-            y: 0
-          }} transition={{
-            duration: 0.6,
-            delay: 0.2
-          }} viewport={{
-            once: true
-          }}>
-              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
-                <Sparkles className="h-6 w-6 text-primary mx-auto mb-3" />
-                <p className="text-sm font-medium">Yüksek doğrulukta üretim</p>
-              </div>
-              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
-                <Image className="h-6 w-6 text-primary mx-auto mb-3" />
-                <p className="text-sm font-medium">4K Kalite</p>
-              </div>
-              <div className="text-center p-6 rounded-2xl bg-muted/30 border border-border/30">
-                <Shield className="h-6 w-6 text-primary mx-auto mb-3" />
-                <p className="text-sm font-medium">Detay Koruma</p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Social Media Content Section */}
-      <section className="py-20 md:py-28 bg-muted/20">
-        <div className="container">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left - Visual */}
-              <motion.div className="relative" initial={{
-              opacity: 0,
-              x: -30
-            }} whileInView={{
-              opacity: 1,
-              x: 0
-            }} transition={{
-              duration: 0.6
-            }} viewport={{
-              once: true
-            }}>
-                <div className="relative aspect-square max-w-md mx-auto lg:mx-0">
-                  {/* Background glow */}
-                  <motion.div className="absolute inset-4 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 blur-2xl" animate={{
-                  scale: [1, 1.05, 1],
-                  opacity: [0.5, 0.7, 0.5]
-                }} transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }} />
-                  
-                  {/* Main visual container */}
-                  <div className="relative rounded-3xl overflow-hidden border border-border/50 bg-background shadow-luxury-lg">
-                    <div className="aspect-square p-8 flex flex-col items-center justify-center">
-                      <div className="w-full max-w-[280px] space-y-6">
-                        {/* Social Platform Icons */}
-                        <div className="flex justify-center gap-4">
-                          {[{
-                          icon: Instagram,
-                          color: 'from-pink-500 to-purple-600'
-                        }, {
-                          icon: Calendar,
-                          color: 'from-blue-500 to-blue-600'
-                        }, {
-                          icon: Repeat,
-                          color: 'from-green-500 to-green-600'
-                        }].map((item, i) => <motion.div key={i} className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg`} initial={{
-                          opacity: 0,
-                          scale: 0
-                        }} whileInView={{
-                          opacity: 1,
-                          scale: 1
-                        }} transition={{
-                          duration: 0.4,
-                          delay: 0.1 * i
-                        }} viewport={{
-                          once: true
-                        }}>
-                              <item.icon className="h-7 w-7 text-white" />
-                            </motion.div>)}
-                        </div>
-                        
-                        {/* Calendar Grid Preview */}
-                        <div className="grid grid-cols-7 gap-1.5 mt-6">
-                          {Array.from({
-                          length: 21
-                        }).map((_, i) => <motion.div key={i} className={`aspect-square rounded-lg ${i % 3 === 0 ? 'bg-primary/60' : i % 2 === 0 ? 'bg-primary/30' : 'bg-muted'}`} initial={{
-                          opacity: 0
-                        }} whileInView={{
-                          opacity: 1
-                        }} transition={{
-                          duration: 0.2,
-                          delay: 0.02 * i
-                        }} viewport={{
-                          once: true
-                        }} />)}
-                        </div>
-                        
-                        {/* Stats */}
-                        <div className="flex justify-center gap-8 mt-6">
-                          <div className="text-center">
-                            <p className="text-2xl font-semibold text-primary">30+</p>
-                            <p className="text-xs text-muted-foreground">Aylık İçerik</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-2xl font-semibold text-primary">%300</p>
-                            <p className="text-xs text-muted-foreground">Etkileşim Artışı</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-              
-              {/* Right - Content */}
-              <motion.div className="text-center lg:text-left" initial={{
-              opacity: 0,
-              x: 30
-            }} whileInView={{
-              opacity: 1,
-              x: 0
-            }} transition={{
-              duration: 0.6,
-              delay: 0.1
-            }} viewport={{
-              once: true
-            }}>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-6">
-                  Dijital Gücünüzü <span className="italic text-primary font-serif">Artırın</span>
-                </h2>
-                <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed">
-                  Sosyal medyada düzenli ve profesyonel içerik üretimi artık çok kolay. Her gün paylaşım yapın, takipçilerinizi büyütün.
-                </p>
-                
-                {/* Features list */}
-                <div className="space-y-4 mb-8">
-                  <motion.div className="flex items-center gap-4 justify-center lg:justify-start" initial={{
-                  opacity: 0,
-                  x: -20
-                }} whileInView={{
-                  opacity: 1,
-                  x: 0
-                }} transition={{
-                  duration: 0.4,
-                  delay: 0.2
-                }} viewport={{
-                  once: true
-                }}>
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="h-5 w-5 text-primary" />
-                    </div>
-                    <p className="text-sm md:text-base">Günlük içerik takvimi kolayca doldurun</p>
-                  </motion.div>
-                  <motion.div className="flex items-center gap-4 justify-center lg:justify-start" initial={{
-                  opacity: 0,
-                  x: -20
-                }} whileInView={{
-                  opacity: 1,
-                  x: 0
-                }} transition={{
-                  duration: 0.4,
-                  delay: 0.3
-                }} viewport={{
-                  once: true
-                }}>
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Share2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <p className="text-sm md:text-base">Instagram, Tiktok ve diğer sosyal platformlar için optimize</p>
-                  </motion.div>
-                  <motion.div className="flex items-center gap-4 justify-center lg:justify-start" initial={{
-                  opacity: 0,
-                  x: -20
-                }} whileInView={{
-                  opacity: 1,
-                  x: 0
-                }} transition={{
-                  duration: 0.4,
-                  delay: 0.4
-                }} viewport={{
-                  once: true
-                }}>
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <MessageCircle className="h-5 w-5 text-primary" />
-                    </div>
-                    <p className="text-sm md:text-base">Etkileşimi artıran profesyonel görseller</p>
-                  </motion.div>
-                </div>
-
-                <Link to="/kayit">
-                  <Button size="lg" className="rounded-full px-8">
-                    Hemen Başla
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="py-20 md:py-28 bg-background">
-        <div className="container">
-          <motion.div className="text-center mb-16" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }} viewport={{
-          once: true
-        }}>
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4">
               Size Uygun <span className="italic text-primary font-serif">Paketi</span> Seçin
             </h2>
@@ -520,24 +595,20 @@ export default function Landing() {
               İhtiyaçlarınıza göre esnek fiyatlandırma seçenekleri
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              1 görsel = 10 kredi • 1 video = 200 kredi
+              1 görsel = 10 kredi · 1 video = 200 kredi
             </p>
           </motion.div>
-          
+
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Free Package */}
-              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
-              opacity: 0,
-              y: 30
-            }} whileInView={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }} viewport={{
-              once: true
-            }}>
+              {/* Free */}
+              <motion.div
+                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                viewport={{ once: true }}
+              >
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold mb-2">Free</h3>
                   <p className="text-muted-foreground text-xs mb-4">Deneme için</p>
@@ -548,39 +619,26 @@ export default function Landing() {
                   <p className="text-xs text-muted-foreground mt-1">Ücretsiz</p>
                 </div>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>≈ 10 görsel üretimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>4K çözünürlük</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Tüm sahne seçenekleri</span>
-                  </li>
+                  {['≈ 10 görsel üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri'].map(f => (
+                    <li key={f} className="flex items-center gap-2 text-xs">
+                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
                 </ul>
                 <Link to="/kayit" className="block">
-                  <Button variant="outline" className="w-full rounded-full text-sm">
-                    Ücretsiz Başla
-                  </Button>
+                  <Button variant="outline" className="w-full rounded-full text-sm">Ücretsiz Başla</Button>
                 </Link>
               </motion.div>
 
-              {/* Starter Package */}
-              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
-              opacity: 0,
-              y: 30
-            }} whileInView={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5,
-              delay: 0.1
-            }} viewport={{
-              once: true
-            }}>
+              {/* Starter */}
+              <motion.div
+                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                viewport={{ once: true }}
+              >
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold mb-2">Starter</h3>
                   <p className="text-muted-foreground text-xs mb-4">Keşfetmek için</p>
@@ -595,45 +653,26 @@ export default function Landing() {
                   </div>
                 </div>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>≈ 100 görsel üretimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>≈ 5 video üretimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>4K çözünürlük</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Tüm sahne seçenekleri</span>
-                  </li>
+                  {['≈ 100 görsel üretimi', '≈ 5 video üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri'].map(f => (
+                    <li key={f} className="flex items-center gap-2 text-xs">
+                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
                 </ul>
-                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
-                  Satın Al
-                </Button>
+                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>Satın Al</Button>
               </motion.div>
-              
-              {/* Pro Package */}
-              <motion.div className="relative rounded-3xl border-2 border-primary bg-gradient-to-b from-primary/10 to-transparent p-6 shadow-luxury-lg" initial={{
-              opacity: 0,
-              y: 30
-            }} whileInView={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5,
-              delay: 0.2
-            }} viewport={{
-              once: true
-            }}>
+
+              {/* Pro */}
+              <motion.div
+                className="relative rounded-3xl border-2 border-primary bg-gradient-to-b from-primary/10 to-transparent p-6 shadow-luxury-lg"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                viewport={{ once: true }}
+              >
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
-                    En Popüler
-                  </span>
+                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">En Popüler</span>
                 </div>
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold mb-2">Pro</h3>
@@ -649,45 +688,24 @@ export default function Landing() {
                   </div>
                 </div>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>≈ 300 görsel üretimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>≈ 15 video üretimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>4K çözünürlük</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Tüm sahne seçenekleri</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Manken görselleri</span>
-                  </li>
+                  {['≈ 300 görsel üretimi', '≈ 15 video üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri', 'Manken görselleri'].map(f => (
+                    <li key={f} className="flex items-center gap-2 text-xs">
+                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
                 </ul>
-                <Button className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
-                  Pro'ya Geç
-                </Button>
+                <Button className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>Pro'ya Geç</Button>
               </motion.div>
-              
-              {/* Enterprise Package */}
-              <motion.div className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors" initial={{
-              opacity: 0,
-              y: 30
-            }} whileInView={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5,
-              delay: 0.3
-            }} viewport={{
-              once: true
-            }}>
+
+              {/* Enterprise */}
+              <motion.div
+                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                viewport={{ once: true }}
+              >
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold mb-2">Enterprise</h3>
                   <p className="text-muted-foreground text-xs mb-4">Kurumsal çözümler</p>
@@ -697,70 +715,51 @@ export default function Landing() {
                   <p className="text-xs text-muted-foreground mt-2">Size özel teklif</p>
                 </div>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Markanıza özel çalışmalar</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Firma içi entegrasyon</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Özel sahne tasarımları</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>API erişimi</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span>Öncelikli destek</span>
-                  </li>
+                  {['Markanıza özel çalışmalar', 'Firma içi entegrasyon', 'Özel sahne tasarımları', 'API erişimi', 'Öncelikli destek'].map(f => (
+                    <li key={f} className="flex items-center gap-2 text-xs">
+                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
                 </ul>
-                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>
-                  İletişime Geç
-                </Button>
+                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>İletişime Geç</Button>
               </motion.div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 md:py-28 bg-primary text-primary-foreground relative overflow-hidden">
-        {/* Animated background */}
-        <motion.div className="absolute inset-0 opacity-10" style={{
-        backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)',
-        backgroundSize: '40px 40px'
-      }} animate={{
-        backgroundPosition: ['0px 0px', '40px 40px']
-      }} transition={{
-        duration: 20,
-        repeat: Infinity,
-        ease: "linear"
-      }} />
-        
-        <div className="container relative">
-          <motion.div className="max-w-3xl mx-auto text-center" initial={{
-          opacity: 0,
-          y: 30
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }} viewport={{
-          once: true
-        }}>
-            <h2 className="text-3xl md:text-4xl font-semibold mb-4">
-              Mücevher Görsellerinizi Dönüştürmeye Hazır mısınız?
+      {/* ═══════════════════ CTA ═══════════════════ */}
+      <section className="py-20 md:py-28 relative overflow-hidden" style={{ background: '#0a0a0a' }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[60vh] rounded-full opacity-[0.06]"
+            style={{ background: 'radial-gradient(ellipse, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: NOISE_BG }} />
+        </div>
+
+        <div className="container relative z-10">
+          <motion.div
+            className="max-w-3xl mx-auto text-center"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-4">
+              Mücevher Görsellerinizi{' '}
+              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>Dönüştürmeye</span>{' '}
+              Hazır mısınız?
             </h2>
-            <p className="text-lg opacity-90 mb-8">
+            <p className="text-base md:text-lg mb-8" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Hemen ücretsiz hesap oluşturun ve 100 kredi ile başlayın.
             </p>
             <Link to="/kayit">
-              <Button size="lg" variant="secondary" className="text-base px-8">
+              <Button
+                size="lg"
+                className="h-13 px-10 text-base font-medium tracking-wide rounded-none bg-white text-black hover:bg-white/90"
+              >
                 Ücretsiz Hesap Oluştur
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -783,7 +782,7 @@ export default function Landing() {
           </DialogHeader>
           <div className="mt-4 p-4 bg-muted/50 rounded-xl text-center">
             <p className="text-sm text-muted-foreground mb-2">E-posta:</p>
-            <a 
+            <a
               href="mailto:moorestudioai@gmail.com?subject=Kredi%20Yükleme%20Talebi"
               className="text-lg font-medium text-primary hover:underline"
             >
@@ -794,21 +793,21 @@ export default function Landing() {
             </p>
           </div>
           <div className="flex justify-center mt-4">
-            <Button variant="outline" onClick={() => setShowContactModal(false)}>
-              Kapat
-            </Button>
+            <Button variant="outline" onClick={() => setShowContactModal(false)}>Kapat</Button>
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>;
+    </AppLayout>
+  );
 }
 
+// ─── How It Works Step ──────────────────────────────────────────────────────
 function HowItWorksStep({
   number,
   title,
   description,
   icon,
-  delay = 0
+  delay = 0,
 }: {
   number: number;
   title: string;
@@ -816,51 +815,32 @@ function HowItWorksStep({
   icon: React.ReactNode;
   delay?: number;
 }) {
-  return <motion.div className="text-center relative" initial={{
-    opacity: 0,
-    y: 30
-  }} whileInView={{
-    opacity: 1,
-    y: 0
-  }} transition={{
-    duration: 0.5,
-    delay
-  }} viewport={{
-    once: true
-  }}>
-      {/* Icon with number */}
+  return (
+    <motion.div
+      className="text-center relative"
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay }}
+      viewport={{ once: true }}
+    >
       <div className="flex justify-center mb-6">
-        <motion.div className="relative" whileHover={{
-        scale: 1.05
-      }} transition={{
-        duration: 0.2
-      }}>
-          {/* Subtle glow effect on hover */}
-          <motion.div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl" initial={{
-          opacity: 0,
-          scale: 0.8
-        }} whileHover={{
-          opacity: 1,
-          scale: 1.2
-        }} transition={{
-          duration: 0.3
-        }} />
+        <motion.div className="relative" whileHover={{ scale: 1.05 }} transition={{ duration: 0.2 }}>
+          <motion.div
+            className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl"
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ opacity: 1, scale: 1.2 }}
+            transition={{ duration: 0.3 }}
+          />
           <div className="relative w-16 h-16 rounded-2xl bg-background border border-border shadow-luxury flex items-center justify-center">
             {icon}
           </div>
-          {/* Number badge */}
           <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-background text-xs font-semibold flex items-center justify-center">
             {number}
           </div>
         </motion.div>
       </div>
-      
-      {/* Title */}
       <h3 className="text-xl font-semibold mb-3">{title}</h3>
-      
-      {/* Description */}
-      <p className="text-sm text-muted-foreground leading-relaxed max-w-[280px] mx-auto">
-        {description}
-      </p>
-    </motion.div>;
+      <p className="text-sm text-muted-foreground leading-relaxed max-w-[280px] mx-auto">{description}</p>
+    </motion.div>
+  );
 }
