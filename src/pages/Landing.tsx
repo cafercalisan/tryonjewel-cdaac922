@@ -130,99 +130,207 @@ export default function Landing() {
               </motion.div>
             </motion.div>
 
-            {/* Hero: 1 Photo → 3 Results */}
+            {/* ─── Hero: 1 Photo → 3 Results — Asymmetric Cascade ─── */}
             <motion.div
               className="relative max-w-5xl mx-auto"
               initial={{ opacity: 0, y: 60 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
             >
-              {/* Original — prominently sized, centered */}
+              {/* Original — centered with "workshop" treatment */}
               <motion.div
-                className="flex justify-center mb-5 md:mb-7"
+                className="flex justify-center mb-3 md:mb-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.7 }}
               >
-                <div className="w-44 sm:w-52 md:w-60 lg:w-64">
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-neutral-900 shadow-xl">
+                <div className="relative w-40 sm:w-48 md:w-56 lg:w-60">
+                  <motion.div
+                    className="relative aspect-square rounded-xl overflow-hidden"
+                    style={{
+                      border: '2px solid rgba(255,255,255,0.06)',
+                      boxShadow: '0 20px 60px -12px rgba(0,0,0,0.7)',
+                    }}
+                    whileHover={{ y: -4, boxShadow: '0 24px 70px -10px rgba(0,0,0,0.8)' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  >
                     <img src="/landing/before-2.jpg" alt="Orijinal fotoğraf" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <span className="absolute bottom-2 left-2 md:bottom-3 md:left-3 px-2 py-0.5 text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase bg-black/50 text-white/60 backdrop-blur-sm rounded">
-                      Orijinal
+                    {/* Subtle desaturation for raw feel */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+                    <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.08)', mixBlendMode: 'saturation' }} />
+                  </motion.div>
+                  {/* Floating tag */}
+                  <motion.div
+                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full backdrop-blur-md"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    <span className="text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Atölye Fotoğrafı
                     </span>
-                  </div>
+                  </motion.div>
                 </div>
               </motion.div>
 
-              {/* AI indicator */}
+              {/* Transformation beam — gold line + Sparkles + 3 fanning lines */}
               <motion.div
-                className="flex justify-center mb-5 md:mb-7"
+                className="flex justify-center my-3 md:my-5"
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
               >
                 <div className="flex flex-col items-center">
+                  {/* Incoming beam */}
                   <motion.div
-                    className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center"
+                    className="w-px h-6 md:h-10"
+                    style={{ background: 'linear-gradient(180deg, transparent, hsl(38,45%,55%))' }}
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* AI orb */}
+                  <motion.div
+                    className="relative w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center"
                     style={{
                       background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))',
-                      boxShadow: '0 0 30px hsla(38,45%,55%,0.25)',
                     }}
                     animate={{
                       boxShadow: [
-                        '0 0 20px hsla(38,45%,55%,0.15)',
-                        '0 0 40px hsla(38,45%,55%,0.35)',
-                        '0 0 20px hsla(38,45%,55%,0.15)',
+                        '0 0 20px hsla(38,45%,55%,0.2)',
+                        '0 0 40px hsla(38,45%,55%,0.4)',
+                        '0 0 20px hsla(38,45%,55%,0.2)',
                       ],
                     }}
                     transition={{ duration: 2.5, repeat: Infinity }}
                   >
-                    <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                    <Sparkles className="h-4 w-4 text-white" />
                   </motion.div>
-                  <span className="text-[8px] md:text-[9px] tracking-[0.3em] uppercase mt-1.5" style={{ color: 'hsl(38,45%,55%)' }}>
+                  {/* Outgoing 3-way fan */}
+                  <svg width="120" height="28" viewBox="0 0 120 28" className="hidden sm:block mt-px">
+                    <motion.path
+                      d="M60 0 L20 28"
+                      stroke="hsl(38,45%,55%)"
+                      strokeWidth="1"
+                      fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 0.4 }}
+                      transition={{ delay: 0.9, duration: 0.6 }}
+                    />
+                    <motion.path
+                      d="M60 0 L60 28"
+                      stroke="hsl(38,45%,55%)"
+                      strokeWidth="1"
+                      fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 0.5 }}
+                      transition={{ delay: 0.95, duration: 0.6 }}
+                    />
+                    <motion.path
+                      d="M60 0 L100 28"
+                      stroke="hsl(38,45%,55%)"
+                      strokeWidth="1"
+                      fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 0.4 }}
+                      transition={{ delay: 1, duration: 0.6 }}
+                    />
+                  </svg>
+                  {/* Mobile: simple line */}
+                  <motion.div
+                    className="w-px h-6 sm:hidden"
+                    style={{ background: 'linear-gradient(180deg, hsl(38,45%,55%), transparent)' }}
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                  />
+                  <span className="text-[7px] md:text-[8px] tracking-[0.3em] uppercase mt-1" style={{ color: 'hsl(38,45%,50%)' }}>
                     AI
                   </span>
                 </div>
               </motion.div>
 
-              {/* 3 Results row */}
+              {/* 3 Results — Asymmetric Cascade: center elevated, sides rotated */}
               <motion.div
-                className="grid grid-cols-3 gap-3 md:gap-5"
+                className="relative flex justify-center items-end gap-2 sm:gap-3 md:gap-5 px-2"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.8 }}
+                transition={{ delay: 0.85, duration: 0.8 }}
               >
                 {[
-                  { src: '/landing/after-2a.jpg', label: 'E-Ticaret', desc: 'Ürün çekimi' },
-                  { src: '/landing/after-2b.jpg', label: 'Macro', desc: 'Detay plan' },
-                  { src: '/landing/after-2c.jpg', label: 'Model', desc: 'Manken çekimi' },
+                  { src: '/landing/after-2a.jpg', label: 'Editorial', desc: 'Lüks sahne çekimi', rotate: -3, yOff: 0, zIdx: 1 },
+                  { src: '/landing/after-2b.jpg', label: 'Model', desc: 'Manken çekimi', rotate: 0, yOff: -16, zIdx: 10 },
+                  { src: '/landing/after-2c.jpg', label: 'E-Ticaret', desc: 'Ürün çekimi', rotate: 3, yOff: 4, zIdx: 1 },
                 ].map((item, i) => (
                   <motion.div
                     key={item.label}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 + i * 0.15, duration: 0.6 }}
+                    className="relative"
+                    style={{
+                      width: i === 1 ? '34%' : '30%',
+                      maxWidth: i === 1 ? '260px' : '220px',
+                      zIndex: item.zIdx,
+                      rotate: `${item.rotate}deg`,
+                      translateY: `${item.yOff}px`,
+                    }}
+                    initial={{ opacity: 0, y: 30, rotate: item.rotate }}
+                    animate={{ opacity: 1, y: item.yOff, rotate: item.rotate }}
+                    transition={{ delay: 0.95 + i * 0.12, duration: 0.6, type: 'spring', stiffness: 100 }}
+                    whileHover={{
+                      rotate: 0,
+                      scale: 1.06,
+                      y: item.yOff - 12,
+                      zIndex: 20,
+                      transition: { type: 'spring', stiffness: 300, damping: 25 },
+                    }}
                   >
+                    {/* Gold glow ring on center card */}
+                    {i === 1 && (
+                      <motion.div
+                        className="absolute -inset-1.5 rounded-2xl -z-10"
+                        style={{ background: 'hsla(38,45%,55%,0.12)', filter: 'blur(16px)' }}
+                        animate={{ opacity: [0.4, 0.7, 0.4] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                    )}
                     <div
-                      className="relative aspect-[4/5] rounded-lg overflow-hidden shadow-xl"
-                      style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
+                      className="relative aspect-[4/5] rounded-xl overflow-hidden"
+                      style={{
+                        border: i === 1 ? '2px solid hsla(38,45%,55%,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                        boxShadow: i === 1
+                          ? '0 25px 60px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03)'
+                          : '0 15px 40px -10px rgba(0,0,0,0.6)',
+                      }}
                     >
                       <img src={item.src} alt={item.label} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
-                        <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.15em] uppercase font-medium" style={{ color: 'hsl(38,45%,60%)' }}>
-                          {item.label}
-                        </p>
-                        <p className="text-[8px] sm:text-[10px] text-white/50 hidden sm:block">{item.desc}</p>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      {/* Label */}
+                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p
+                              className="text-[9px] sm:text-[10px] md:text-xs font-medium tracking-[0.12em] uppercase"
+                              style={{ color: 'hsl(38,45%,62%)' }}
+                            >
+                              {item.label}
+                            </p>
+                            <p className="text-[7px] sm:text-[9px] hidden sm:block" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                              {item.desc}
+                            </p>
+                          </div>
+                          <span className="text-[6px] sm:text-[7px] tracking-wider" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                            4K
+                          </span>
+                        </div>
                       </div>
-                      <span className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 text-[7px] sm:text-[8px] tracking-wider text-white/30">
-                        4K
-                      </span>
                     </div>
                   </motion.div>
                 ))}
               </motion.div>
+
+              {/* Reflected glow surface */}
+              <div
+                className="absolute -bottom-8 left-[10%] right-[10%] h-16 rounded-full opacity-[0.05] blur-2xl"
+                style={{ background: 'radial-gradient(ellipse, hsl(38,45%,55%) 0%, transparent 70%)' }}
+              />
             </motion.div>
           </div>
         </div>
@@ -336,12 +444,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══════════════════ DARK→LIGHT TRANSITION ═══════════════════ */}
-      <div className="h-24 md:h-32" style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, hsl(var(--background)) 100%)' }} />
-
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container">
+      <section
+        className="relative py-16 md:py-24 overflow-hidden"
+        style={{ background: '#0a0a0a' }}
+      >
+        <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: NOISE_BG }} />
+        <div className="container relative z-10">
           <motion.div
             className="text-center mb-16"
             initial={{ opacity: 0, y: 20 }}
@@ -349,8 +458,8 @@ export default function Landing() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold">
-              Nasıl <span className="italic text-primary font-serif">Çalışır?</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
+              Nasıl <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>Çalışır?</span>
             </h2>
           </motion.div>
 
@@ -358,16 +467,17 @@ export default function Landing() {
             <div className="grid md:grid-cols-3 gap-8 md:gap-6 relative">
               <div className="hidden md:block absolute top-24 left-[20%] right-[20%] h-[2px] overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-transparent via-primary/40 to-transparent"
+                  className="h-full"
+                  style={{ background: 'linear-gradient(90deg, transparent, hsla(38,45%,55%,0.4), transparent)' }}
                   initial={{ x: '-100%' }}
                   whileInView={{ x: '100%' }}
                   transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                   viewport={{ once: false }}
                 />
               </div>
-              <HowItWorksStep number={1} title="Ürünü Çek" description="Doğru ışıklandırma ve belirgin detaylar ile ürününüzü fotoğraflayın." icon={<Camera className="h-6 w-6" />} delay={0} />
-              <HowItWorksStep number={2} title="Stilini Seç" description="Koleksiyonunuza en uygun kampanya temasını belirleyin." icon={<Palette className="h-6 w-6" />} delay={0.15} />
-              <HowItWorksStep number={3} title="4K Görselini İndir" description="Yayınlamaya hazır, yüksek çözünürlüklü görselleri indirin." icon={<Download className="h-6 w-6" />} delay={0.3} />
+              <HowItWorksStep number={1} title="Ürünü Çek" description="Doğru ışıklandırma ve belirgin detaylar ile ürününüzü fotoğraflayın." icon={<Camera className="h-6 w-6 text-white" />} delay={0} />
+              <HowItWorksStep number={2} title="Stilini Seç" description="Koleksiyonunuza en uygun kampanya temasını belirleyin." icon={<Palette className="h-6 w-6 text-white" />} delay={0.15} />
+              <HowItWorksStep number={3} title="4K Görselini İndir" description="Yayınlamaya hazır, yüksek çözünürlüklü görselleri indirin." icon={<Download className="h-6 w-6 text-white" />} delay={0.3} />
             </div>
           </div>
         </div>
@@ -376,7 +486,7 @@ export default function Landing() {
       {/* ═══════════════════ INFINITE SHOWCASE ═══════════════════ */}
       <InfiniteProductShowcase />
 
-      <section className="py-8 bg-background">
+      <section className="py-8" style={{ background: '#0a0a0a' }}>
         <div className="container">
           <motion.div
             className="flex justify-center"
@@ -386,8 +496,13 @@ export default function Landing() {
             viewport={{ once: true }}
           >
             <Link to="/ornekler">
-              <Button size="lg" variant="outline" className="rounded-full px-10 py-6 text-base font-medium border-2 border-primary/30 hover:border-primary hover:bg-primary/5 transition-all duration-300 group">
-                <Sparkles className="mr-2 h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full px-10 py-6 text-base font-medium border-2 bg-transparent transition-all duration-300 group"
+                style={{ borderColor: 'rgba(255,255,255,0.15)', color: '#fff' }}
+              >
+                <Sparkles className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" style={{ color: 'hsl(38,45%,55%)' }} />
                 Örnek Çalışmaları Keşfedin
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
@@ -397,8 +512,19 @@ export default function Landing() {
       </section>
 
       {/* ═══════════════════ PRICING ═══════════════════ */}
-      <section className="py-20 md:py-28 bg-background">
-        <div className="container">
+      <section
+        className="relative py-20 md:py-28 overflow-hidden"
+        style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 50%, #0a0a0a 100%)' }}
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[60vw] h-[40vh] rounded-full opacity-[0.03]"
+            style={{ background: 'radial-gradient(ellipse, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          />
+          <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: NOISE_BG }} />
+        </div>
+
+        <div className="container relative z-10">
           <motion.div
             className="text-center mb-16"
             initial={{ opacity: 0, y: 20 }}
@@ -406,13 +532,15 @@ export default function Landing() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4">
-              Size Uygun <span className="italic text-primary font-serif">Paketi</span> Seçin
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 text-white">
+              Size Uygun{' '}
+              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>Paketi</span>{' '}
+              Seçin
             </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>
               İhtiyaçlarınıza göre esnek fiyatlandırma seçenekleri
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>
               1 görsel = 10 kredi · 1 video = 200 kredi
             </p>
           </motion.div>
@@ -421,126 +549,165 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Free */}
               <motion.div
-                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                className="relative rounded-3xl p-6 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
                 viewport={{ once: true }}
               >
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Free</h3>
-                  <p className="text-muted-foreground text-xs mb-4">Deneme için</p>
+                  <h3 className="text-lg font-semibold mb-2 text-white">Free</h3>
+                  <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Deneme için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-bold">100</span>
-                    <span className="text-muted-foreground text-sm">kredi</span>
+                    <span className="text-3xl font-bold text-white">100</span>
+                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>kredi</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Ücretsiz</p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Ücretsiz</p>
                 </div>
                 <ul className="space-y-2 mb-6">
                   {['≈ 10 görsel üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri'].map(f => (
-                    <li key={f} className="flex items-center gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <li key={f} className="flex items-center gap-2 text-xs text-white/60">
+                      <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'hsl(38,45%,55%)' }} />
                       <span>{f}</span>
                     </li>
                   ))}
                 </ul>
                 <Link to="/kayit" className="block">
-                  <Button variant="outline" className="w-full rounded-full text-sm">Ücretsiz Başla</Button>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-full text-sm bg-transparent text-white"
+                    style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+                  >
+                    Ücretsiz Başla
+                  </Button>
                 </Link>
               </motion.div>
 
               {/* Starter */}
               <motion.div
-                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                className="relative rounded-3xl p-6 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
                 viewport={{ once: true }}
               >
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Starter</h3>
-                  <p className="text-muted-foreground text-xs mb-4">Keşfetmek için</p>
+                  <h3 className="text-lg font-semibold mb-2 text-white">Starter</h3>
+                  <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Keşfetmek için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-bold">1.000</span>
-                    <span className="text-muted-foreground text-sm">kredi/ay</span>
+                    <span className="text-3xl font-bold text-white">1.000</span>
+                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>kredi/ay</span>
                   </div>
                   <div className="mt-2">
-                    <span className="text-sm text-muted-foreground line-through">₺3.699</span>
-                    <span className="text-xl font-bold text-primary ml-2">₺2.499</span>
-                    <span className="text-xs text-muted-foreground">/ay</span>
+                    <span className="text-sm line-through" style={{ color: 'rgba(255,255,255,0.3)' }}>₺3.699</span>
+                    <span className="text-xl font-bold ml-2" style={{ color: 'hsl(38,45%,55%)' }}>₺2.499</span>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>/ay</span>
                   </div>
                 </div>
                 <ul className="space-y-2 mb-6">
                   {['≈ 100 görsel üretimi', '≈ 5 video üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri'].map(f => (
-                    <li key={f} className="flex items-center gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <li key={f} className="flex items-center gap-2 text-xs text-white/60">
+                      <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'hsl(38,45%,55%)' }} />
                       <span>{f}</span>
                     </li>
                   ))}
                 </ul>
-                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>Satın Al</Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full text-sm bg-transparent text-white"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+                  onClick={() => setShowContactModal(true)}
+                >
+                  Satın Al
+                </Button>
               </motion.div>
 
               {/* Pro */}
               <motion.div
-                className="relative rounded-3xl border-2 border-primary bg-gradient-to-b from-primary/10 to-transparent p-6 shadow-luxury-lg"
+                className="relative rounded-3xl p-6"
+                style={{
+                  background: 'linear-gradient(180deg, hsla(38,45%,55%,0.08) 0%, rgba(255,255,255,0.02) 100%)',
+                  border: '2px solid hsl(38,45%,55%)',
+                  boxShadow: '0 8px 40px -4px hsla(38,45%,55%,0.12), 0 4px 16px -4px rgba(0,0,0,0.3)',
+                }}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
                 viewport={{ once: true }}
               >
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">En Popüler</span>
+                  <span
+                    className="text-xs font-medium px-4 py-1.5 rounded-full text-white"
+                    style={{ background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))' }}
+                  >
+                    En Popüler
+                  </span>
                 </div>
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Pro</h3>
-                  <p className="text-muted-foreground text-xs mb-4">Büyüyen markalar için</p>
+                  <h3 className="text-lg font-semibold mb-2 text-white">Pro</h3>
+                  <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Büyüyen markalar için</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-bold text-primary">3.000</span>
-                    <span className="text-muted-foreground text-sm">kredi/ay</span>
+                    <span className="text-3xl font-bold" style={{ color: 'hsl(38,45%,55%)' }}>3.000</span>
+                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>kredi/ay</span>
                   </div>
                   <div className="mt-2">
-                    <span className="text-sm text-muted-foreground line-through">₺9.999</span>
-                    <span className="text-xl font-bold text-primary ml-2">₺6.999</span>
-                    <span className="text-xs text-muted-foreground">/ay</span>
+                    <span className="text-sm line-through" style={{ color: 'rgba(255,255,255,0.3)' }}>₺9.999</span>
+                    <span className="text-xl font-bold ml-2" style={{ color: 'hsl(38,45%,55%)' }}>₺6.999</span>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>/ay</span>
                   </div>
                 </div>
                 <ul className="space-y-2 mb-6">
                   {['≈ 300 görsel üretimi', '≈ 15 video üretimi', '4K çözünürlük', 'Tüm sahne seçenekleri', 'Manken görselleri'].map(f => (
-                    <li key={f} className="flex items-center gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <li key={f} className="flex items-center gap-2 text-xs text-white/60">
+                      <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'hsl(38,45%,55%)' }} />
                       <span>{f}</span>
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>Pro'ya Geç</Button>
+                <Button
+                  className="w-full rounded-full text-sm text-white border-0 hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))' }}
+                  onClick={() => setShowContactModal(true)}
+                >
+                  Pro'ya Geç
+                </Button>
               </motion.div>
 
               {/* Enterprise */}
               <motion.div
-                className="relative rounded-3xl border border-border/50 bg-card p-6 hover:border-primary/30 transition-colors"
+                className="relative rounded-3xl p-6 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
                 viewport={{ once: true }}
               >
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Enterprise</h3>
-                  <p className="text-muted-foreground text-xs mb-4">Kurumsal çözümler</p>
+                  <h3 className="text-lg font-semibold mb-2 text-white">Enterprise</h3>
+                  <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Kurumsal çözümler</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-xl font-bold">Özel Fiyat</span>
+                    <span className="text-xl font-bold text-white">Özel Fiyat</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Size özel teklif</p>
+                  <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>Size özel teklif</p>
                 </div>
                 <ul className="space-y-2 mb-6">
                   {['Markanıza özel çalışmalar', 'Firma içi entegrasyon', 'Özel sahne tasarımları', 'API erişimi', 'Öncelikli destek'].map(f => (
-                    <li key={f} className="flex items-center gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <li key={f} className="flex items-center gap-2 text-xs text-white/60">
+                      <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'hsl(38,45%,55%)' }} />
                       <span>{f}</span>
                     </li>
                   ))}
                 </ul>
-                <Button variant="outline" className="w-full rounded-full text-sm" onClick={() => setShowContactModal(true)}>İletişime Geç</Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full text-sm bg-transparent text-white"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+                  onClick={() => setShowContactModal(true)}
+                >
+                  İletişime Geç
+                </Button>
               </motion.div>
             </div>
           </div>
@@ -588,30 +755,41 @@ export default function Landing() {
 
       {/* Contact Modal */}
       <Dialog open={showContactModal} onOpenChange={setShowContactModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          className="sm:max-w-md"
+          style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+        >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Mail className="h-5 w-5" style={{ color: 'hsl(38,45%,55%)' }} />
               Kredi Satın Alma
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription style={{ color: 'rgba(255,255,255,0.5)' }}>
               Ödeme altyapımız yakında aktif olacaktır. Şu an için kredi yüklemek istiyorsanız aşağıdaki e-posta adresinden bizimle iletişime geçebilirsiniz.
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 p-4 bg-muted/50 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground mb-2">E-posta:</p>
+          <div className="mt-4 p-4 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <p className="text-sm mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>E-posta:</p>
             <a
               href="mailto:moorestudioai@gmail.com?subject=Kredi%20Yükleme%20Talebi"
-              className="text-lg font-medium text-primary hover:underline"
+              className="text-lg font-medium hover:underline"
+              style={{ color: 'hsl(38,45%,55%)' }}
             >
               moorestudioai@gmail.com
             </a>
-            <p className="text-xs text-muted-foreground mt-4">
+            <p className="text-xs mt-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
               Kredi yükleme süreciniz hakkında bilgi alabilir ve ödeme yapabilirsiniz.
             </p>
           </div>
           <div className="flex justify-center mt-4">
-            <Button variant="outline" onClick={() => setShowContactModal(false)}>Kapat</Button>
+            <Button
+              variant="outline"
+              className="bg-transparent text-white"
+              style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+              onClick={() => setShowContactModal(false)}
+            >
+              Kapat
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -619,7 +797,7 @@ export default function Landing() {
   );
 }
 
-// ─── How It Works Step ──────────────────────────────────────────────────────
+// ─── How It Works Step (Dark theme) ──────────────────────────────────────────
 function HowItWorksStep({
   number,
   title,
@@ -644,21 +822,28 @@ function HowItWorksStep({
       <div className="flex justify-center mb-6">
         <motion.div className="relative" whileHover={{ scale: 1.05 }} transition={{ duration: 0.2 }}>
           <motion.div
-            className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl"
+            className="absolute inset-0 rounded-2xl blur-xl"
+            style={{ background: 'hsla(38,45%,55%,0.15)' }}
             initial={{ opacity: 0, scale: 0.8 }}
             whileHover={{ opacity: 1, scale: 1.2 }}
             transition={{ duration: 0.3 }}
           />
-          <div className="relative w-16 h-16 rounded-2xl bg-background border border-border shadow-luxury flex items-center justify-center">
+          <div
+            className="relative w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
             {icon}
           </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-background text-xs font-semibold flex items-center justify-center">
+          <div
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full text-xs font-semibold flex items-center justify-center text-white"
+            style={{ background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))' }}
+          >
             {number}
           </div>
         </motion.div>
       </div>
-      <h3 className="text-xl font-semibold mb-3">{title}</h3>
-      <p className="text-sm text-muted-foreground leading-relaxed max-w-[280px] mx-auto">{description}</p>
+      <h3 className="text-xl font-semibold mb-3 text-white">{title}</h3>
+      <p className="text-sm leading-relaxed max-w-[280px] mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>{description}</p>
     </motion.div>
   );
 }
