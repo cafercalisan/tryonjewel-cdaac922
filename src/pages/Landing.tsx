@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import {
-  ArrowRight, Camera, Palette, Download, Clock, Zap,
-  TrendingUp, X, Check, Mail, Sparkles, Image, Shield
+  ArrowRight, Camera, Palette, Download,
+  X, Check, Mail, Sparkles
 } from 'lucide-react';
 import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
 import { useState, useEffect } from 'react';
@@ -38,38 +38,6 @@ function GoldAnimatedWord({ words, interval = 3000 }: { words: string[]; interva
     </span>
   );
 }
-
-// ─── Gallery pair data ──────────────────────────────────────────────────────
-const GALLERY_PAIRS = [
-  {
-    before: '/landing/before-4.jpg',
-    after: '/landing/after-4.jpg',
-    jewelry: 'Pırlanta Kolye',
-    scene: 'Macro Çekim',
-    story: 'Karanlık atölye fotoğrafından profesyonel macro ürün çekimine.',
-  },
-  {
-    before: '/landing/before-5.jpg',
-    after: '/landing/after-5.jpg',
-    jewelry: 'Pırlanta Küpe',
-    scene: 'E-Ticaret',
-    story: 'Basit kutu üstü fotoğraftan, stüdyo kalitesinde ürün çekimine.',
-  },
-  {
-    before: '/landing/before-3.jpg',
-    after: '/landing/after-3.jpg',
-    jewelry: 'Pırlanta Yüzük',
-    scene: 'Model Yakın Çekim',
-    story: 'Beyaz fon ürün görselinden, model üzerinde kampanya görseline.',
-  },
-  {
-    before: '/landing/before-custom.jpg',
-    after: '/landing/after-custom.jpg',
-    jewelry: 'Marquise Pırlanta Yüzük',
-    scene: 'Model Editorial',
-    story: 'Basit ürün fotoğrafından, haute couture kampanya çekimine.',
-  },
-];
 
 // ─── Noise overlay (reusable) ───────────────────────────────────────────────
 const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -154,7 +122,7 @@ export default function Landing() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none border-white/20 text-white hover:bg-white/5"
+                    className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none border-white/20 text-white bg-transparent hover:bg-white/10"
                   >
                     ÖRNEKLERİ İNCELE
                   </Button>
@@ -162,39 +130,41 @@ export default function Landing() {
               </motion.div>
             </motion.div>
 
-            {/* Hero Before → After */}
+            {/* Hero: 1 Photo → 3 Results */}
             <motion.div
-              className="relative max-w-4xl mx-auto"
+              className="relative max-w-5xl mx-auto"
               initial={{ opacity: 0, y: 60 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="flex items-end justify-center gap-3 sm:gap-5 md:gap-8">
-                {/* Before — small, tilted */}
-                <motion.div
-                  className="w-[28%] sm:w-[26%] md:w-[24%]"
-                  initial={{ opacity: 0, x: -30, rotate: -3 }}
-                  animate={{ opacity: 1, x: 0, rotate: -2 }}
-                  transition={{ delay: 0.5, duration: 0.8 }}
-                >
-                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-white/10 bg-neutral-900 shadow-lg">
-                    <img src="/landing/before-1.jpg" alt="Önce" className="w-full h-full object-cover opacity-90" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/5" />
-                    <span className="absolute bottom-2 left-2 md:bottom-3 md:left-3 text-[7px] sm:text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase text-white/50">
-                      Önce
+              {/* Original — prominently sized, centered */}
+              <motion.div
+                className="flex justify-center mb-5 md:mb-7"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.7 }}
+              >
+                <div className="w-44 sm:w-52 md:w-60 lg:w-64">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-neutral-900 shadow-xl">
+                    <img src="/landing/before-2.jpg" alt="Orijinal fotoğraf" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <span className="absolute bottom-2 left-2 md:bottom-3 md:left-3 px-2 py-0.5 text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase bg-black/50 text-white/60 backdrop-blur-sm rounded">
+                      Orijinal
                     </span>
                   </div>
-                </motion.div>
+                </div>
+              </motion.div>
 
-                {/* AI spark indicator */}
-                <motion.div
-                  className="flex flex-col items-center mb-6 sm:mb-8 md:mb-12"
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
-                >
+              {/* AI indicator */}
+              <motion.div
+                className="flex justify-center mb-5 md:mb-7"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
+              >
+                <div className="flex flex-col items-center">
                   <motion.div
-                    className="w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 rounded-full flex items-center justify-center"
+                    className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center"
                     style={{
                       background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))',
                       boxShadow: '0 0 30px hsla(38,45%,55%,0.25)',
@@ -208,204 +178,52 @@ export default function Landing() {
                     }}
                     transition={{ duration: 2.5, repeat: Infinity }}
                   >
-                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 text-white" />
+                    <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-white" />
                   </motion.div>
-                  <span
-                    className="text-[7px] sm:text-[8px] md:text-[9px] tracking-[0.3em] uppercase mt-1.5"
-                    style={{ color: 'hsl(38,45%,55%)' }}
-                  >
+                  <span className="text-[8px] md:text-[9px] tracking-[0.3em] uppercase mt-1.5" style={{ color: 'hsl(38,45%,55%)' }}>
                     AI
                   </span>
-                </motion.div>
-
-                {/* After — large, premium */}
-                <motion.div
-                  className="w-[52%] sm:w-[50%] md:w-[52%]"
-                  initial={{ opacity: 0, x: 30, rotate: 1 }}
-                  animate={{ opacity: 1, x: 0, rotate: 1 }}
-                  transition={{ delay: 0.6, duration: 0.8 }}
-                >
-                  <div
-                    className="relative aspect-[3/4] rounded-lg overflow-hidden shadow-2xl"
-                    style={{
-                      border: '1px solid hsla(38,45%,55%,0.12)',
-                      boxShadow: '0 25px 60px -12px rgba(0,0,0,0.6), 0 0 0 1px hsla(38,45%,55%,0.06)',
-                    }}
-                  >
-                    <img src="/landing/after-1.jpg" alt="Sonra" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
-                    <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex justify-between items-end">
-                      <span className="text-[7px] sm:text-[8px] md:text-[10px] font-mono tracking-[0.15em] uppercase text-white/50">
-                        Sonra
-                      </span>
-                      <span className="text-[6px] sm:text-[7px] md:text-[9px] tracking-wider text-white/30">
-                        4K · AI
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ TRANSFORMATION GALLERY ═══════════════════ */}
-      <section className="relative py-20 md:py-32 overflow-hidden" style={{ background: '#0a0a0a' }}>
-        <div className="container">
-          <motion.div
-            className="text-center mb-16 md:mb-24"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            viewport={{ once: true }}
-          >
-            <p
-              className="text-[10px] md:text-xs tracking-[0.3em] uppercase mb-4"
-              style={{ color: 'hsl(38,45%,55%)' }}
-            >
-              Dönüşüm Galerisi
-            </p>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
-              Gerçek Sonuçlar,{' '}
-              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>
-                Gerçek Dönüşüm
-              </span>
-            </h2>
-          </motion.div>
-
-          <div className="max-w-6xl mx-auto space-y-16 md:space-y-28">
-            {GALLERY_PAIRS.map((pair, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                viewport={{ once: true, margin: '-80px' }}
-              >
-                <div className={`flex flex-col gap-4 md:gap-8 ${i % 2 !== 0 ? 'md:flex-row-reverse' : 'md:flex-row'} md:items-center`}>
-                  {/* Before — compact */}
-                  <div className="md:w-[30%] flex-shrink-0">
-                    <div className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-neutral-900">
-                      <img src={pair.before} alt="Önce" className="w-full h-full object-cover" loading="lazy" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <span className="absolute top-3 left-3 px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-black/50 text-white/60 backdrop-blur-sm rounded">
-                        Önce
-                      </span>
-                    </div>
-                    <div className="mt-3 md:mt-4">
-                      <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'hsl(38,45%,55%)' }}>
-                        {pair.scene}
-                      </p>
-                      <p className="text-sm font-medium text-white mt-0.5">{pair.jewelry}</p>
-                      <p className="text-xs text-white/35 mt-1 hidden md:block">{pair.story}</p>
-                    </div>
-                  </div>
-
-                  {/* After — large */}
-                  <div className="md:flex-1">
-                    <div
-                      className="relative aspect-[4/5] overflow-hidden rounded-lg shadow-2xl"
-                      style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
-                    >
-                      <img src={pair.after} alt="Sonra" className="w-full h-full object-cover" loading="lazy" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
-                      <span className="absolute bottom-3 right-3 px-2 py-0.5 text-[9px] font-mono tracking-widest uppercase bg-black/50 text-white/40 backdrop-blur-sm rounded">
-                        AI · 4K
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ═══════════════════ ONE → MANY ═══════════════════ */}
-      <section className="relative py-20 md:py-32 overflow-hidden" style={{ background: '#111' }}>
-        <div className="container">
-          <motion.div
-            className="text-center mb-12 md:mb-20"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            viewport={{ once: true }}
-          >
-            <p className="text-[10px] md:text-xs tracking-[0.3em] uppercase mb-4" style={{ color: 'hsl(38,45%,55%)' }}>
-              Tek Fotoğraf, Çoklu Sahne
-            </p>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
-              Bir Fotoğraf.{' '}
-              <span className="italic font-serif" style={{ color: 'hsl(38,45%,60%)' }}>Üç Kampanya.</span>
-            </h2>
-            <p className="mt-4 text-sm md:text-base max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Tek bir ürün fotoğrafından farklı sahne türlerinde profesyonel görseller üretin.
-            </p>
-          </motion.div>
-
-          <div className="max-w-5xl mx-auto">
-            {/* Original centered */}
-            <motion.div
-              className="flex justify-center mb-6 md:mb-10"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-            >
-              <div className="w-32 sm:w-40 md:w-48">
-                <div className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-neutral-900">
-                  <img src="/landing/before-2.jpg" alt="Orijinal" className="w-full h-full object-cover" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                  <span className="absolute bottom-2 left-2 text-[8px] font-mono tracking-widest uppercase text-white/50">
-                    Orijinal
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Connecting line */}
-            <div className="flex justify-center mb-6">
+              {/* 3 Results row */}
               <motion.div
-                className="w-px h-8 md:h-12"
-                style={{ background: 'linear-gradient(180deg, hsla(38,45%,55%,0.4), hsla(38,45%,55%,0.05))' }}
-                initial={{ scaleY: 0 }}
-                whileInView={{ scaleY: 1 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-                viewport={{ once: true }}
-              />
-            </div>
-
-            {/* 3 results */}
-            <div className="grid grid-cols-3 gap-3 md:gap-6">
-              {[
-                { src: '/landing/after-2a.jpg', label: 'Editorial', desc: 'Lüks sahne' },
-                { src: '/landing/after-2b.jpg', label: 'E-Ticaret', desc: 'Temiz çekim' },
-                { src: '/landing/after-2c.jpg', label: 'Macro', desc: 'Detay plan' },
-              ].map((item, i) => (
-                <motion.div
-                  key={item.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: i * 0.15 }}
-                  viewport={{ once: true }}
-                >
-                  <div
-                    className="relative aspect-[4/5] rounded-lg overflow-hidden shadow-xl"
-                    style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
+                className="grid grid-cols-3 gap-3 md:gap-5"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8, duration: 0.8 }}
+              >
+                {[
+                  { src: '/landing/after-2a.jpg', label: 'E-Ticaret', desc: 'Ürün çekimi' },
+                  { src: '/landing/after-2b.jpg', label: 'Macro', desc: 'Detay plan' },
+                  { src: '/landing/after-2c.jpg', label: 'Model', desc: 'Manken çekimi' },
+                ].map((item, i) => (
+                  <motion.div
+                    key={item.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.9 + i * 0.15, duration: 0.6 }}
                   >
-                    <img src={item.src} alt={item.label} className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
-                      <p className="text-[9px] sm:text-[10px] tracking-[0.15em] uppercase" style={{ color: 'hsl(38,45%,60%)' }}>
-                        {item.label}
-                      </p>
-                      <p className="text-[8px] sm:text-xs text-white/50 hidden sm:block">{item.desc}</p>
+                    <div
+                      className="relative aspect-[4/5] rounded-lg overflow-hidden shadow-xl"
+                      style={{ border: '1px solid hsla(38,45%,55%,0.1)' }}
+                    >
+                      <img src={item.src} alt={item.label} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
+                        <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.15em] uppercase font-medium" style={{ color: 'hsl(38,45%,60%)' }}>
+                          {item.label}
+                        </p>
+                        <p className="text-[8px] sm:text-[10px] text-white/50 hidden sm:block">{item.desc}</p>
+                      </div>
+                      <span className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 text-[7px] sm:text-[8px] tracking-wider text-white/30">
+                        4K
+                      </span>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
           </div>
         </div>
       </section>
