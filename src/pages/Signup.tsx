@@ -73,7 +73,7 @@ export default function Signup() {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <img src={mooreLogo} alt="MooreLabs" className="h-10 w-auto" />
+          <img src={mooreLogo} alt="MooreLabs" className="h-10 w-auto" style={{ filter: 'brightness(0)' }} />
           <span className="text-2xl font-semibold tracking-tight">MooreLabs</span>
         </Link>
 

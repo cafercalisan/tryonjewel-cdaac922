@@ -10,7 +10,6 @@ export function Footer() {
               src={mooreLogo}
               alt="Moore"
               className="h-6 w-auto"
-              style={{ mixBlendMode: 'screen' }}
             />
           </div>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
