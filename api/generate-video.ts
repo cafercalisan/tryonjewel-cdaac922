@@ -30,6 +30,15 @@ FORBIDDEN:
 - NO celebrity references or real person likeness
 - NO text, watermarks, logos`;
 
+const MULTI_FRAME_PROMPT = `${ANIMATION_CORE}
+
+TRANSITION: Smooth cinematic transition from the first frame to the last frame.
+The camera performs a fluid, continuous motion connecting both compositions.
+Every intermediate frame must be physically plausible — no morphing, no dissolves, no jump cuts.
+The jewelry product must remain consistent and recognizable throughout the entire transition.
+Maintain continuous lighting and color temperature across all frames.
+The motion should feel like a single continuous camera take — natural, elegant, unhurried.`;
+
 const JEWELRY_VIDEO_PROMPTS: Record<string, string> = {
   default: `${ANIMATION_CORE}
 
@@ -92,9 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error('Invalid authentication');
 
-    const { imageUrl, videoId, promptType = 'default', videoFormat = '9:16' } = req.body;
+    const { imageUrl, endImageUrl, videoId, promptType = 'default', videoFormat = '9:16' } = req.body;
     if (!imageUrl) throw new Error('Image URL is required');
     if (!videoId) throw new Error('Video ID is required');
+
+    const isMultiFrame = !!endImageUrl;
 
     console.log('Starting video generation for user:', user.id);
 
@@ -118,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const selectedPrompt = JEWELRY_VIDEO_PROMPTS[promptType] || JEWELRY_VIDEO_PROMPTS.default;
+    const selectedPrompt = isMultiFrame ? MULTI_FRAME_PROMPT : (JEWELRY_VIDEO_PROMPTS[promptType] || JEWELRY_VIDEO_PROMPTS.default);
     const fullPrompt = `${selectedPrompt}
 
 GLOBAL LOCKS:
@@ -147,7 +158,30 @@ GLOBAL LOCKS:
     const base64Image = btoa(binary);
     const mimeType = imageResponse.headers.get('content-type') || 'image/png';
 
-    await supabase.from('videos').update({ error_message: 'Google Veo 3.1 API çağrılıyor...' }).eq('id', videoId);
+    await supabase.from('videos').update({ error_message: isMultiFrame ? 'Multi-frame video hazırlanıyor...' : 'Google Veo 3.1 API çağrılıyor...' }).eq('id', videoId);
+
+    // Fetch end image for multi-frame mode
+    let base64EndImage: string | undefined;
+    let endMimeType: string | undefined;
+
+    if (isMultiFrame && endImageUrl) {
+      try {
+        const endImageResponse = await fetch(endImageUrl);
+        if (endImageResponse.ok) {
+          const endImageBuffer = await endImageResponse.arrayBuffer();
+          const endUint8Array = new Uint8Array(endImageBuffer);
+          let endBinary = '';
+          for (let i = 0; i < endUint8Array.length; i++) {
+            endBinary += String.fromCharCode(endUint8Array[i]);
+          }
+          base64EndImage = btoa(endBinary);
+          endMimeType = endImageResponse.headers.get('content-type') || 'image/png';
+          console.log('End frame image loaded for multi-frame video');
+        }
+      } catch (err) {
+        console.error('Failed to fetch end image:', err);
+      }
+    }
 
     const ai = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
 
@@ -155,11 +189,18 @@ GLOBAL LOCKS:
     let veo31ErrorText: string | undefined;
 
     try {
+      const veoConfig: any = { aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16' };
+
+      if (base64EndImage && endMimeType) {
+        veoConfig.lastFrame = { imageBytes: base64EndImage, mimeType: endMimeType };
+        console.log('Using multi-frame mode with lastFrame');
+      }
+
       const operation: any = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
         prompt: fullPrompt,
         image: { imageBytes: base64Image, mimeType },
-        config: { aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16' },
+        config: veoConfig,
       });
       veo31OperationName = operation?.name;
     } catch (err) {

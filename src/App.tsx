@@ -21,6 +21,7 @@ import Videos from "./pages/Videos";
 import Scenes from "./pages/Scenes";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import PremiumHeroDemo from "./pages/PremiumHeroDemo";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/giris" element={<Login />} />
             <Route path="/kayit" element={<Signup />} />
             <Route path="/sahneler" element={<Scenes />} />
+            <Route path="/demo/premium-hero" element={<PremiumHeroDemo />} />
             <Route path="/panel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/olustur" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
             <Route path="/sonuclar" element={<ProtectedRoute><Results /></ProtectedRoute>} />
