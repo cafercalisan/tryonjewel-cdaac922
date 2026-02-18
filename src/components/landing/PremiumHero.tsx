@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MoveRight, PhoneCall } from "lucide-react";
+import { MoveRight } from "lucide-react";
 
 interface Beam {
   x: number;
@@ -47,7 +47,7 @@ export const PremiumHero = () => {
   const LAYERS = 3;
   const BEAMS_PER_LAYER = 8;
 
-  const aiTitles = ["intelligent", "fast", "innovative", "adaptive", "reliable"];
+  const aiTitles = ["stunning", "elegant", "brilliant", "timeless", "yours"];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,11 +103,11 @@ export const PremiumHero = () => {
 
       const pulsingOpacity = Math.min(1, beam.opacity * (0.8 + Math.sin(beam.pulse) * 0.4));
       const gradient = ctx.createLinearGradient(0, 0, 0, beam.length);
-      gradient.addColorStop(0, `rgba(0,255,255,0)`);
-      gradient.addColorStop(0.2, `rgba(0,255,255,${pulsingOpacity * 0.5})`);
-      gradient.addColorStop(0.5, `rgba(0,255,255,${pulsingOpacity})`);
-      gradient.addColorStop(0.8, `rgba(0,255,255,${pulsingOpacity * 0.5})`);
-      gradient.addColorStop(1, `rgba(0,255,255,0)`);
+      gradient.addColorStop(0, `rgba(201,169,110,0)`);
+      gradient.addColorStop(0.2, `rgba(201,169,110,${pulsingOpacity * 0.5})`);
+      gradient.addColorStop(0.5, `rgba(218,185,126,${pulsingOpacity})`);
+      gradient.addColorStop(0.8, `rgba(201,169,110,${pulsingOpacity * 0.5})`);
+      gradient.addColorStop(1, `rgba(201,169,110,0)`);
 
       ctx.fillStyle = gradient;
       ctx.filter = `blur(${2 + beam.layer * 2}px)`;
@@ -160,17 +160,17 @@ export const PremiumHero = () => {
       <div className="relative z-20 flex h-screen w-full items-center justify-center px-6 text-center">
         <div className="container mx-auto flex flex-col items-center gap-12 text-center">
           <Button variant="secondary" size="sm" className="gap-4">
-            Support for AI Models <MoveRight className="w-4 h-4" />
+            AI-Powered Jewelry Design <MoveRight className="w-4 h-4" />
           </Button>
 
           <h1 className="text-5xl md:text-7xl max-w-2xl tracking-tighter font-regular">
-            <span className="text-white">This is AI Power</span>
+            <span className="text-white">Your Jewelry, Made</span>
             <span className="relative flex w-full justify-center overflow-hidden md:pb-4 md:pt-1">
               &nbsp;
               {aiTitles.map((title, index) => (
                 <motion.span
                   key={index}
-                  className="absolute font-semibold text-white dark:text-gray-300"
+                  className="absolute font-semibold text-[#c9a96e]"
                   initial={{ opacity: 0, y: "-100" }}
                   transition={{ type: "spring", stiffness: 50 }}
                   animate={
@@ -186,12 +186,15 @@ export const PremiumHero = () => {
           </h1>
 
           <p className="text-lg md:text-xl leading-relaxed tracking-tight text-muted-foreground max-w-2xl text-center">
-           Highly customizable components for building modern websites and applications that look and feel the way you mean it.
+            Transform your jewelry designs with AI. Generate photorealistic renders, try-on previews, and marketing visuals in seconds.
           </p>
 
           <div className="flex flex-row gap-3 flex-wrap justify-center">
+            <Button size="sm" className="gap-4 bg-[#c9a96e] hover:bg-[#b8985d] text-black border-none">
+              Start Creating <MoveRight className="w-4 h-4" />
+            </Button>
             <Button size="sm" className="gap-4" variant="outline">
-              Explore UI CAT <MoveRight className="w-4 h-4" />
+              See Examples <MoveRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
