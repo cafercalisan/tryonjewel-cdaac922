@@ -83,62 +83,68 @@
   }
 
   .dark {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    /* Luxury dark: slight navy-black instead of pure black */
+    --background: 220 10% 4%;
+    --foreground: 0 0% 95%;
 
-    --card: 0 0% 0%;
-    --card-foreground: 0 0% 100%;
+    /* Cards one shade lighter for depth */
+    --card: 220 8% 8%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 0%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 220 8% 8%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 0%;
+    /* Gold primary — luxury jewelry accent */
+    --primary: 38 45% 55%;
+    --primary-foreground: 220 10% 4%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 220 8% 14%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 220 8% 14%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 220 8% 14%;
+    --accent-foreground: 0 0% 90%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 100%;
-    --input: 0 0% 100%;
-    --ring: 0 0% 100%;
+    /* Soft, nearly invisible borders */
+    --border: 220 6% 16%;
+    --input: 220 6% 20%;
+    --ring: 38 45% 55%;
 
     --gold: 38 45% 55%;
     --gold-light: 38 30% 30%;
     --gold-dark: 38 45% 70%;
     --charcoal: 40 20% 98%;
-    --warm-gray: 0 0% 12%;
-    --cream: 0 0% 5%;
+    --warm-gray: 220 8% 12%;
+    --cream: 220 10% 6%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar: 0 0% 5%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 100%;
-    --sidebar-ring: 0 0% 100%;
-    --shadow-2xs: 1px 1px 0px 0px #ffffff;
-    --shadow-xs: 2px 2px 0px 0px #ffffff;
-    --shadow-sm: 3px 3px 0px 0px #ffffff;
-    --shadow: 5px 5px 0px 0px #ffffff;
-    --shadow-md: 8px 8px 0px 0px #ffffff;
-    --shadow-lg: 12px 12px 0px 0px #ffffff;
-    --shadow-xl: 16px 16px 0px 0px #ffffff;
-    --shadow-2xl: 24px 24px 0px 0px #ffffff;
-    --radius: 0rem;
+    --sidebar: 220 10% 5%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 38 45% 55%;
+    --sidebar-primary-foreground: 220 10% 4%;
+    --sidebar-accent: 220 8% 14%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 6% 16%;
+    --sidebar-ring: 38 45% 55%;
+
+    /* Soft blur shadows instead of hard offset */
+    --shadow-2xs: 0 1px 3px 0 rgba(0,0,0,0.4);
+    --shadow-xs: 0 2px 6px 0 rgba(0,0,0,0.4);
+    --shadow-sm: 0 3px 10px 0 rgba(0,0,0,0.45);
+    --shadow: 0 5px 15px 0 rgba(0,0,0,0.5);
+    --shadow-md: 0 8px 24px 0 rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 36px 0 rgba(0,0,0,0.55);
+    --shadow-xl: 0 16px 48px 0 rgba(0,0,0,0.6);
+    --shadow-2xl: 0 24px 50px 0 rgba(0,0,0,0.7);
+    --radius: 0.5rem;
   }
 }
 
@@ -176,13 +182,21 @@
 @layer utilities {
   /* Luxury shadows */
   .shadow-luxury {
-    box-shadow: 0 4px 20px -2px hsla(0, 0%, 0%, 0.08), 
+    box-shadow: 0 4px 20px -2px hsla(0, 0%, 0%, 0.08),
                 0 2px 8px -2px hsla(0, 0%, 0%, 0.04);
+  }
+  .dark .shadow-luxury {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5),
+                0 0 1px 0 hsla(0, 0%, 100%, 0.06);
   }
 
   .shadow-luxury-lg {
-    box-shadow: 0 8px 40px -4px hsla(0, 0%, 0%, 0.12), 
+    box-shadow: 0 8px 40px -4px hsla(0, 0%, 0%, 0.12),
                 0 4px 16px -4px hsla(0, 0%, 0%, 0.06);
+  }
+  .dark .shadow-luxury-lg {
+    box-shadow: 0 8px 40px -4px rgba(0, 0, 0, 0.6),
+                0 0 1px 0 hsla(0, 0%, 100%, 0.08);
   }
 
   /* Gradient utilities */

@@ -851,7 +851,7 @@ export default function Landing() {
             <Link to="/kayit">
               <Button
                 size="lg"
-                className="h-13 px-10 text-base font-medium tracking-wide rounded-none bg-white text-black hover:bg-white/90"
+                className="h-13 px-10 text-base font-medium tracking-wide rounded-full bg-white text-black hover:bg-white/90"
               >
                 Ücretsiz Hesap Oluştur
                 <ArrowRight className="ml-2 h-5 w-5" />
