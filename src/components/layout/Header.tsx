@@ -37,8 +37,8 @@ export function Header() {
     <header
       className="sticky top-0 z-50 w-full transition-all duration-500"
       style={{
-        background: scrolled ? 'rgba(22,22,22,0.88)' : 'rgba(22,22,22,0.65)',
-        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+        background: 'rgba(0, 0, 0, 0.45)',
+        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : '1px solid transparent',
         backdropFilter: 'saturate(180%) blur(20px)',
         WebkitBackdropFilter: 'saturate(180%) blur(20px)',
       }}
@@ -49,7 +49,7 @@ export function Header() {
           <img
             src={mooreLogo}
             alt="Moore"
-            className="h-9 w-auto"
+            className="h-11 w-auto"
           />
         </Link>
 
@@ -153,7 +153,7 @@ export function Header() {
               </Button>
             </Link>
             <Link to="/kayit">
-              <Button className="bg-white text-black hover:bg-white/90 rounded-none font-medium tracking-wide">
+              <Button className="bg-white text-black hover:bg-white/90 rounded-full font-medium tracking-wide">
                 Ücretsiz Başla
               </Button>
             </Link>
@@ -175,7 +175,7 @@ export function Header() {
         <div
           className="md:hidden animate-fade-in"
           style={{
-            background: 'rgba(22,22,22,0.95)',
+            background: 'rgba(0, 0, 0, 0.85)',
             borderTop: '1px solid rgba(255,255,255,0.08)',
             backdropFilter: 'saturate(180%) blur(20px)',
           }}
