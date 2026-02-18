@@ -68,7 +68,7 @@ export function MetalColorSelector({ selectedMetalColor, onSelect }: MetalColorS
       <p className="text-xs text-muted-foreground -mt-1">
         Ürün tek renk veya ayırt edilemiyorsa seçin
       </p>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
         {metalColors.map((metal) => (
           <button
             key={metal.id}

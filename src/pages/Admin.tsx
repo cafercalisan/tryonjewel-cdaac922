@@ -216,8 +216,50 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {/* Mobile Card List */}
+        <div className="md:hidden space-y-3">
+          {usersLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : filteredUsers?.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Kullanıcı bulunamadı
+            </div>
+          ) : (
+            filteredUsers?.map((profile) => (
+              <div key={profile.id} className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">
+                      {profile.first_name} {profile.last_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedUser(profile);
+                      setCreditAmount(profile.credits.toString());
+                      setCreditDialogOpen(true);
+                    }}
+                  >
+                    Kredi
+                  </Button>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {profile.company && <span>{profile.company}</span>}
+                  <span className="font-semibold text-foreground">{profile.credits} kredi</span>
+                  <span>{new Date(profile.created_at).toLocaleDateString('tr-TR')}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Users Table (Desktop) */}
+        <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

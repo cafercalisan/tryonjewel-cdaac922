@@ -132,7 +132,7 @@ export function GeneratingPanel({
       {/* 3-card scene progress (standard with selected scenes) */}
       {showSceneCards && (
         <div className="px-6 pb-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {selectedScenes.map((sceneKey, i) => {
               const config = SCENE_CONFIG[sceneKey];
               if (!config) return null;

@@ -254,13 +254,13 @@ function QuickActionCard({
   active?: boolean;
 }) {
   return (
-    <div className={`bg-card rounded-xl p-4 shadow-sm hover:shadow-md transition-all group cursor-pointer border ${
+    <div className={`bg-card rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all group cursor-pointer border ${
       active ? 'border-purple-500 bg-purple-500/5' : 'border-transparent hover:border-border'
     }`}>
-      <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3 transition-transform group-hover:scale-110`}>
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${color} flex items-center justify-center mb-2 sm:mb-3 transition-transform group-hover:scale-110`}>
         {icon}
       </div>
-      <h3 className="font-medium text-sm">{title}</h3>
+      <h3 className="font-medium text-xs sm:text-sm">{title}</h3>
     </div>
   );
 }

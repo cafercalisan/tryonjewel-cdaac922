@@ -162,7 +162,7 @@ export function Header() {
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2"
+          className="md:hidden p-2.5"
           style={{ color: 'rgba(255,255,255,0.9)' }}
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
@@ -194,7 +194,7 @@ export function Header() {
                   <Link
                     key={link.to}
                     to={link.to}
-                    className="py-2 text-sm font-medium"
+                    className="py-3 text-sm font-medium"
                     style={{ color: 'rgba(255,255,255,0.85)' }}
                     onClick={() => setMobileMenuOpen(false)}
                   >

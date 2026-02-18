@@ -431,7 +431,7 @@ export default function Generate() {
   if (isGenerating) {
     return (
       <AppLayout showFooter={false}>
-        <div className="container py-10 max-w-2xl mx-auto">
+        <div className="container py-6 md:py-10 max-w-2xl mx-auto">
           <GeneratingPanel
             step={generationStep}
             packageType={packageType}
@@ -610,7 +610,7 @@ export default function Generate() {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {metalColors.map((metal) => {
                       const isSelected = selectedMetalColor === metal.id;
                       return (

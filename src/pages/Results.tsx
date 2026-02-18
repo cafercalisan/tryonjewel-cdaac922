@@ -204,7 +204,7 @@ export default function Results() {
       <div className="container py-8 md:py-12 animate-fade-in">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
             <div>
               <button
                 onClick={() => navigate(-1)}
@@ -225,7 +225,7 @@ export default function Results() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-[1fr,300px] gap-8">
+          <div className="grid md:grid-cols-[1fr,300px] gap-4 md:gap-8">
             {/* Main Image */}
             <div>
               <div
@@ -251,13 +251,13 @@ export default function Results() {
                   <>
                     <button
                       onClick={(e) => { e.stopPropagation(); goToPrev(); }}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/90"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-background/90"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); goToNext(); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/90"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm rounded-full p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-background/90"
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>

@@ -101,12 +101,12 @@ export default function Account() {
 
           {/* Credits Card */}
           <div className="bg-primary text-primary-foreground rounded-xl p-6 mb-8 shadow-luxury">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <p className="text-sm opacity-80">Kalan Kredi</p>
                 <p className="text-3xl font-bold">{profile?.credits ?? 0}</p>
               </div>
-              <Button variant="secondary" disabled>
+              <Button variant="secondary" disabled className="w-full sm:w-auto">
                 Kredi Satın Al (Yakında)
               </Button>
             </div>
@@ -115,7 +115,7 @@ export default function Account() {
           {/* Profile Form */}
           <div className="bg-card rounded-xl p-6 shadow-luxury">
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">Ad</Label>
                   <Input
