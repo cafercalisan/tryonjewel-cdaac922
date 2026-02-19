@@ -36,9 +36,10 @@ interface MarqueeRowProps {
   direction: 'left' | 'right';
   duration?: number;
   className?: string;
+  onImageClick?: (src: string) => void;
 }
 
-const MarqueeRow = ({ images, direction, duration = 60, className = '' }: MarqueeRowProps) => {
+const MarqueeRow = ({ images, direction, duration = 60, className = '', onImageClick }: MarqueeRowProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -93,7 +94,8 @@ const MarqueeRow = ({ images, direction, duration = 60, className = '' }: Marque
         {duplicatedImages.map((image, index) => (
           <div
             key={`${image}-${index}`}
-            className="relative flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] lg:w-[380px] aspect-[3/4] rounded-3xl overflow-hidden group"
+            className={`relative flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] lg:w-[380px] aspect-[3/4] rounded-3xl overflow-hidden group${onImageClick ? ' cursor-zoom-in' : ''}`}
+            onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(image); } : undefined}
             style={{
               background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
               boxShadow: '0 8px 32px -8px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
@@ -134,7 +136,7 @@ const MarqueeRow = ({ images, direction, duration = 60, className = '' }: Marque
   );
 };
 
-export function InfiniteProductShowcase() {
+export function InfiniteProductShowcase({ onImageClick }: { onImageClick?: (src: string) => void }) {
   return (
     <section
       className="relative py-20 md:py-32 overflow-hidden"
@@ -163,6 +165,7 @@ export function InfiniteProductShowcase() {
             images={topRowImages}
             direction="right"
             duration={80}
+            onImageClick={onImageClick}
           />
         </div>
 
@@ -172,6 +175,7 @@ export function InfiniteProductShowcase() {
             images={bottomRowImages}
             direction="left"
             duration={75}
+            onImageClick={onImageClick}
           />
         </div>
       </div>

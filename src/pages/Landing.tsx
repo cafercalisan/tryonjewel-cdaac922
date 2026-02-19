@@ -7,6 +7,7 @@ import {
   X, Check, Mail, Sparkles,
 } from 'lucide-react';
 import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
+import { LightboxOverlay } from '@/components/ui/image-lightbox';
 import { useRef, useState, useEffect } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -109,6 +110,7 @@ const fadeUp = {
 // ─── MAIN LANDING ────────────────────────────────────────────────────────────
 export default function Landing() {
   const [showContactModal, setShowContactModal] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // ── Hero scroll zoom-out ──
   const heroRef = useRef<HTMLElement>(null);
@@ -289,7 +291,7 @@ export default function Landing() {
                       boxShadow: '0 20px 60px -12px rgba(0,0,0,0.7)',
                     }}
                   >
-                    <img src="/landing/before-2.jpg" alt="Ürün fotoğrafı" className="w-full h-full object-cover" />
+                    <img src="/landing/before-2.jpg" alt="Ürün fotoğrafı" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLightboxSrc('/landing/before-2.jpg')} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
                     <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.08)', mixBlendMode: 'saturation' }} />
                   </div>
@@ -402,7 +404,7 @@ export default function Landing() {
                           : '0 15px 40px -10px rgba(0,0,0,0.6)',
                       }}
                     >
-                      <img src={item.src} alt={item.label} className="w-full h-full object-cover" />
+                      <img src={item.src} alt={item.label} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLightboxSrc(item.src)} />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3">
                         <div className="flex items-center justify-between">
@@ -614,7 +616,7 @@ export default function Landing() {
       </section>
 
       {/* ═══════════════════ INFINITE SHOWCASE ═══════════════════ */}
-      <InfiniteProductShowcase />
+      <InfiniteProductShowcase onImageClick={setLightboxSrc} />
 
       <section className="py-8" style={{ background: '#0a0a0a' }}>
         <div className="container">
@@ -860,6 +862,8 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      <LightboxOverlay src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
 
       {/* Contact Modal */}
       <Dialog open={showContactModal} onOpenChange={setShowContactModal}>

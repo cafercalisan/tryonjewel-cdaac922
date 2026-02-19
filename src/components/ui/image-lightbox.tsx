@@ -4,6 +4,42 @@ import { X, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import { Button } from './button';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 
+/** Controlled overlay lightbox — parent manages open/close via src */
+export function LightboxOverlay({ src, onClose }: { src: string | null; onClose: () => void }) {
+  return (
+    <AnimatePresence>
+      {src && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+          onClick={onClose}
+        >
+          <button
+            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+            style={{ background: 'rgba(255,255,255,0.1)', color: 'hsl(38,45%,55%)' }}
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <motion.img
+            src={src}
+            alt="Büyütülmüş görsel"
+            initial={{ scale: 0.92 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="max-h-[85vh] max-w-full object-contain rounded-xl"
+            style={{ border: '1px solid hsla(38,45%,55%,0.2)' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 interface ImageLightboxProps {
   src: string;
   alt: string;
