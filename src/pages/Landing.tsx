@@ -9,6 +9,7 @@ import {
 import { InfiniteProductShowcase } from '@/components/landing/InfiniteProductShowcase';
 import { LightboxOverlay } from '@/components/ui/image-lightbox';
 import { useRef, useState, useEffect } from 'react';
+import { MeshGradient } from '@paper-design/shaders-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -138,26 +139,15 @@ export default function Landing() {
         className="relative min-h-screen flex items-center justify-center overflow-hidden"
         style={{ background: 'linear-gradient(180deg, #050505 0%, #0a0a0a 60%, #0e0e0e 100%)' }}
       >
-        {/* Ambient glow + grain */}
+        {/* Animated mesh gradient shader background */}
         <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute -top-[30%] right-[-15%] w-[70vw] h-[70vw] rounded-full opacity-[0.04]"
-            style={{ background: 'radial-gradient(circle, hsl(38,45%,55%) 0%, transparent 70%)' }}
+          <MeshGradient
+            style={{ width: '100%', height: '100%' }}
+            speed={0.3}
+            colors={['#1a1408', '#2a1f0a', '#0a0a0a', '#1c1610', '#0d0b08', '#181208']}
           />
-          <div
-            className="absolute bottom-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full opacity-[0.03]"
-            style={{ background: 'radial-gradient(circle, hsl(38,45%,55%) 0%, transparent 70%)' }}
-          />
-          <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: NOISE_BG }} />
-          {/* Subtle center glow from a blurred image */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <img
-              src="/landing/after-2b.jpg"
-              alt=""
-              className="w-[50vw] max-w-[500px] aspect-square object-cover rounded-full opacity-[0.04]"
-              style={{ filter: 'blur(80px)' }}
-            />
-          </div>
+          {/* Dark veil for content readability */}
+          <div className="absolute inset-0 bg-black/50" />
         </div>
 
         {/* Content — scales down and fades on scroll */}
