@@ -173,7 +173,7 @@ export default function Landing() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            AI Destekli Mücevher Görsel Platformu
+            Mücevherin Dijital Geleceği
           </motion.p>
 
           {/* Headline */}
@@ -199,8 +199,8 @@ export default function Landing() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            Tek bir ürün fotoğrafından profesyonel 4K kampanya görselleri üretin.
-            Stüdyo maliyetlerini geride bırakın.
+            Ürünlerinizi dijitale taşımanın en hızlı yolu.
+            Yapay zeka ile profesyonel kampanya görselleri, saniyeler içinde.
           </motion.p>
 
           {/* CTA */}
@@ -215,17 +215,17 @@ export default function Landing() {
                 size="lg"
                 className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none bg-white text-black hover:bg-white/90"
               >
-                HEMEN DENEYIN
+                Ücretsiz Dene
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/ornekler">
+            <Link to="/giris">
               <Button
                 size="lg"
                 variant="outline"
                 className="w-full sm:w-auto h-12 px-10 text-sm font-medium tracking-wider rounded-none border-white/20 text-white bg-transparent hover:bg-white/10"
               >
-                ÖRNEKLERİ İNCELE
+                Giriş Yap
               </Button>
             </Link>
           </motion.div>
@@ -266,10 +266,10 @@ export default function Landing() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
             >
-              Tek Fotoğraf — Üç Çıktı
+              Fotoğraftan Kampanyaya
             </motion.p>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-white">
-              <RevealText>Bir Fotoğraf, Üç Profesyonel Görsel</RevealText>
+              <RevealText>Bir Fotoğraf, Sınırsız Olasılık</RevealText>
             </h2>
           </div>
 
@@ -465,7 +465,7 @@ export default function Landing() {
               { value: 90, suffix: '%', label: 'Maliyet Tasarrufu', desc: 'Stüdyo & model yerine' },
               { value: 60, suffix: 's', label: 'Üretim Süresi', desc: 'Saniyeler içinde hazır' },
               { value: 4, suffix: 'K', label: 'Çözünürlük', desc: 'Ultra yüksek kalite' },
-              { value: 6, suffix: '+', label: 'Sahne Seçeneği', desc: 'Tek fotoğraftan' },
+              { value: 3, suffix: 'x', label: 'Daha Hızlı', desc: 'Geleneksel çekime kıyasla' },
             ].map((stat) => (
               <motion.div
                 key={stat.label}
@@ -577,7 +577,7 @@ export default function Landing() {
 
               {[
                 { num: 1, title: 'Fotoğrafı Yükle', desc: 'Mücevher ürün fotoğrafınızı platforma yükleyin.', icon: <Camera className="h-6 w-6 text-white" /> },
-                { num: 2, title: 'Sahneleri Seç', desc: 'Editorial, e-ticaret, model gibi 6 sahne türünden 3 tanesini seçin.', icon: <Palette className="h-6 w-6 text-white" /> },
+                { num: 2, title: 'Sahneleri Seç', desc: 'Editorial, e-ticaret, model ve daha fazla sahne arasından dilediğinizi seçin.', icon: <Palette className="h-6 w-6 text-white" /> },
                 { num: 3, title: '4K İndir', desc: 'Profesyonel kampanya görsellerinizi anında indirin.', icon: <Download className="h-6 w-6 text-white" /> },
               ].map((step, idx) => (
                 <motion.div
