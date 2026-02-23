@@ -851,13 +851,24 @@ export default function Landing() {
               Hemen ücretsiz hesap oluşturun ve 100 kredi ile başlayın.
             </p>
             <Link to="/kayit">
-              <Button
-                size="lg"
-                className="h-13 px-10 text-base font-medium tracking-wide rounded-full bg-white text-black hover:bg-white/90"
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               >
-                Ücretsiz Hesap Oluştur
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+                <Button
+                  size="lg"
+                  className="h-16 px-14 text-lg font-semibold tracking-wide rounded-full border-0 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(38,45%,55%), hsl(38,50%,42%))',
+                    color: '#fff',
+                    boxShadow: '0 8px 32px -4px hsla(38,45%,55%,0.35)',
+                  }}
+                >
+                  Ücretsiz Hesap Oluştur
+                  <ArrowRight className="ml-3 h-5 w-5" />
+                </Button>
+              </motion.div>
             </Link>
           </motion.div>
         </div>
