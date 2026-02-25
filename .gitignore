@@ -11,8 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
-.env
 .vercel
+
+# Environment variables - NEVER commit
+.env
+.env.*
+!.env.example
+
+# Supabase temp
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*
