@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Download, Trash2, Eye, Image as ImageIcon, ZoomIn, X, ZoomOut, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Download, Trash2, Eye, Image as ImageIcon, ZoomIn, X, ZoomOut, ChevronLeft, ChevronRight, ArrowLeftRight, Pencil, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +23,7 @@ interface ImageRecord {
   generated_image_urls: string[];
   status: string;
   created_at: string;
+  name: string | null;
   scenes: {
     name_tr: string;
   } | null;
@@ -38,13 +41,16 @@ export default function Gallery() {
   const [signedOriginalUrls, setSignedOriginalUrls] = useState<Record<string, string>>({});
   const [showComparison, setShowComparison] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const { data: images, isLoading } = useQuery({
     queryKey: ['images', user?.id],
     queryFn: async (): Promise<ImageRecord[]> => {
       const { data, error } = await supabase
         .from('images')
-        .select('id, original_image_url, generated_image_urls, status, created_at, scenes(name_tr)')
+        .select('id, original_image_url, generated_image_urls, status, created_at, name, scenes(name_tr)')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
 
@@ -80,8 +86,8 @@ export default function Gallery() {
   // Keyboard navigation for gallery
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedImage || lightboxOpen) return;
-      
+      if (!selectedImage || lightboxOpen || editingName) return;
+
       const urls = getImageUrls(selectedImage);
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -96,13 +102,13 @@ export default function Gallery() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImage, lightboxOpen]);
+  }, [selectedImage, lightboxOpen, editingName]);
 
   // Gallery-level keyboard navigation
   useEffect(() => {
     const handleGalleryKeyDown = (e: KeyboardEvent) => {
       if (selectedImage || !completedImages.length) return;
-      
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setSelectedImageIndex(prev => prev > 0 ? prev - 1 : completedImages.length - 1);
@@ -122,6 +128,14 @@ export default function Gallery() {
     return () => window.removeEventListener('keydown', handleGalleryKeyDown);
   }, [selectedImage, selectedImageIndex]);
 
+  // Focus name input when editing starts
+  useEffect(() => {
+    if (editingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [editingName]);
+
   // Helper to get image URLs for an image record
   const getImageUrls = useCallback((image: ImageRecord): string[] => {
     if (signedUrls[image.id] && signedUrls[image.id].length > 0) {
@@ -135,6 +149,11 @@ export default function Gallery() {
     return signedOriginalUrls[image.id] || image.original_image_url || '';
   }, [signedOriginalUrls]);
 
+  // Helper to get display name
+  const getDisplayName = (image: ImageRecord): string => {
+    return image.name || image.scenes?.name_tr || 'Adsiz Gorsel';
+  };
+
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
       const { error } = await supabase
@@ -146,11 +165,29 @@ export default function Gallery() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['images', user?.id] });
-      toast.success('Görsel silindi');
+      toast.success('Gorsel silindi');
       setSelectedImage(null);
     },
     onError: () => {
-      toast.error('Görsel silinirken hata oluştu');
+      toast.error('Gorsel silinirken hata olustu');
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ imageId, name }: { imageId: string; name: string }) => {
+      const { error } = await supabase
+        .from('images')
+        .update({ name: name.trim() || null })
+        .eq('id', imageId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['images', user?.id] });
+      toast.success('Gorsel adi guncellendi');
+    },
+    onError: () => {
+      toast.error('Gorsel adi guncellenirken hata olustu');
     },
   });
 
@@ -167,6 +204,24 @@ export default function Gallery() {
     });
   };
 
+  const handleSaveName = () => {
+    if (!selectedImage) return;
+    const trimmed = nameValue.trim();
+    const currentName = selectedImage.name || '';
+    if (trimmed !== currentName) {
+      renameMutation.mutate({ imageId: selectedImage.id, name: trimmed });
+      // Optimistically update selectedImage
+      setSelectedImage({ ...selectedImage, name: trimmed || null });
+    }
+    setEditingName(false);
+  };
+
+  const handleStartEditing = () => {
+    if (!selectedImage) return;
+    setNameValue(selectedImage.name || '');
+    setEditingName(true);
+  };
+
   // Only show completed images
   const completedImages = images?.filter(i => i.status === 'completed') || [];
 
@@ -176,16 +231,16 @@ export default function Gallery() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold mb-1">Görsellerim</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold mb-1">Gorsellerim</h1>
             <p className="text-muted-foreground text-sm">
-              Tüm oluşturduğunuz görselleri buradan yönetin
+              Tum olusturdugunuz gorselleri buradan yonetin
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Link to="/olustur">
               <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
-                Yeni Oluştur
+                Yeni Olustur
               </Button>
             </Link>
           </div>
@@ -200,12 +255,12 @@ export default function Gallery() {
         ) : !images || images.length === 0 ? (
           <div className="text-center py-20 bg-muted/30 rounded-2xl">
             <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Henüz görsel yok</h3>
-            <p className="text-muted-foreground mb-6">İlk mücevher görselinizi oluşturun</p>
+            <h3 className="text-xl font-semibold mb-2">Henuz gorsel yok</h3>
+            <p className="text-muted-foreground mb-6">Ilk mucevher gorselinizi olusturun</p>
             <Link to="/olustur">
               <Button size="lg">
                 <Plus className="mr-2 h-5 w-5" />
-                İlk Görselimi Oluştur
+                Ilk Gorselimi Olustur
               </Button>
             </Link>
           </div>
@@ -217,7 +272,7 @@ export default function Gallery() {
                 <h2 className="text-lg font-medium mb-4">Tamamlanan ({completedImages.length})</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {completedImages.map((image, index) => (
-                    <div 
+                    <div
                       key={image.id}
                       className={`group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer transition-all ${
                         selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''
@@ -230,6 +285,7 @@ export default function Gallery() {
                         setLightboxKey(prev => prev + 1);
                         setShowComparison(false);
                         setSelectedImageIndex(index);
+                        setEditingName(false);
                       }}
                     >
                       {getImageUrls(image)?.[0] ? (
@@ -247,12 +303,12 @@ export default function Gallery() {
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                         <Button size="sm" variant="secondary">
                           <Eye className="mr-2 h-4 w-4" />
-                          Görüntüle
+                          Goruntule
                         </Button>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent">
-                        <p className="text-sm text-background font-medium">
-                          {image.scenes?.name_tr || (image.generated_image_urls?.length === 3 ? 'Master Paket' : 'Özel Görsel')}
+                        <p className="text-sm text-background font-medium truncate">
+                          {image.name || image.scenes?.name_tr || (image.generated_image_urls?.length === 3 ? 'Master Paket' : 'Ozel Gorsel')}
                         </p>
                         {image.generated_image_urls?.length > 1 && (
                           <p className="text-xs text-background/70">{image.generated_image_urls.length} varyasyon</p>
@@ -261,211 +317,271 @@ export default function Gallery() {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Keyboard hint */}
                 <p className="text-xs text-muted-foreground text-center mt-4">
-                  💡 Görseller arasında gezinmek için ← → ok tuşlarını kullanın
+                  Gorseller arasinda gezinmek icin ok tuslarini kullanin
                 </p>
               </div>
             )}
           </>
         )}
 
-        {/* Detail Modal with Before/After */}
-        <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="pr-10">
-              <DialogTitle className="text-base">
-                {selectedImage?.scenes?.name_tr || 'Görsel Detayı'}
-              </DialogTitle>
-              <DialogDescription>
-                Görsellerinizi büyütebilir, karşılaştırabilir ve indirebilirsiniz. Ok tuşları ile gezinin.
-              </DialogDescription>
-            </DialogHeader>
-            
-            {/* Before/After toggle button - separate from header */}
-            {selectedImage && getOriginalUrl(selectedImage) && (
-              <div className="flex justify-end -mt-2 mb-2">
-                <Button
-                  size="sm"
-                  variant={showComparison ? 'default' : 'outline'}
-                  onClick={() => setShowComparison(!showComparison)}
-                  className="text-xs"
-                >
-                  <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
-                  {showComparison ? 'Karşılaştırmayı Kapat' : 'Önce/Sonra'}
-                </Button>
-              </div>
-            )}
-            
+        {/* Detail Modal - Horizontal Split Panel */}
+        <Dialog open={!!selectedImage} onOpenChange={(open) => {
+          if (!open) {
+            setSelectedImage(null);
+            setEditingName(false);
+          }
+        }}>
+          <DialogContent className="max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden">
             {selectedImage && (
-              <div className="space-y-4">
-                {/* Comparison Mode or Normal View */}
-                {showComparison && getOriginalUrl(selectedImage) ? (
-                  <BeforeAfterComparison
-                    beforeImage={getOriginalUrl(selectedImage)}
-                    afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
-                    beforeLabel="Orijinal"
-                    afterLabel="Sonuç"
-                    className="aspect-[4/5] max-h-[55vh]"
-                  />
-                ) : (
-                  <div 
-                    className="aspect-[4/5] max-h-[55vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative mx-auto"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxOpen(true);
-                      setLightboxScale(1);
-                    }}
-                  >
-                    {getImageUrls(selectedImage)?.[selectedVariation] ? (
-                      <ProgressiveImage
-                        src={getImageUrls(selectedImage)[selectedVariation]}
-                        alt="Generated jewelry"
-                        className="w-full h-full object-contain"
-                        containerClassName="w-full h-full"
+              <>
+                {/* Header with editable name */}
+                <DialogHeader className="px-6 pt-5 pb-3 pr-12">
+                  <DialogTitle className="text-base flex items-center gap-2">
+                    {editingName ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          ref={nameInputRef}
+                          value={nameValue}
+                          onChange={(e) => setNameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveName();
+                            if (e.key === 'Escape') setEditingName(false);
+                          }}
+                          onBlur={handleSaveName}
+                          className="h-7 text-base font-semibold"
+                          placeholder="Gorsel adi girin..."
+                        />
+                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleSaveName}>
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleStartEditing}
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors text-left"
+                      >
+                        <span>{getDisplayName(selectedImage)}</span>
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Gorsel detayi ve aksiyonlar
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Split panel: image left, actions right */}
+                <div className="grid grid-cols-1 md:grid-cols-[1fr,280px] min-h-0">
+                  {/* Left: Image */}
+                  <div className="relative min-h-0 p-4 pt-0 flex flex-col">
+                    {showComparison && getOriginalUrl(selectedImage) ? (
+                      <BeforeAfterComparison
+                        beforeImage={getOriginalUrl(selectedImage)}
+                        afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
+                        beforeLabel="Orijinal"
+                        afterLabel="Sonuc"
+                        className="aspect-[4/5] max-h-[70vh] rounded-lg"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
-                    </div>
-                    
-                    {/* Navigation arrows on image */}
-                    {getImageUrls(selectedImage).length > 1 && (
-                      <>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const urls = getImageUrls(selectedImage);
-                            setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
-                          }}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const urls = getImageUrls(selectedImage);
-                            setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
-                          }}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-                
-                {/* Thumbnails with Original */}
-                {(getImageUrls(selectedImage)?.length > 1 || getOriginalUrl(selectedImage)) && (
-                  <div className="flex justify-center gap-2 flex-wrap">
-                    {/* Original thumbnail */}
-                    {getOriginalUrl(selectedImage) && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowComparison(true)}
-                          className={`w-16 h-20 rounded-md overflow-hidden transition-all border-2 ${
-                            showComparison ? 'border-primary scale-105' : 'border-muted opacity-60 hover:opacity-100'
-                          }`}
-                        >
-                          <img 
-                            src={getOriginalUrl(selectedImage)} 
-                            alt="Orijinal" 
-                            className="w-full h-full object-cover" 
+                      <div
+                        className="aspect-[4/5] max-h-[70vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxOpen(true);
+                          setLightboxScale(1);
+                        }}
+                      >
+                        {getImageUrls(selectedImage)?.[selectedVariation] ? (
+                          <ProgressiveImage
+                            src={getImageUrls(selectedImage)[selectedVariation]}
+                            alt="Generated jewelry"
+                            className="w-full h-full object-contain"
+                            containerClassName="w-full h-full"
                           />
-                        </button>
-                        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground">
-                          Orijinal
-                        </span>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
+                        </div>
+
+                        {/* Navigation arrows on image */}
+                        {getImageUrls(selectedImage).length > 1 && (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const urls = getImageUrls(selectedImage);
+                                setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
+                              }}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const urls = getImageUrls(selectedImage);
+                                setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
+                              }}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
-                    
-                    {/* Generated thumbnails */}
-                    {getImageUrls(selectedImage).map((url, index) => (
-                      <div key={index} className="relative">
-                        <button
-                          onClick={() => {
-                            setSelectedVariation(index);
-                            setShowComparison(false);
-                          }}
-                          className={`w-16 h-20 rounded-md overflow-hidden transition-all ${
-                            selectedVariation === index && !showComparison 
-                              ? 'ring-2 ring-primary scale-105' 
-                              : 'opacity-60 hover:opacity-100'
-                          }`}
-                        >
-                          <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
-                        </button>
-                      </div>
-                    ))}
                   </div>
-                )}
 
-                {/* Actions */}
-                <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                  <Button 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const urls = getImageUrls(selectedImage);
-                      if (urls[selectedVariation]) {
-                        handleDownload(urls[selectedVariation], selectedVariation);
-                      }
-                    }}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    İndir
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxOpen(true);
-                      setLightboxScale(1);
-                    }}
-                  >
-                    <ZoomIn className="mr-1.5 h-4 w-4" />
-                    Büyüt
-                  </Button>
-                  <VideoGenerateButton 
-                    imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
-                    variant="outline"
-                    size="sm"
-                  />
-                  
-                  <Button 
-                    size="sm"
-                    variant="destructive" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMutation.mutate(selectedImage.id);
-                    }}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="mr-1.5 h-4 w-4" />
-                    Sil
-                  </Button>
+                  {/* Right: Sidebar with metadata + actions */}
+                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                    {/* Metadata */}
+                    <div className="space-y-1.5">
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">Sahne:</span>{' '}
+                        {selectedImage.scenes?.name_tr || 'Ozel'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">Tarih:</span>{' '}
+                        {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+
+                    {/* Thumbnails */}
+                    {(getImageUrls(selectedImage)?.length > 1 || getOriginalUrl(selectedImage)) && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Varyasyonlar</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {/* Original thumbnail */}
+                          {getOriginalUrl(selectedImage) && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowComparison(true)}
+                                className={`w-14 h-[70px] rounded-md overflow-hidden transition-all border-2 ${
+                                  showComparison ? 'border-primary scale-105' : 'border-muted opacity-60 hover:opacity-100'
+                                }`}
+                              >
+                                <img
+                                  src={getOriginalUrl(selectedImage)}
+                                  alt="Orijinal"
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                              <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
+                                Orijinal
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Generated thumbnails */}
+                          {getImageUrls(selectedImage).map((url, index) => (
+                            <div key={index} className="relative">
+                              <button
+                                onClick={() => {
+                                  setSelectedVariation(index);
+                                  setShowComparison(false);
+                                }}
+                                className={`w-14 h-[70px] rounded-md overflow-hidden transition-all ${
+                                  selectedVariation === index && !showComparison
+                                    ? 'ring-2 ring-primary scale-105'
+                                    : 'opacity-60 hover:opacity-100'
+                                }`}
+                              >
+                                <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Actions - vertical stack */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Aksiyonlar</p>
+                      <Button
+                        className="w-full justify-start"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const urls = getImageUrls(selectedImage);
+                          if (urls[selectedVariation]) {
+                            handleDownload(urls[selectedVariation], selectedVariation);
+                          }
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Indir (4K)
+                      </Button>
+                      <Button
+                        className="w-full justify-start"
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxOpen(true);
+                          setLightboxScale(1);
+                        }}
+                      >
+                        <ZoomIn className="mr-2 h-4 w-4" />
+                        Buyut
+                      </Button>
+                      <VideoGenerateButton
+                        imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      />
+                      {getOriginalUrl(selectedImage) && (
+                        <Button
+                          className="w-full justify-start"
+                          size="sm"
+                          variant={showComparison ? 'default' : 'outline'}
+                          onClick={() => setShowComparison(!showComparison)}
+                        >
+                          <ArrowLeftRight className="mr-2 h-4 w-4" />
+                          {showComparison ? 'Karsilastirmayi Kapat' : 'Once/Sonra'}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Spacer to push delete to bottom */}
+                    <div className="flex-1" />
+
+                    <Separator />
+
+                    {/* Delete - separated at bottom */}
+                    <Button
+                      className="w-full justify-start"
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(selectedImage.id);
+                      }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Gorseli Sil
+                    </Button>
+                  </div>
                 </div>
-
-                <p className="text-xs text-muted-foreground text-center">
-                  {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })} • ← → tuşları ile gezinin
-                </p>
-              </div>
+              </>
             )}
           </DialogContent>
         </Dialog>
@@ -520,7 +636,7 @@ export default function Gallery() {
                 <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
                   <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
                 </div>
-                
+
                 {/* Controls - right */}
                 <div className="flex items-center gap-2">
                   <Button

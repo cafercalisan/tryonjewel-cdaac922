@@ -22,6 +22,7 @@ export type Database = {
           error_message: string | null
           generated_image_urls: string[]
           id: string
+          name: string | null
           original_image_url: string
           scene_id: string | null
           status: string
@@ -34,6 +35,7 @@ export type Database = {
           error_message?: string | null
           generated_image_urls?: string[]
           id?: string
+          name?: string | null
           original_image_url: string
           scene_id?: string | null
           status?: string
@@ -46,6 +48,7 @@ export type Database = {
           error_message?: string | null
           generated_image_urls?: string[]
           id?: string
+          name?: string | null
           original_image_url?: string
           scene_id?: string | null
           status?: string
