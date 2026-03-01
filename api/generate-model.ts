@@ -16,7 +16,11 @@ const buildCharacterMasterData = (params: {
   skinTone: string; skinUndertone: string; faceShape: string;
   eyeColor: string; hairColor: string; hairStyle: string;
   hairTexture: string; expression: string; mood?: string; bodyType?: string;
-}) => `
+  makeupStyle?: string; eyeMakeup?: string; lipColor?: string; skinFinish?: string;
+  editorialReference?: string; jewelryAffinity?: string;
+  bodyProportions?: string; distinctiveFeatures?: Record<string, string>;
+}) => {
+  let base = `
 ═══════════════════════════════════════════════════════════════
 CHARACTER MASTER DATA - Sabit Karakter Özellikleri
 ═══════════════════════════════════════════════════════════════
@@ -54,6 +58,56 @@ CHARACTER MASTER DATA - Sabit Karakter Özellikleri
 │ hair_style:       ${params.hairStyle}
 └─────────────────────────────────────────────────────────────┘
 `;
+
+  if (params.makeupStyle || params.eyeMakeup || params.lipColor || params.skinFinish) {
+    base += `
+┌─────────────────────────────────────────────────────────────┐
+│ MAKEUP & APPEARANCE                                          │
+├─────────────────────────────────────────────────────────────┤
+│ makeup_style:     ${params.makeupStyle || 'natural'}
+│ eye_makeup:       ${params.eyeMakeup || 'natural'}
+│ lip_color:        ${params.lipColor || 'nude'}
+│ skin_finish:      ${params.skinFinish || 'satin'}
+└─────────────────────────────────────────────────────────────┘
+`;
+  }
+
+  if (params.editorialReference || params.jewelryAffinity) {
+    base += `
+┌─────────────────────────────────────────────────────────────┐
+│ EDITORIAL IDENTITY                                           │
+├─────────────────────────────────────────────────────────────┤
+│ editorial_ref:    ${params.editorialReference || 'quiet-luxury'}
+│ jewelry_affinity: ${params.jewelryAffinity || 'general'}
+└─────────────────────────────────────────────────────────────┘
+`;
+  }
+
+  if (params.bodyProportions) {
+    base += `
+┌─────────────────────────────────────────────────────────────┐
+│ BODY STRUCTURE                                               │
+├─────────────────────────────────────────────────────────────┤
+│ proportions:      ${params.bodyProportions}
+└─────────────────────────────────────────────────────────────┘
+`;
+  }
+
+  if (params.distinctiveFeatures && Object.keys(params.distinctiveFeatures).length > 0) {
+    const features = Object.entries(params.distinctiveFeatures)
+      .map(([k, v]) => `│ ${k}: ${v}`)
+      .join('\n');
+    base += `
+┌─────────────────────────────────────────────────────────────┐
+│ DISTINCTIVE FEATURES                                         │
+├─────────────────────────────────────────────────────────────┤
+${features}
+└─────────────────────────────────────────────────────────────┘
+`;
+  }
+
+  return base;
+};
 
 const SSS_PROFILES: Record<string, string> = {
   'fair': 'Ultra-deep subsurface scattering: Pink/red undertones, strong vein visibility, maximum light penetration.',
@@ -110,15 +164,56 @@ const POSE_LIBRARY: Record<string, { name: string; camera: string; lighting: str
   },
 };
 
+const EDITORIAL_STYLE_MAP: Record<string, { aesthetic: string; colorScience: string; lighting: string }> = {
+  'quiet-luxury': {
+    aesthetic: 'Vogue Italia, quiet luxury campaign',
+    colorScience: 'Muted tones, elegant desaturation, lifted blacks',
+    lighting: 'Soft directional light, subtle shadows',
+  },
+  'avant-garde': {
+    aesthetic: 'i-D Magazine, boundary-pushing editorial',
+    colorScience: 'Bold contrast, saturated accents, deep blacks',
+    lighting: 'Dramatic shadows, hard directional light',
+  },
+  'classic-elegance': {
+    aesthetic: 'Harper\'s Bazaar, timeless luxury',
+    colorScience: 'Warm golden tones, rich midtones',
+    lighting: 'Rembrandt lighting, warm color temperature',
+  },
+  'modern-power': {
+    aesthetic: 'Vogue US, power editorial',
+    colorScience: 'High contrast, clean whites, strong blacks',
+    lighting: 'Strong key light, minimal fill, defined shadows',
+  },
+  'mediterranean-warm': {
+    aesthetic: 'Mediterranean lifestyle campaign, sun-kissed',
+    colorScience: 'Warm amber, honey tones, soft highlights',
+    lighting: 'Golden hour, warm diffused natural light',
+  },
+  'minimalist-edge': {
+    aesthetic: 'Scandinavian minimal, clean editorial',
+    colorScience: 'Cool neutral, near-monochrome, soft gradients',
+    lighting: 'Even, flat light, subtle directional accent',
+  },
+};
+
 function buildAdvancedPrompt(params: {
   name: string; skinTone: string; skinUndertone: string; ethnicity: string;
   hairColor: string; hairTexture: string; gender: string; ageRange: string;
   faceShape?: string; eyeColor?: string; expression?: string; hairStyle?: string;
   mood?: string; bodyType?: string; isPoseGeneration?: boolean;
   poseType?: string; poseDescription?: string;
+  makeupStyle?: string; eyeMakeup?: string; lipColor?: string; skinFinish?: string;
+  editorialReference?: string; jewelryAffinity?: string;
+  bodyProportions?: string; distinctiveFeatures?: Record<string, string>;
 }): string {
   const poseConfig = params.poseType && POSE_LIBRARY[params.poseType] ? POSE_LIBRARY[params.poseType] : POSE_LIBRARY.portrait;
   const sssProfile = SSS_PROFILES[params.skinTone] || SSS_PROFILES['medium'];
+  const editorial = EDITORIAL_STYLE_MAP[params.editorialReference || 'quiet-luxury'] || EDITORIAL_STYLE_MAP['quiet-luxury'];
+
+  const makeupDirective = params.makeupStyle && params.makeupStyle !== 'no-makeup'
+    ? `Makeup applied: ${params.makeupStyle} style. Eye: ${params.eyeMakeup || 'natural'}. Lip: ${params.lipColor || 'nude'}. Finish: ${params.skinFinish || 'satin'}.`
+    : 'No makeup or minimal natural';
 
   return `
 ═══════════════════════════════════════════════════════════════
@@ -128,7 +223,7 @@ MODEL AGENCY TEST SHOT / DIGITALS
 SKIN - REAL BUT HEALTHY:
 - Natural texture, visible pores on nose/cheeks
 - Normal healthy skin - not perfect, not diseased
-- No makeup or minimal natural
+- ${makeupDirective}
 
 ${buildCharacterMasterData({
   name: params.name, gender: params.gender, ethnicity: params.ethnicity,
@@ -137,6 +232,10 @@ ${buildCharacterMasterData({
   eyeColor: params.eyeColor || 'natural', hairColor: params.hairColor,
   hairStyle: params.hairStyle || 'natural', hairTexture: params.hairTexture,
   expression: params.expression || 'serene', mood: params.mood, bodyType: params.bodyType,
+  makeupStyle: params.makeupStyle, eyeMakeup: params.eyeMakeup,
+  lipColor: params.lipColor, skinFinish: params.skinFinish,
+  editorialReference: params.editorialReference, jewelryAffinity: params.jewelryAffinity,
+  bodyProportions: params.bodyProportions, distinctiveFeatures: params.distinctiveFeatures,
 })}
 
 ═══════════════════════════════════════════════════════════════
@@ -155,13 +254,13 @@ ${sssProfile}
 POSE: ${poseConfig.name}
 ═══════════════════════════════════════════════════════════════
 CAMERA: ${poseConfig.camera}
-LIGHTING: ${poseConfig.lighting}
+LIGHTING: ${poseConfig.lighting}. ${editorial.lighting}
 COMPOSITION: ${poseConfig.composition}
 DIRECTION: ${poseConfig.direction}
 ${params.poseDescription ? `\nADDITIONAL: ${params.poseDescription}` : ''}
 
-EDITORIAL AESTHETIC: Vogue Italia, quiet luxury campaign.
-COLOR SCIENCE: Cool-neutral, elegant desaturation, lifted blacks.
+EDITORIAL AESTHETIC: ${editorial.aesthetic}.
+COLOR SCIENCE: ${editorial.colorScience}.
 
 STRICT AVOIDANCE:
 ✗ Smoothed/plastic skin ✗ 3D render look ✗ Extra/missing fingers
@@ -192,6 +291,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name, skinTone, skinUndertone, ethnicity, hairColor, hairTexture,
       gender, ageRange, faceShape, eyeColor, expression, hairStyle,
       mood, bodyType, modelData, poseType, poseDescription,
+      makeupStyle, eyeMakeup, lipColor, skinFinish,
+      editorialReference, jewelryAffinity, bodyProportions, distinctiveFeatures,
     } = req.body;
 
     const isPoseGeneration = !!modelData && !!poseType;
@@ -223,6 +324,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isPoseGeneration,
       poseType,
       poseDescription: poseDescription || undefined,
+      makeupStyle: isPoseGeneration ? modelData.makeup_style : makeupStyle,
+      eyeMakeup: isPoseGeneration ? modelData.eye_makeup : eyeMakeup,
+      lipColor: isPoseGeneration ? modelData.lip_color : lipColor,
+      skinFinish: isPoseGeneration ? modelData.skin_finish : skinFinish,
+      editorialReference: isPoseGeneration ? modelData.editorial_reference : editorialReference,
+      jewelryAffinity: isPoseGeneration ? modelData.jewelry_affinity : jewelryAffinity,
+      bodyProportions: isPoseGeneration ? modelData.body_proportions : bodyProportions,
+      distinctiveFeatures: isPoseGeneration ? modelData.distinctive_features : distinctiveFeatures,
     });
 
     const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
@@ -230,7 +339,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('GOOGLE_API_KEY not configured');
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -296,6 +405,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         gender, age_range: ageRange, face_shape: faceShape,
         eye_color: eyeColor, expression, hair_style: hairStyle,
         preview_image_url: imageUrl,
+        makeup_style: makeupStyle || null,
+        eye_makeup: eyeMakeup || null,
+        lip_color: lipColor || null,
+        skin_finish: skinFinish || null,
+        editorial_reference: editorialReference || null,
+        jewelry_affinity: jewelryAffinity || null,
+        body_proportions: bodyProportions || null,
+        distinctive_features: distinctiveFeatures || {},
       })
       .select()
       .single();

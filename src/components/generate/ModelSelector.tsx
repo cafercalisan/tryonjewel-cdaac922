@@ -28,8 +28,21 @@ interface UserModel {
   hair_texture: string;
   gender: string;
   age_range: string;
+  face_shape: string;
+  eye_color: string;
+  expression: string;
+  hair_style: string;
   preview_image_url: string | null;
   created_at: string;
+  // Character DNA expansion
+  makeup_style?: string;
+  eye_makeup?: string;
+  lip_color?: string;
+  skin_finish?: string;
+  editorial_reference?: string;
+  jewelry_affinity?: string;
+  body_proportions?: string;
+  distinctive_features?: Record<string, string>;
 }
 
 interface ModelSelectorProps {

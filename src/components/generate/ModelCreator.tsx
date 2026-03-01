@@ -102,6 +102,63 @@ const expressions = [
   { id: 'elegant-distant', name: 'Zarif & Uzak', description: 'High-fashion' },
 ];
 
+// ====== MAKYAJ & GÖRÜNÜM ======
+const makeupStyles = [
+  { id: 'no-makeup', name: 'Makyajsız', description: 'Doğal, makyajsız görünüm' },
+  { id: 'editorial', name: 'Editöryal', description: 'Profesyonel dergi makyajı' },
+  { id: 'smoky-dramatic', name: 'Smoky & Dramatik', description: 'Yoğun, dikkat çekici' },
+  { id: 'nude-glow', name: 'Nude Glow', description: 'Doğal ışıltı' },
+  { id: 'bold-lip', name: 'Bold Lip', description: 'Belirgin dudak vurgusu' },
+];
+
+const eyeMakeups = [
+  { id: 'natural', name: 'Doğal' },
+  { id: 'eyeliner', name: 'Eyeliner' },
+  { id: 'dramatic', name: 'Dramatik' },
+  { id: 'cut-crease', name: 'Cut Crease' },
+];
+
+const lipColors = [
+  { id: 'nude', name: 'Nude' },
+  { id: 'berry', name: 'Berry' },
+  { id: 'red', name: 'Kırmızı' },
+  { id: 'coral', name: 'Coral' },
+  { id: 'gloss', name: 'Gloss' },
+];
+
+const skinFinishes = [
+  { id: 'matte', name: 'Mat' },
+  { id: 'dewy', name: 'Dewy' },
+  { id: 'satin', name: 'Saten' },
+  { id: 'bronzed', name: 'Bronz' },
+];
+
+// ====== EDİTÖRYAL KİMLİK ======
+const editorialReferences = [
+  { id: 'quiet-luxury', name: 'Quiet Luxury', description: 'Sessiz lüks, minimal zarafet' },
+  { id: 'avant-garde', name: 'Avant-Garde', description: 'Cesur, sınır tanımayan' },
+  { id: 'classic-elegance', name: 'Classic Elegance', description: 'Zamansız, klasik güzellik' },
+  { id: 'modern-power', name: 'Modern Power', description: 'Güçlü, çağdaş kadın' },
+  { id: 'mediterranean-warm', name: 'Mediterranean Warm', description: 'Sıcak, Akdeniz esintisi' },
+  { id: 'minimalist-edge', name: 'Minimalist Edge', description: 'İskandinav minimal, keskin' },
+];
+
+const jewelryAffinities = [
+  { id: 'ring', name: 'Yüzük' },
+  { id: 'necklace', name: 'Kolye' },
+  { id: 'earring', name: 'Küpe' },
+  { id: 'bracelet', name: 'Bilezik' },
+  { id: 'general', name: 'Genel' },
+];
+
+// ====== VÜCUT ORANLARI ======
+const bodyProportionOptions = [
+  { id: 'model-standard', name: 'Manken Standart', description: 'Uzun, ince, orantılı' },
+  { id: 'tall-slim', name: 'Uzun & İnce', description: 'Yüksek boy, zarif' },
+  { id: 'medium', name: 'Orta Boy', description: 'Dengeli, ortalama boy' },
+  { id: 'petite', name: 'Petite', description: 'Kısa boy, zarif' },
+];
+
 // ====== SAÇ BÖLÜMÜ ======
 const hairColors = [
   { id: 'black', name: 'Siyah' },
@@ -154,14 +211,31 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
   // Saç
   const [hairColor, setHairColor] = useState('');
   const [hairStyle, setHairStyle] = useState('');
-  
+
+  // Makyaj & Görünüm
+  const [makeupStyle, setMakeupStyle] = useState('');
+  const [eyeMakeup, setEyeMakeup] = useState('');
+  const [lipColor, setLipColor] = useState('');
+  const [skinFinish, setSkinFinish] = useState('');
+
+  // Editöryal Kimlik
+  const [editorialReference, setEditorialReference] = useState('');
+  const [jewelryAffinity, setJewelryAffinity] = useState('');
+
+  // Vücut & Ayırt Edici
+  const [bodyProportions, setBodyProportions] = useState('');
+  const [distinctiveFeatures, setDistinctiveFeatures] = useState<Record<string, string>>({});
+
   // Section collapse states
   const [identityOpen, setIdentityOpen] = useState(true);
   const [styleOpen, setStyleOpen] = useState(true);
   const [faceOpen, setFaceOpen] = useState(true);
   const [hairOpen, setHairOpen] = useState(true);
+  const [makeupOpen, setMakeupOpen] = useState(true);
+  const [editorialOpen, setEditorialOpen] = useState(true);
+  const [distinctiveOpen, setDistinctiveOpen] = useState(false);
 
-  const canGenerate = name && gender && ethnicity && ageRange && skinTone && faceShape && eyeColor && expression && hairColor && hairStyle && mood && bodyType;
+  const canGenerate = name && gender && ethnicity && ageRange && skinTone && faceShape && eyeColor && expression && hairColor && hairStyle && mood && bodyType && makeupStyle && editorialReference && jewelryAffinity;
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -216,9 +290,16 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
           hairColor,
           hairStyle,
           hairTexture: 'natural',
-          // New fields
           mood,
           bodyType,
+          makeupStyle,
+          eyeMakeup: eyeMakeup || undefined,
+          lipColor: lipColor || undefined,
+          skinFinish: skinFinish || undefined,
+          editorialReference,
+          jewelryAffinity,
+          bodyProportions: bodyProportions || undefined,
+          distinctiveFeatures: Object.keys(distinctiveFeatures).length > 0 ? distinctiveFeatures : undefined,
           modelConfig: JSON.stringify(modelConfig),
         },
       });
@@ -243,6 +324,14 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
       setExpression('');
       setHairColor('');
       setHairStyle('');
+      setMakeupStyle('');
+      setEyeMakeup('');
+      setLipColor('');
+      setSkinFinish('');
+      setEditorialReference('');
+      setJewelryAffinity('');
+      setBodyProportions('');
+      setDistinctiveFeatures({});
     } catch (error) {
       console.error('Model generation error:', error);
       toast.error('Model oluşturulurken bir hata oluştu.');
@@ -574,6 +663,214 @@ export function ModelCreator({ open, onOpenChange, onModelCreated }: ModelCreato
                             <div className="text-xs text-muted-foreground">{h.description}</div>
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ====== MAKYAJ & GÖRÜNÜM ====== */}
+              <Collapsible open={makeupOpen} onOpenChange={setMakeupOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader
+                      title="MAKYAJ & GÖRÜNÜM"
+                      isOpen={makeupOpen}
+                      onToggle={() => setMakeupOpen(!makeupOpen)}
+                      tooltip="Makyaj stili, göz makyajı, dudak rengi ve cilt finişi"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Makyaj Stili *</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {makeupStyles.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => setMakeupStyle(m.id)}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              makeupStyle === m.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-xs">{m.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{m.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {makeupStyle && makeupStyle !== 'no-makeup' && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Göz Makyajı</Label>
+                          <Select value={eyeMakeup} onValueChange={setEyeMakeup}>
+                            <SelectTrigger className="bg-background/50">
+                              <SelectValue placeholder="Seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {eyeMakeups.map((e) => (
+                                <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Dudak Rengi</Label>
+                          <Select value={lipColor} onValueChange={setLipColor}>
+                            <SelectTrigger className="bg-background/50">
+                              <SelectValue placeholder="Seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {lipColors.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Cilt Finişi</Label>
+                          <Select value={skinFinish} onValueChange={setSkinFinish}>
+                            <SelectTrigger className="bg-background/50">
+                              <SelectValue placeholder="Seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {skinFinishes.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ====== EDİTÖRYAL KİMLİK ====== */}
+              <Collapsible open={editorialOpen} onOpenChange={setEditorialOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader
+                      title="EDİTÖRYAL KİMLİK"
+                      isOpen={editorialOpen}
+                      onToggle={() => setEditorialOpen(!editorialOpen)}
+                      tooltip="Editöryal referans stili ve mücevher tercihi"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Editöryal Referans *</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {editorialReferences.map((e) => (
+                          <button
+                            key={e.id}
+                            onClick={() => setEditorialReference(e.id)}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              editorialReference === e.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-xs">{e.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{e.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Mücevher Tercihi *</Label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {jewelryAffinities.map((j) => (
+                          <button
+                            key={j.id}
+                            onClick={() => setJewelryAffinity(j.id)}
+                            className={`p-2 rounded-lg border text-xs text-center transition-all ${
+                              jewelryAffinity === j.id
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {j.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ====== AYIRT EDİCİ ÖZELLİKLER (Opsiyonel) ====== */}
+              <Collapsible open={distinctiveOpen} onOpenChange={setDistinctiveOpen}>
+                <CollapsibleTrigger asChild>
+                  <div>
+                    <SectionHeader
+                      title="AYIRT EDİCİ ÖZELLİKLER"
+                      isOpen={distinctiveOpen}
+                      onToggle={() => setDistinctiveOpen(!distinctiveOpen)}
+                      tooltip="Opsiyonel: Vücut oranları ve ayırt edici fiziksel özellikler"
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Vücut Oranları</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {bodyProportionOptions.map((b) => (
+                          <button
+                            key={b.id}
+                            onClick={() => setBodyProportions(b.id)}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              bodyProportions === b.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-xs">{b.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{b.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Çil</Label>
+                        <Select
+                          value={distinctiveFeatures.freckles || ''}
+                          onValueChange={(v) => setDistinctiveFeatures(prev => ({ ...prev, freckles: v }))}
+                        >
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Yok" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Yok</SelectItem>
+                            <SelectItem value="light">Hafif</SelectItem>
+                            <SelectItem value="moderate">Orta</SelectItem>
+                            <SelectItem value="prominent">Belirgin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Kaş Şekli</Label>
+                        <Select
+                          value={distinctiveFeatures.browShape || ''}
+                          onValueChange={(v) => setDistinctiveFeatures(prev => ({ ...prev, browShape: v }))}
+                        >
+                          <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Doğal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="natural">Doğal</SelectItem>
+                            <SelectItem value="arched">Kavisli</SelectItem>
+                            <SelectItem value="straight">Düz</SelectItem>
+                            <SelectItem value="thick">Kalın</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
