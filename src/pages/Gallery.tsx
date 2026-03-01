@@ -334,11 +334,11 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="!block max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogContent className="max-w-5xl p-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
             {selectedImage && (
               <>
                 {/* Header with editable name */}
-                <DialogHeader className="px-6 pt-5 pb-3 pr-12">
+                <DialogHeader className="px-6 pt-5 pb-3 pr-12 shrink-0">
                   <DialogTitle className="text-base flex items-center gap-2">
                     {editingName ? (
                       <div className="flex items-center gap-2 flex-1">
@@ -374,20 +374,21 @@ export default function Gallery() {
                 </DialogHeader>
 
                 {/* Split panel: image left, actions right */}
-                <div className="grid grid-cols-1 md:grid-cols-[1fr,280px] min-h-0">
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
                   {/* Left: Image */}
-                  <div className="relative min-h-0 p-4 pt-0 flex flex-col">
+                  <div className="relative flex-1 min-h-0 min-w-0 p-4 pt-0 flex flex-col items-center justify-center">
                     {showComparison && getOriginalUrl(selectedImage) ? (
                       <BeforeAfterComparison
                         beforeImage={getOriginalUrl(selectedImage)}
                         afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
                         beforeLabel="Orijinal"
                         afterLabel="Sonuc"
-                        className="aspect-[4/5] max-h-[70vh] rounded-lg"
+                        className="w-full max-h-full rounded-lg"
                       />
                     ) : (
                       <div
-                        className="aspect-[4/5] max-h-[70vh] rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
+                        className="w-full max-h-full rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
+                        style={{ aspectRatio: '4/5' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setLightboxOpen(true);
@@ -444,7 +445,7 @@ export default function Gallery() {
                   </div>
 
                   {/* Right: Sidebar with metadata + actions */}
-                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto md:w-[280px] shrink-0">
                     {/* Metadata */}
                     <div className="space-y-1.5">
                       <p className="text-sm text-muted-foreground">
