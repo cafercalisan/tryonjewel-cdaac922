@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
+import { ProgressiveImage } from '@/components/ui/progressive-image';
 import { getPublicImageUrl } from '@/lib/getSignedImageUrl';
 import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
 
@@ -232,11 +233,11 @@ export default function Gallery() {
                       }}
                     >
                       {getImageUrls(image)?.[0] ? (
-                        <img
+                        <ProgressiveImage
                           src={getImageUrls(image)[0]}
                           alt="Generated jewelry"
                           className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                          containerClassName="w-full h-full"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -318,11 +319,11 @@ export default function Gallery() {
                     }}
                   >
                     {getImageUrls(selectedImage)?.[selectedVariation] ? (
-                      <img
+                      <ProgressiveImage
                         src={getImageUrls(selectedImage)[selectedVariation]}
                         alt="Generated jewelry"
                         className="w-full h-full object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                        containerClassName="w-full h-full"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
