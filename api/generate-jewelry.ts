@@ -87,6 +87,17 @@ const EDITORIAL_SCENE_POOL: EditorialScene[] = [
     prompt: 'Displayed on polished black glass surface creating mirror-like reflections of the jewelry. Dramatic rim lighting. Ultra-modern, sleek, high-tech luxury presentation.' },
 ];
 
+// ═══════════════════════════════════════════════════
+// COLOR GRADE MODIFIERS (category-based film look)
+// ═══════════════════════════════════════════════════
+const COLOR_GRADE_MODIFIERS: Record<string, string> = {
+  outdoor: 'COLOR GRADE: Warm natural tones, lifted shadows to deep brown, golden highlights with soft roll-off. Film grain 5%. REFERENCE: Peter Lindbergh outdoor editorial.',
+  campaign: 'COLOR GRADE: Precise, controlled commercial. Neutral WB with subtle warmth. Pure blacks, clean whites. Zero grain. REFERENCE: Cartier campaign precision.',
+  fashion: 'COLOR GRADE: Moody editorial desaturation. Cool shadows, warm highlights. Muted except jewelry (full saturation). REFERENCE: Vogue Italia, Steven Meisel.',
+  architectural: 'COLOR GRADE: Warm amber with cool shadow accents. Rich mid-tones. Subtle vignette. REFERENCE: Architectural Digest meets luxury campaign.',
+  surface: 'COLOR GRADE: Deep dramatic. Rich blacks with warm undertone. Jewelry brightest element. High contrast, smooth transitions. REFERENCE: Patek Philippe campaign.',
+};
+
 const LIGHTING_ANGLES = [
   'Golden hour warm directional light from upper-left (10 o\'clock), soft diffused fill',
   'Dramatic rim lighting from behind with subtle front fill, creating luminous edge glow',
@@ -145,7 +156,86 @@ interface CharacterPersona {
   signatureLook: string;
   fashionVibe: string;
   bestFor: string[];
+  // Editorial Presence
+  postureLanguage: string;
+  editorialEnergy: string;
+  signatureMannerism: string;
+  // Outfit/Style System
+  outfitArchetype: string;
+  outfitPalette: string;
+  accessoryStyle: string;
+  fabricPreference: string;
+  // Editorial Reference
+  editorialReference: string;
+  strengthAsModel: string;
 }
+
+// ═══════════════════════════════════════════════════
+// OUTFIT POOL (5 editorial archetypes)
+// ═══════════════════════════════════════════════════
+interface OutfitArchetype {
+  name: string;
+  description: string;
+  colorPalette: string;
+  fabrics: string;
+  neckline: string;
+  sleeveType: string;
+  accessoryNotes: string;
+  bestFor: string[];
+}
+
+const OUTFIT_POOL: OutfitArchetype[] = [
+  {
+    name: 'Power Tailoring',
+    description: 'Oversized blazer in neutral tone over silk camisole, tailored wide-leg trousers. Sharp shoulders, clean lines.',
+    colorPalette: 'Charcoal, navy, camel, ivory, black',
+    fabrics: 'Wool crepe blazer, silk charmeuse camisole, pressed wool trousers',
+    neckline: 'Deep V from blazer lapels revealing camisole — ideal for necklace visibility',
+    sleeveType: 'Long blazer sleeves, slightly pushed up at forearm — wrist partially exposed for bracelet/watch',
+    accessoryNotes: 'Structured leather clutch or no bag. No scarf. Minimal.',
+    bestFor: ['kolye', 'kupe', 'saat', 'bileklik'],
+  },
+  {
+    name: 'Mediterranean Luxe',
+    description: 'Flowing linen blouse with relaxed drape, wide-leg palazzo trousers or midi skirt. Effortless summer elegance.',
+    colorPalette: 'White, sand, terracotta, olive, soft gold',
+    fabrics: 'Washed linen, raw silk, light cotton voile',
+    neckline: 'Open collar or boat neck — décolletage visible for necklace display',
+    sleeveType: 'Rolled-up or three-quarter sleeves — full wrist exposure',
+    accessoryNotes: 'Woven straw bag, tortoiseshell sunglasses pushed up on head',
+    bestFor: ['kolye', 'bileklik', 'yuzuk', 'kupe'],
+  },
+  {
+    name: 'Evening Minimalist',
+    description: 'One-shoulder or strapless column dress in solid color. Floor-length, body-skimming silhouette. Architectural simplicity.',
+    colorPalette: 'Black, midnight navy, champagne, deep burgundy, emerald',
+    fabrics: 'Silk crepe, satin, structured jersey',
+    neckline: 'One-shoulder or strapless — maximum neck/ear/décolletage exposure',
+    sleeveType: 'Sleeveless or one-shoulder — arms fully exposed for bracelet/watch display',
+    accessoryNotes: 'No bag visible. No scarf. Dress is the canvas, jewelry is the art.',
+    bestFor: ['kupe', 'kolye', 'bileklik', 'yuzuk'],
+  },
+  {
+    name: 'Street Luxe Editorial',
+    description: 'Fitted leather jacket over black turtleneck, slim tailored trousers, ankle boots. Urban edge meets luxury.',
+    colorPalette: 'Black, charcoal, burgundy, dark chocolate',
+    fabrics: 'Soft leather, fine merino wool turtleneck, stretch wool trousers',
+    neckline: 'High turtleneck — frames face for earring focus, no necklace competition',
+    sleeveType: 'Jacket sleeves ending at wrist — watch/bracelet peek from cuff',
+    accessoryNotes: 'Structured leather ankle boots, no bag visible in frame',
+    bestFor: ['kupe', 'saat', 'yuzuk'],
+  },
+  {
+    name: 'White Canvas',
+    description: 'Crisp white button-down shirt (top 2 buttons open) tucked into classic indigo jeans. Timeless, clean backdrop for any jewelry.',
+    colorPalette: 'Pure white, classic indigo denim',
+    fabrics: 'Crisp cotton poplin shirt, premium denim',
+    neckline: 'Open collar V — versatile for necklaces, shows collarbone for earring context',
+    sleeveType: 'Sleeves rolled to mid-forearm — ideal wrist exposure',
+    accessoryNotes: 'Simple leather belt. No other accessories competing with jewelry.',
+    bestFor: ['kolye', 'kupe', 'yuzuk', 'bileklik', 'saat', 'genel'],
+  },
+];
 
 const CHARACTER_PERSONAS: CharacterPersona[] = [
   {
@@ -156,6 +246,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Slim-athletic', height: '175cm',
     signatureLook: 'Cartier & Bulgari campaign warmth', fashionVibe: 'Mediterranean luxury, warm golden tones',
     bestFor: ['yuzuk', 'kolye', 'kupe'],
+    postureLanguage: 'Spine elongated, shoulders pulled back and dropped — like a dancer. Weight shifted to one hip creating S-curve. Chin naturally elevated 5 degrees.',
+    editorialEnergy: 'Quiet Mediterranean confidence — she does not SEEK attention, she RECEIVES it. Every movement unhurried, deliberate, warm.',
+    signatureMannerism: 'One hand always finds a surface or body contact — collarbone, railing, hair. Never both hands idle.',
+    outfitArchetype: 'Structured blazer over silk camisole OR tailored linen separates.',
+    outfitPalette: 'Warm neutrals: camel, ivory, terracotta, olive. One accent in burgundy or forest green.',
+    accessoryStyle: 'Oversized tortoiseshell sunglasses, structured leather bag in cognac or black',
+    fabricPreference: 'Silk, linen, cashmere, fine leather — natural fibers catching light with organic texture',
+    editorialReference: 'Pamela Hanson for Vogue Travel, Mario Testino Gucci campaigns',
+    strengthAsModel: 'Skin catches golden hour light like bronze. Natural warmth makes jewelry feel personal, not staged.',
   },
   {
     name: 'Elif Kara', age: 24, heritage: 'Turkish-Anatolian',
@@ -165,6 +264,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Slim', height: '178cm',
     signatureLook: 'Chanel haute couture editorial', fashionVibe: 'Cool-toned elegance, high-fashion precision',
     bestFor: ['kupe', 'kolye', 'saat'],
+    postureLanguage: 'Military-precise posture softened by a slight forward lean. Shoulders blade-sharp. Weight centered, balletic stillness.',
+    editorialEnergy: 'Ice-cool haute couture detachment — the kind of beauty that makes people nervous. Zero wasted movement.',
+    signatureMannerism: 'Chin micro-tilt downward before looking up through lashes — creates dramatic reveal moments.',
+    outfitArchetype: 'Minimalist column dress OR sharp black turtleneck with tailored trousers.',
+    outfitPalette: 'Black, white, charcoal, midnight navy. No warm tones.',
+    accessoryStyle: 'Geometric structured clutch in black patent, no sunglasses — her eyes are the accessory',
+    fabricPreference: 'Heavy silk crepe, cashmere, structured wool, Japanese denim — architectural fabrics',
+    editorialReference: 'Karl Lagerfeld Chanel campaigns, Peter Lindbergh monochrome portraits',
+    strengthAsModel: 'Porcelain skin creates maximum contrast with jewelry metals. Green-hazel eyes add unexpected warmth to cool styling.',
   },
   {
     name: 'Zeynep Demir', age: 30, heritage: 'Turkish-Aegean',
@@ -174,6 +282,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Proportional', height: '173cm',
     signatureLook: 'Piaget & Van Cleef warmth', fashionVibe: 'Warm approachable luxury, natural radiance',
     bestFor: ['bileklik', 'yuzuk', 'genel'],
+    postureLanguage: 'Relaxed but present — like someone who just finished yoga and put on couture. Core engaged, limbs soft.',
+    editorialEnergy: 'Approachable luxury — the woman at the gala you actually want to talk to. Warm, grounded, real.',
+    signatureMannerism: 'Unconsciously rotates rings or touches bracelets — creates organic jewelry interaction on camera.',
+    outfitArchetype: 'Flowing Mediterranean linen separates OR cashmere wrap with wide trousers.',
+    outfitPalette: 'Sand, honey, soft gold, warm white, muted terracotta.',
+    accessoryStyle: 'Woven leather sandals, simple gold-frame sunglasses, canvas tote in natural tones',
+    fabricPreference: 'Washed linen, soft cashmere, raw silk — fabrics that move and breathe',
+    editorialReference: 'Cass Bird natural light portraits, Inez & Vinoodh for Van Cleef & Arpels',
+    strengthAsModel: 'High cheekbones create beautiful shadow play. Hands are particularly photogenic — ideal for ring/bracelet work.',
   },
   {
     name: 'Selin Ozturk', age: 26, heritage: 'Turkish-Balkan',
@@ -183,6 +300,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Athletic', height: '176cm',
     signatureLook: 'Tom Ford & Saint Laurent edge', fashionVibe: 'Sharp editorial power, modern edge',
     bestFor: ['saat', 'bileklik', 'yuzuk'],
+    postureLanguage: 'Shoulders squared, spine steel-straight. Occupies space unapologetically. Athletic tension visible in forearms.',
+    editorialEnergy: 'Corporate power meets fashion edge — she just closed a deal and walked onto set without breaking stride.',
+    signatureMannerism: 'Adjusts watch or cuff instinctively — executive gesture that creates natural product interaction.',
+    outfitArchetype: 'Sharp leather jacket over turtleneck OR power-cut blazer with slim trousers.',
+    outfitPalette: 'Black, charcoal, burgundy, dark olive. Maximum contrast.',
+    accessoryStyle: 'Structured leather portfolio, no-nonsense ankle boots, thin leather belt',
+    fabricPreference: 'Butter-soft leather, heavy silk, structured wool gabardine — power fabrics',
+    editorialReference: 'Tom Ford campaign precision, Hedi Slimane Saint Laurent edge',
+    strengthAsModel: 'Strong jawline and architectural updo create perfect frame for earrings. Athletic wrists ideal for watch/bracelet shots.',
   },
   {
     name: 'Naz Yilmaz', age: 32, heritage: 'Turkish-Persian',
@@ -192,6 +318,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Curvy-proportional', height: '170cm',
     signatureLook: 'Dolce & Gabbana Mediterranean glam', fashionVibe: 'Rich, sensual Mediterranean glamour',
     bestFor: ['kolye', 'kupe', 'genel'],
+    postureLanguage: 'Languid, feline grace. Head often tilted 10 degrees. Weight on back foot creating elongated silhouette despite shorter height.',
+    editorialEnergy: 'Sensual Mediterranean warmth — like a Fellini actress between takes. Magnetic, unhurried, deeply present.',
+    signatureMannerism: 'Runs fingers through voluminous hair — creates dramatic movement and reveals earrings naturally.',
+    outfitArchetype: 'Evening column dress with one shoulder OR flowing silk wrap dress.',
+    outfitPalette: 'Deep burgundy, emerald, black, champagne gold. Rich jewel tones.',
+    accessoryStyle: 'Vintage-style evening clutch, silk hair clip, delicate wrist scarf',
+    fabricPreference: 'Heavy silk satin, velvet, fine jersey — fabrics that drape around curves',
+    editorialReference: 'Dolce & Gabbana Alta Moda campaigns, Paolo Roversi soft focus portraits',
+    strengthAsModel: 'Voluminous hair creates dramatic frame for earring/necklace shots. Deep skin tone makes gold jewelry glow.',
   },
   {
     name: 'Ceren Aksoy', age: 25, heritage: 'Turkish-Circassian',
@@ -201,6 +336,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Slim', height: '177cm',
     signatureLook: 'Dior & Tiffany ethereal', fashionVibe: 'Ethereal, dreamlike, luminous beauty',
     bestFor: ['kupe', 'kolye', 'yuzuk'],
+    postureLanguage: 'Weightless, floating quality — as if gravity is optional. Shoulders naturally dropped, neck impossibly long.',
+    editorialEnergy: 'Dreamy ethereal presence — she exists slightly outside of time. Romantic without being soft, delicate without being fragile.',
+    signatureMannerism: 'Looks away then slowly turns toward camera — creates cinematic reveal moments for jewelry.',
+    outfitArchetype: 'Sheer layered blouse over camisole OR ethereal midi dress with delicate straps.',
+    outfitPalette: 'Ivory, blush, pale grey, soft lavender, champagne. Pastel luminosity.',
+    accessoryStyle: 'Silk ribbon in hair, vintage porcelain-handle clutch, pearl hair pins',
+    fabricPreference: 'Silk organza, chiffon, fine lace, soft tulle — transparent and light-catching fabrics',
+    editorialReference: 'Tim Walker fantasy editorials, Dior J\'adore campaign romanticism',
+    strengthAsModel: 'Luminous fair skin makes diamonds and white gold sparkle. Blue-grey eyes create otherworldly contrast with warm gold jewelry.',
   },
   {
     name: 'Asli Korkmaz', age: 29, heritage: 'Turkish-Kurdish',
@@ -210,6 +354,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Athletic-slim', height: '174cm',
     signatureLook: 'Versace & Boucheron power', fashionVibe: 'Powerful, commanding, bold luxury',
     bestFor: ['saat', 'bileklik', 'genel'],
+    postureLanguage: 'Commanding stillness. Chin level, gaze direct. Stands like a monument — completely motionless, completely present.',
+    editorialEnergy: 'Raw power channeled through stillness — like a panther at rest. Intensity without aggression.',
+    signatureMannerism: 'Crosses arms with one wrist forward — naturally showcases watch/bracelet with authority.',
+    outfitArchetype: 'All-black power ensemble — sharp blazer, silk shirt, tailored trousers.',
+    outfitPalette: 'Black, deep charcoal, midnight. Monochromatic power.',
+    accessoryStyle: 'Structured leather briefcase-style bag, minimal pointed-toe heels',
+    fabricPreference: 'Matte black wool, heavy silk charmeuse, structured leather — zero-sheen power fabrics',
+    editorialReference: 'Versace Medusa campaigns, Mert & Marcus high-contrast editorial',
+    strengthAsModel: 'Slicked-back hair fully exposes ears and neck — ideal for earring/necklace drama. Strong bone structure creates editorial shadow play.',
   },
   {
     name: 'Ipek Sahin', age: 28, heritage: 'Turkish-Levantine',
@@ -219,6 +372,15 @@ const CHARACTER_PERSONAS: CharacterPersona[] = [
     bodyType: 'Proportional', height: '171cm',
     signatureLook: 'Chopard & Bvlgari classic', fashionVibe: 'Timeless classic elegance, refined warmth',
     bestFor: ['yuzuk', 'kolye', 'bileklik', 'genel'],
+    postureLanguage: 'Classic elegance — spine straight but not stiff, shoulders relaxed, hands always graceful. Old-money posture.',
+    editorialEnergy: 'Timeless sophistication — she could be in a 1960s Audrey Hepburn scene or a 2026 Chopard campaign. Era-transcendent.',
+    signatureMannerism: 'Delicately touches pendant or necklace while thinking — creates intimate jewelry interaction.',
+    outfitArchetype: 'Classic white button-down with premium denim OR simple cashmere turtleneck with midi skirt.',
+    outfitPalette: 'Cream, navy, camel, soft grey, white. Classic neutrals.',
+    accessoryStyle: 'Vintage-style leather handbag, silk neck scarf (when no necklace), classic pumps',
+    fabricPreference: 'Fine cotton poplin, premium cashmere, brushed wool, classic leather — heritage fabrics',
+    editorialReference: 'Chopard Red Carpet campaigns, Irving Penn classic portraits',
+    strengthAsModel: 'Gentle features make jewelry the star. Neutral-warm skin flatters every metal color equally. Versatile across all jewelry types.',
   },
 ];
 
@@ -336,21 +498,69 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function pickOutfitForProduct(productType: string): OutfitArchetype {
+  const matching = OUTFIT_POOL.filter(o => o.bestFor.includes(productType));
+  if (matching.length > 0) return pickRandom(matching);
+  return pickRandom(OUTFIT_POOL);
+}
+
+function buildOutfitBlock(outfit: OutfitArchetype): string {
+  return `
+OUTFIT — ${outfit.name.toUpperCase()}:
+- ${outfit.description}
+- Color Palette: ${outfit.colorPalette}
+- Fabrics: ${outfit.fabrics}
+- Neckline: ${outfit.neckline}
+- Sleeves: ${outfit.sleeveType}
+- Accessories: ${outfit.accessoryNotes}`;
+}
+
+const EDITORIAL_ENERGY_DIRECTIVE = `
+═══════════════════════════════════════════════════════════════
+EDITORIAL ENERGY DIRECTIVE (MANDATORY FOR ALL MODEL SHOTS)
+═══════════════════════════════════════════════════════════════
+- Model is NOT posing for a photo. She is EXISTING in a moment that happens to be photographed.
+- Body tension: 30% — not rigid, not collapsed. Like someone who just sat down at a beautiful restaurant.
+- Every gesture has INTENTION — touching face because thinking, not because directed.
+- Weight distribution NATURAL — one hip bears more weight, organic S-curve.
+- Spine LONG — string pulling gently from crown.
+- Shoulders DOWN and BACK — never hunched, never military-stiff.
+- Jaw RELAXED — mouth naturally closed or barely parted.
+- Eyes have DEPTH — thinking about something specific, not staring at lens.
+- Overall impression: "This person has somewhere important to be after this photo."
+═══════════════════════════════════════════════════════════════`;
+
 // ═══════════════════════════════════════════════════
 // PRODUCT IDENTITY CARD (CROSS-IMAGE CONSISTENCY)
 // ═══════════════════════════════════════════════════
 
-function buildProductIdentityCard(analysisResult: any): string {
+function buildProductIdentityCard(analysisResult: any, imageIndex?: number, totalImages?: number): string {
+  const crossImageLine = (imageIndex != null && totalImages != null)
+    ? `\nCROSS-IMAGE CONSISTENCY: This is image ${imageIndex} of ${totalImages}. The jewelry MUST be INDISTINGUISHABLE from the same piece in other images of this set.\n`
+    : '';
+
+  const visualDna = analysisResult.visual_dna;
+  const dnaBlock = visualDna ? `
+VISUAL DNA:
+- Silhouette: ${visualDna.silhouette_descriptor || 'N/A'}
+- Visual Axis: ${visualDna.dominant_visual_axis || 'N/A'}
+- Light Signature: ${visualDna.light_signature || 'N/A'}
+- Color Map: ${visualDna.color_relationship_map || 'N/A'}
+- Scale: ${visualDna.scale_anchor || 'N/A'}
+- Asymmetries: ${visualDna.distinguishing_asymmetries || 'none'}
+- Optical Weight Center: ${visualDna.optical_weight_center || 'center'}` : '';
+
   return `
 ═══════════════════════════════════════════════════════════════
 PRODUCT IDENTITY CARD — THIS JEWELRY MUST LOOK IDENTICAL IN EVERY IMAGE
 ═══════════════════════════════════════════════════════════════
-
+${crossImageLine}
 This is a CROSS-IMAGE CONSISTENCY ANCHOR. The jewelry piece described below
 MUST appear IDENTICALLY in this image as in all other images of this set.
 
 TYPE: ${analysisResult.type || 'jewelry'}
 ${analysisResult.visual_fingerprint ? `FINGERPRINT: ${analysisResult.visual_fingerprint}` : ''}
+${dnaBlock}
 
 STONES: Exactly ${analysisResult.structure?.center_stone_count ?? '?'} center + ${analysisResult.structure?.accent_stone_count ?? '0'} accent stones.
 DO NOT add, remove, or reposition ANY stone. Count must be EXACT.
@@ -395,6 +605,8 @@ ${fidelityBlock}
 
 SCENE: ${scene.name}
 ${scene.prompt}
+
+${COLOR_GRADE_MODIFIERS[scene.category] || ''}
 
 LIGHTING: ${lighting}
 
@@ -470,8 +682,9 @@ function buildModelPrompt(
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
   const persona = pickRandom(CHARACTER_PERSONAS);
+  const outfit = pickOutfitForProduct(productType);
 
-  console.log(`Model prompt — Persona: ${persona.name}, Type: ${productType}, Region: ${config.bodyRegion}, Gaze: ${gaze.substring(0, 40)}...`);
+  console.log(`Model prompt — Persona: ${persona.name}, Outfit: ${outfit.name}, Type: ${productType}, Region: ${config.bodyRegion}`);
 
   return `${identityCard}
 
@@ -521,12 +734,22 @@ BODY & ANATOMY:
 - Natural body weight — realistic, not idealized
 - Visible collarbone definition, natural neck length
 
+EDITORIAL PRESENCE:
+- Posture: ${persona.postureLanguage}
+- Energy: ${persona.editorialEnergy}
+- Signature mannerism: ${persona.signatureMannerism}
+- Strength: ${persona.strengthAsModel}
+- Reference: ${persona.editorialReference}
+${buildOutfitBlock(outfit)}
+
 ═══════════════════════════════════════════════════════════════
 POSE & JEWELRY PLACEMENT
 ═══════════════════════════════════════════════════════════════
 
 BODY REGION: ${config.bodyRegion.toUpperCase()}
 POSE: ${pose}
+
+${EDITORIAL_ENERGY_DIRECTIVE}
 
 JEWELRY INTERACTION:
 - The jewelry must be the HERO — model supports, never competes
@@ -605,8 +828,9 @@ function buildModelCloseUpPrompt(
   const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
   const pose = pickRandom(config.poses);
   const persona = pickRandom(CHARACTER_PERSONAS);
+  const outfit = pickOutfitForProduct(productType);
 
-  console.log(`Model Close-Up — Persona: ${persona.name}`);
+  console.log(`Model Close-Up — Persona: ${persona.name}, Outfit: ${outfit.name}`);
 
   return `${identityCard}
 
@@ -631,11 +855,17 @@ MODEL — ${persona.name} (${persona.heritage}):
 - Real skin texture: visible pores, natural imperfections
 - No plastic/CGI look — authentic human warmth
 - Age ${persona.age}, ${persona.heritage}
+- Posture: ${persona.postureLanguage}
+- Energy: ${persona.editorialEnergy}
+- Strength: ${persona.strengthAsModel}
+${buildOutfitBlock(outfit)}
 
 POSE:
 - ${pose}
 - Natural, relaxed interaction with the jewelry
 - Body region: ${config.bodyRegion}
+
+${EDITORIAL_ENERGY_DIRECTIVE}
 
 LIGHTING:
 - Soft, warm directional light from one side
@@ -662,6 +892,7 @@ function buildModelLifestylePrompt(
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
   const persona = pickRandom(CHARACTER_PERSONAS);
+  const outfit = pickOutfitForProduct(productType);
 
   const lifestyleScene = pickRandom([
     { setting: 'Parisian café terrace at golden hour', mood: 'warm, romantic, European luxury' },
@@ -671,7 +902,7 @@ function buildModelLifestylePrompt(
     { setting: 'Mediterranean seaside restaurant with natural daylight', mood: 'effortless, sun-kissed, resort luxury' },
   ]);
 
-  console.log(`Model Lifestyle — Persona: ${persona.name}`);
+  console.log(`Model Lifestyle — Persona: ${persona.name}, Outfit: ${outfit.name}`);
 
   return `${identityCard}
 
@@ -694,11 +925,20 @@ CHARACTER — ${persona.name} (${persona.heritage}):
 - Fashion vibe: ${persona.fashionVibe}
 - Real skin texture, natural beauty — no airbrushing
 
+EDITORIAL PRESENCE:
+- Posture: ${persona.postureLanguage}
+- Energy: ${persona.editorialEnergy}
+- Signature mannerism: ${persona.signatureMannerism}
+- Strength: ${persona.strengthAsModel}
+${buildOutfitBlock(outfit)}
+
 POSE & PLACEMENT:
 - Body region: ${config.bodyRegion}
 - ${pose}
 - Natural, candid moment — as if captured mid-life
 - Jewelry is prominent but the scene feels authentic, not staged
+
+${EDITORIAL_ENERGY_DIRECTIVE}
 
 SCENE:
 - ${lifestyleScene.setting}
@@ -1316,15 +1556,32 @@ Return JSON:
     "complexity": "simple|moderate|intricate"
   },
   "unique_identifiers": "unique features including brand indicators, logo placement, signature design elements",
-  "visual_fingerprint": "2-3 sentences describing what makes this piece UNIQUELY identifiable"
+  "visual_fingerprint": "5-7 DETAILED sentences (see instructions below)",
+  "visual_dna": {
+    "silhouette_descriptor": "outline shape of the piece from its primary viewing angle",
+    "dominant_visual_axis": "horizontal|vertical|radial|diagonal",
+    "light_signature": "how this piece interacts with light — reflections, refractions, glow patterns",
+    "color_relationship_map": "interaction between metal color and stone colors — contrast type, harmony",
+    "scale_anchor": "size relative to body reference (e.g., covers fingertip-to-knuckle, spans earlobe, etc.)",
+    "distinguishing_asymmetries": "any asymmetric features, manufacturing marks, or intentional irregularities",
+    "optical_weight_center": "where the eye is drawn first — the visual gravity point of the piece"
+  }
 }
 
 CRITICAL: Count EVERY stone precisely. Describe EXACT positions.
 For rings: describe the band profile, prong count, gallery style.
 For necklaces: describe chain type, pendant attachment, clasp style.
 For watches: describe dial indices, hand style, subdial positions.
-"visual_fingerprint" should be 2-3 sentences describing what makes this piece
-UNIQUELY identifiable — the features that distinguish it from similar pieces.
+
+"visual_fingerprint" MUST be 5-7 DETAILED sentences functioning as a VERBAL PHOTOGRAPH:
+1. Overall silhouette and profile from primary viewing angle
+2. Single most distinctive visual feature (what would be noticed from 2 metres away?)
+3. Stone geometry — not just count, but SPATIAL ARRANGEMENT (triangle? line? cluster? halo?)
+4. Metal-stone color interaction (warm/cool contrast? monochromatic? complementary?)
+5. Asymmetry or signature detail that makes this piece uniquely identifiable
+6-7. Any additional unique characteristics (optional but encouraged)
+
+"visual_dna" provides the RECONSTRUCTION BLUEPRINT — enough data to rebuild this piece from text alone.
 
 NOTE: If analyzing a WATCH, pay special attention to:
 - Pearl/mother-of-pearl dial details
@@ -1534,6 +1791,15 @@ DIAMOND AND GEMSTONE REALISM (CRITICAL):
 - Depth and three-dimensionality inside the stone
 - No artificial HDR glow, no CGI-like perfection
 
+ANTI-HALLUCINATION PROTOCOL:
+1. STONE COUNT LOCK: EXACTLY ${analysisResult.structure?.center_stone_count ?? '?'} center + ${analysisResult.structure?.accent_stone_count ?? '0'} accent stones. NO additions. NO omissions.
+2. PRONG INTEGRITY: Setting type NEVER changes (prong to bezel FORBIDDEN, bezel to prong FORBIDDEN)
+3. SILHOUETTE LOCK: Piece outline${analysisResult.visual_dna?.silhouette_descriptor ? ` — ${analysisResult.visual_dna.silhouette_descriptor}` : ''} MUST match original
+4. SCALE PRESERVATION:${analysisResult.visual_dna?.scale_anchor ? ` ${analysisResult.visual_dna.scale_anchor}` : ' maintain original body-relative size'}
+5. LIGHT BEHAVIOR:${analysisResult.visual_dna?.light_signature ? ` ${analysisResult.visual_dna.light_signature}` : ' preserve original light interaction patterns'}
+6. NO INVENTION: NEVER add design elements that do not exist in the original piece
+7. NO SIMPLIFICATION: NEVER remove small details (milgrain, filigree, micro-pave, engravings)
+
 FORBIDDEN:
 - ❌ CHANGING METAL COLOR - ABSOLUTELY FORBIDDEN
 - ❌ No text, watermarks, logos
@@ -1687,16 +1953,19 @@ Ultra high resolution output.`.trim();
 
       console.log(`Resolved product type: ${resolvedProductType}`);
 
-      const identityCard = buildProductIdentityCard(analysisResult);
-      console.log('Product Identity Card:', identityCard);
+      // Identity card will be built per-step with cross-image index
+      const buildIdentityCardForStep = (stepIndex: number, totalSteps: number) =>
+        buildProductIdentityCard(analysisResult, stepIndex + 1, totalSteps);
+
+      console.log('Product Identity Card (base):', buildProductIdentityCard(analysisResult));
 
       const masterSteps = [
         { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
-          buildPrompt: () => {
+          buildPrompt: (ic: string) => {
             if (hasStyleReference && styleReferenceBase64) {
-              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlock, productExtractionBlock, identityCard);
+              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlock, productExtractionBlock, ic);
             }
-            return buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard);
+            return buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, ic);
           },
           getImages: (): string[] => {
             if (hasStyleReference && styleReferenceBase64) {
@@ -1707,19 +1976,19 @@ Ultra high resolution output.`.trim();
           startTemperature: 0.12,
         },
         { key: 'ecommerce', step: 'generating_ecommerce', label: 'E-Commerce',
-          buildPrompt: () => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          buildPrompt: (ic: string) => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock, ic),
           startTemperature: 0.10 },
         { key: 'model', step: 'generating_model', label: 'Model',
-          buildPrompt: () => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
+          buildPrompt: (ic: string) => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'macro', step: 'generating_macro', label: 'Macro Detail',
-          buildPrompt: () => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard),
+          buildPrompt: (ic: string) => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock, ic),
           startTemperature: 0.12 },
         { key: 'model_closeup', step: 'generating_model_closeup', label: 'Model Close-Up',
-          buildPrompt: () => buildModelCloseUpPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
+          buildPrompt: (ic: string) => buildModelCloseUpPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'model_lifestyle', step: 'generating_model_lifestyle', label: 'Model Lifestyle',
-          buildPrompt: () => buildModelLifestylePrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, identityCard),
+          buildPrompt: (ic: string) => buildModelLifestylePrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
       ];
 
@@ -1751,7 +2020,8 @@ Ultra high resolution output.`.trim();
           current_step: ms.step,
         }).eq('id', jobId);
 
-        const prompt = ms.buildPrompt();
+        const stepIdentityCard = buildIdentityCardForStep(i, filteredSteps.length);
+        const prompt = ms.buildPrompt(stepIdentityCard);
         const images = (ms as any).getImages ? (ms as any).getImages() : base64Images;
         const temperature = (ms as any).startTemperature ?? 0.12;
         const url = await generateSingleImage(images, prompt, userId, imageRecordId, i + 1, supabase, jobId, aspectRatio, temperature);
@@ -1852,13 +2122,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
+  let userId = '';
+  let creditsNeeded = 0;
+  let creditsDeducted = false;
+
   try {
     const authResult = await authenticateUser(req);
     if ('error' in authResult) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
     }
 
-    const userId = authResult.userId;
+    userId = authResult.userId;
     console.log('Authenticated user:', userId);
 
     const { imagePath, additionalImagePaths, sceneId, packageType, productType, metalColorOverride, styleReferencePath, aspectRatio: requestedRatio, selectedScenes, customPrompt } = req.body;
@@ -1944,7 +2218,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
     const isAdminUser = isAdmin === true;
 
-    const creditsNeeded = 10;
+    creditsNeeded = 10;
 
     // Deduct credits
     if (!isAdminUser) {
@@ -1962,6 +2236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       console.log(`Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
+      creditsDeducted = true;
     }
 
     // Create image record
@@ -2034,6 +2309,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+
+    // Refund credits if they were deducted before the failure
+    if (creditsDeducted) {
+      console.log(`Handler failed after credit deduction — refunding ${creditsNeeded} credits to user ${userId}`);
+      const supabase = getServiceClient();
+      const { error: refundError } = await supabase.rpc('refund_credits', {
+        _user_id: userId,
+        _amount: creditsNeeded,
+      });
+      if (refundError) {
+        console.error('CRITICAL: Failed to refund credits after handler error:', refundError);
+      } else {
+        console.log('Credits refunded successfully after handler failure');
+      }
+    }
+
     return sendCorsResponse(res, 500, { error: errorMessage });
   }
 }
