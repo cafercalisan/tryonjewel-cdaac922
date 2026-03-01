@@ -29,6 +29,7 @@ import { UploadArea } from "@/components/generate/UploadArea";
 import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
 import { SummaryPanel } from "@/components/generate/SummaryPanel";
+import { ModelSelector } from "@/components/generate/ModelSelector";
 import { StyleReferenceUpload, StyleReference } from "@/components/generate/StyleReferenceUpload";
 
 // Scene preview images (blurred on cards)
@@ -80,6 +81,9 @@ export default function Generate() {
   const [selectedMetalColor, setSelectedMetalColor] = useState<string | null>(null);
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('3:4');
   
+  // Model selection state
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+
   // Style reference state
   const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
   const [isStyleCompressing, setIsStyleCompressing] = useState(false);
@@ -187,6 +191,22 @@ export default function Generate() {
       setPollingImageId(null);
     }, 5 * 60 * 1000);
   }, [navigate]);
+
+  // Fetch selected model data for SummaryPanel display
+  const { data: selectedModelData } = useQuery({
+    queryKey: ['selected-model', selectedModelId],
+    queryFn: async () => {
+      if (!selectedModelId) return null;
+      const { data, error } = await supabase
+        .from('user_models')
+        .select('*')
+        .eq('id', selectedModelId)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!selectedModelId,
+  });
 
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
@@ -374,6 +394,7 @@ export default function Generate() {
         productType: isRetouchMode ? null : selectedProductType,
         metalColorOverride: isRetouchMode ? null : selectedMetalColor,
         aspectRatio: selectedAspectRatio,
+        modelId: selectedModelId || undefined,
       };
 
       // Standard: pass selected scenes
@@ -646,6 +667,32 @@ export default function Generate() {
                   <p className="text-[11px] text-muted-foreground mt-2">
                     Ürün tek renk veya ayırt edilemiyorsa seçin
                   </p>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Model Selection - Hidden in Retouch mode */}
+            <AnimatePresence>
+              {!isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                        <User className="h-3 w-3" />
+                      </div>
+                      <h2 className="text-sm font-semibold">Model</h2>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Opsiyonel</span>
+                    </div>
+                  </div>
+                  <ModelSelector
+                    selectedModelId={selectedModelId}
+                    onSelectModel={setSelectedModelId}
+                  />
                 </motion.section>
               )}
             </AnimatePresence>
@@ -944,7 +991,7 @@ export default function Generate() {
               packageType={packageType}
               selectedProductType={selectedProductType}
               selectedMetalColor={selectedMetalColor}
-              selectedModel={null}
+              selectedModel={selectedModelData || null}
               selectedScene={selectedScene}
               creditsNeeded={creditsNeeded}
               totalImages={packageType === 'standard' ? 3 : 1}
