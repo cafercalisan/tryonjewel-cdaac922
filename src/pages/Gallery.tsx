@@ -334,7 +334,7 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="max-w-5xl p-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+          <DialogContent className="!flex !flex-col max-w-5xl p-0 overflow-hidden max-h-[90vh]">
             {selectedImage && (
               <>
                 {/* Header with editable name */}

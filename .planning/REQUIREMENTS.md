@@ -4,10 +4,10 @@
 
 ### Security (Phase 1 — Critical)
 
-- [ ] **SEC-01**: API key not stored in any database column or returned in any API response
-- [ ] **SEC-02**: `api/generate-video.ts` and `api/check-video-status.ts` use shared `authenticateUser` helper; return 401 on auth failure
-- [ ] **SEC-03**: Credit deduction and job insertion occur atomically — no credits deducted without a corresponding job record
-- [ ] **SEC-04**: `jewelry-images` Supabase storage bucket is private; signed URLs used for all access
+- [x] **SEC-01**: API key not stored in any database column or returned in any API response
+- [x] **SEC-02**: `api/generate-video.ts` and `api/check-video-status.ts` use shared `authenticateUser` helper; return 401 on auth failure
+- [x] **SEC-03**: Credit deduction and job insertion occur atomically — no credits deducted without a corresponding job record
+- [x] **SEC-04**: `jewelry-images` Supabase storage bucket is private; signed URLs used for all access
 
 ### Refactor (Phase 2 — Technical Debt)
 
