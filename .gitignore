@@ -21,6 +21,9 @@ dist-ssr
 # Supabase temp
 supabase/.temp/
 
+# GSD temp files
+.planning/.lock
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
