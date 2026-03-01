@@ -334,7 +334,7 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+          <DialogContent className="!block max-w-5xl max-h-[90vh] p-0 overflow-hidden">
             {selectedImage && (
               <>
                 {/* Header with editable name */}
