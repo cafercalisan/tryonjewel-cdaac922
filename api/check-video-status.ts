@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceClient } from './_lib/supabase.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
+import { authenticateUser } from './_lib/auth.js';
 
 export const config = {
   maxDuration: 60,
@@ -28,26 +29,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getServiceClient();
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader) throw new Error('Authorization required');
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error('Invalid authentication');
+    const authResult = await authenticateUser(req);
+    if ('error' in authResult) {
+      return sendCorsResponse(res, authResult.status, { error: authResult.error });
+    }
+    const { userId } = authResult;
 
     const { videoId } = req.body;
-    if (!videoId) throw new Error('Video ID is required');
+    if (!videoId) return sendCorsResponse(res, 400, { error: 'Video ID is required' });
 
     const { data: video, error: videoError } = await supabase
       .from('videos')
       .select('*')
       .eq('id', videoId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (videoError || !video) throw new Error('Video not found');
 
-    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
     const isAdminUser = isAdmin === true;
 
     if (video.status === 'completed' || video.status === 'error') {
@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!response.ok) {
       const errorText = await response.text();
       if (response.status === 404) {
-        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        if (!isAdminUser) await refundCredits(supabase, userId, VIDEO_CREDIT_COST);
         await supabase.from('videos').update({ status: 'error', error_message: 'Video üretimi başarısız. Krediniz iade edildi.' }).eq('id', videoId);
         return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'Operation not found. Credits refunded.', refunded: !isAdminUser });
       }
@@ -82,14 +82,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const raiFilteredCount = operationData?.response?.generateVideoResponse?.raiMediaFilteredCount;
 
       if ((raiFilteredCount && raiFilteredCount > 0) || (raiFilteredReasons && raiFilteredReasons.length > 0)) {
-        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        if (!isAdminUser) await refundCredits(supabase, userId, VIDEO_CREDIT_COST);
         const friendly = 'Video üretimi içerik filtresine takıldı. Krediniz iade edildi.';
         await supabase.from('videos').update({ status: 'error', error_message: friendly }).eq('id', videoId);
         return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: friendly, refunded: !isAdminUser });
       }
 
       if (operationData.error) {
-        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        if (!isAdminUser) await refundCredits(supabase, userId, VIDEO_CREDIT_COST);
         await supabase.from('videos').update({ status: 'error', error_message: (operationData.error.message || 'Video üretimi başarısız') + ' Krediniz iade edildi.' }).eq('id', videoId);
         return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: operationData.error.message, refunded: !isAdminUser });
       }
@@ -129,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl });
         } catch (uploadErr) {
           console.error('Error uploading video:', uploadErr);
-          if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+          if (!isAdminUser) await refundCredits(supabase, userId, VIDEO_CREDIT_COST);
           await supabase.from('videos').update({
             status: 'error',
             error_message: 'Video depolanamadı, krediniz iade edildi.',
@@ -137,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'Video upload failed. Credits refunded.', refunded: !isAdminUser });
         }
       } else {
-        if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+        if (!isAdminUser) await refundCredits(supabase, userId, VIDEO_CREDIT_COST);
         await supabase.from('videos').update({ status: 'error', error_message: 'Video tamamlandı ancak URL alınamadı. Krediniz iade edildi.' }).eq('id', videoId);
         return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'No video URL', refunded: !isAdminUser });
       }

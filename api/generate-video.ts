@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceClient } from './_lib/supabase.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
+import { authenticateUser } from './_lib/auth.js';
 import { GoogleGenAI } from '@google/genai';
 
 export const config = {
@@ -94,29 +95,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getServiceClient();
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader) throw new Error('Authorization required');
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error('Invalid authentication');
+    const authResult = await authenticateUser(req);
+    if ('error' in authResult) {
+      return sendCorsResponse(res, authResult.status, { error: authResult.error });
+    }
+    const { userId } = authResult;
 
     const { imageUrl, endImageUrl, videoId, promptType = 'default', videoFormat = '9:16' } = req.body;
-    if (!imageUrl) throw new Error('Image URL is required');
-    if (!videoId) throw new Error('Video ID is required');
+    if (!imageUrl) return sendCorsResponse(res, 400, { error: 'Image URL is required' });
+    if (!videoId) return sendCorsResponse(res, 400, { error: 'Video ID is required' });
 
     const isMultiFrame = !!endImageUrl;
 
-    console.log('Starting video generation for user:', user.id);
+    console.log('Starting video generation for user:', userId);
 
     // Credit check
     const VIDEO_CREDIT_COST = 200;
-    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
     const isAdminUser = isAdmin === true;
 
     if (!isAdminUser) {
       const { data: deductResult, error: deductError } = await supabase
-        .rpc('deduct_credits', { _user_id: user.id, _amount: VIDEO_CREDIT_COST });
+        .rpc('deduct_credits', { _user_id: userId, _amount: VIDEO_CREDIT_COST });
 
       if (deductError) {
         await supabase.from('videos').update({ status: 'error', error_message: 'Kredi kontrolü sırasında hata oluştu' }).eq('id', videoId);
