@@ -104,26 +104,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (videoUri) {
         try {
           const videoResponse = await fetch(`${videoUri}&key=${GOOGLE_API_KEY}`);
-          if (videoResponse.ok) {
-            const videoBlob = await videoResponse.arrayBuffer();
-            const storagePath = `videos/${videoId}.mp4`;
-
-            const { error: uploadError } = await supabase.storage
-              .from('jewelry-images')
-              .upload(storagePath, videoBlob, { contentType: 'video/mp4', upsert: true });
-
-            if (!uploadError) {
-              const { data: publicUrlData } = supabase.storage.from('jewelry-images').getPublicUrl(storagePath);
-              await supabase.from('videos').update({ status: 'completed', video_url: publicUrlData.publicUrl, error_message: null }).eq('id', videoId);
-              return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl: publicUrlData.publicUrl });
-            }
+          if (!videoResponse.ok) {
+            throw new Error(`Video download failed: ${videoResponse.status}`);
           }
+          const videoBlob = await videoResponse.arrayBuffer();
+          const storagePath = `videos/${videoId}.mp4`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('jewelry-images')
+            .upload(storagePath, videoBlob, { contentType: 'video/mp4', upsert: true });
+
+          if (uploadError) {
+            throw new Error(`Storage upload failed: ${uploadError.message}`);
+          }
+
+          const { data: signedUrlData } = await supabase.storage
+            .from('jewelry-images')
+            .createSignedUrl(storagePath, 7 * 24 * 60 * 60);
+
+          const videoUrl = signedUrlData?.signedUrl;
+          if (!videoUrl) throw new Error('Could not generate signed URL for video');
+
+          await supabase.from('videos').update({ status: 'completed', video_url: videoUrl, error_message: null }).eq('id', videoId);
+          return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl });
         } catch (uploadErr) {
           console.error('Error uploading video:', uploadErr);
+          if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
+          await supabase.from('videos').update({
+            status: 'error',
+            error_message: 'Video depolanamadı, krediniz iade edildi.',
+          }).eq('id', videoId);
+          return sendCorsResponse(res, 200, { success: true, status: 'error', errorMessage: 'Video upload failed. Credits refunded.', refunded: !isAdminUser });
         }
-
-        await supabase.from('videos').update({ status: 'completed', video_url: videoUri, error_message: null }).eq('id', videoId);
-        return sendCorsResponse(res, 200, { success: true, status: 'completed', videoUrl: videoUri });
       } else {
         if (!isAdminUser) await refundCredits(supabase, user.id, VIDEO_CREDIT_COST);
         await supabase.from('videos').update({ status: 'error', error_message: 'Video tamamlandı ancak URL alınamadı. Krediniz iade edildi.' }).eq('id', videoId);
