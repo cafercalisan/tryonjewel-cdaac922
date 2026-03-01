@@ -9,7 +9,15 @@ UPDATE storage.buckets SET public = false WHERE id = 'jewelry-images';
 
 -- Nullify any existing video_url values that are public (no signed token).
 -- Affected records will re-generate on next user poll or can be ignored (old completed jobs).
-UPDATE processing_jobs
-SET video_url = NULL
-WHERE video_url IS NOT NULL
-  AND video_url NOT LIKE '%token=%';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'processing_jobs' AND column_name = 'video_url'
+  ) THEN
+    UPDATE processing_jobs
+    SET video_url = NULL
+    WHERE video_url IS NOT NULL
+      AND video_url NOT LIKE '%token=%';
+  END IF;
+END $$;
