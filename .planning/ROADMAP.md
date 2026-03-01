@@ -4,7 +4,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|-----------------|
-| 1 | Security Hardening | Fix critical vulnerabilities before any new feature | SEC-01..04 | 4 |
+| 1 | Security Hardening | Complete    | 2026-03-01 | 4 |
 | 2 | Refactor & Testing | Reduce tech debt, add test coverage | REF-01..04, TEST-01..03 | 5 |
 | 3 | User Galleries | Users can manage and organize their generated images | GAL-01..05 | 4 |
 | 4 | Templates & Video | Preset scenes + professional video shot controls | TPL-01..04, VID-01..03 | 5 |
@@ -18,7 +18,7 @@
 **Requirements:** SEC-01, SEC-02, SEC-03, SEC-04
 
 **Plans:**
-1. Fix API key leak in `check-video-status.ts` — strip key before storing URL
+4/4 plans complete
 2. Add `authenticateUser` to both video endpoints — proper 401 responses
 3. Atomic credit+job transaction — refund on insert failure
 4. Make storage bucket private — generate signed URLs for all image access
