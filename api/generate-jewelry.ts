@@ -12,7 +12,7 @@ const GOOGLE_ANALYSIS_API_KEY = process.env.GOOGLE_ANALYSIS_API_KEY;
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
+const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'; // Nano Banana 2: Flash hızında, 3-pro kalitesinde
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
