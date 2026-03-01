@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
-import { getSignedImageUrl } from '@/lib/getSignedImageUrl';
+import { getPublicImageUrl } from '@/lib/getSignedImageUrl';
 import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
 
 interface ImageRecord {
@@ -53,89 +53,28 @@ export default function Gallery() {
     enabled: !!user,
   });
 
-  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
-
-  // Load signed URLs for images
+  // Convert stored URLs to public URLs (synchronous, zero API calls)
   useEffect(() => {
     if (!images || images.length === 0) return;
 
-    const loadSignedUrls = async () => {
-      const urlMap: Record<string, string[]> = {};
-      const originalUrlMap: Record<string, string> = {};
+    const urlMap: Record<string, string[]> = {};
+    const originalUrlMap: Record<string, string> = {};
 
-      await Promise.all(
-        images.map(async (image) => {
-          // Sign generated images
-          if (image.generated_image_urls && image.generated_image_urls.length > 0) {
-            const signedImageUrls = await Promise.all(
-              image.generated_image_urls.map(url => getSignedImageUrl(url))
-            );
-            urlMap[image.id] = signedImageUrls.filter(Boolean) as string[];
-          }
-
-          // Sign original image
-          if (image.original_image_url) {
-            const signedOriginal = await getSignedImageUrl(image.original_image_url);
-            if (signedOriginal) {
-              originalUrlMap[image.id] = signedOriginal;
-            }
-          }
-        })
-      );
-
-      setSignedUrls(urlMap);
-      setSignedOriginalUrls(originalUrlMap);
-      setFailedUrls(new Set());
-    };
-
-    loadSignedUrls();
-  }, [images]);
-
-  // Re-sign a single image URL when it fails to load (expired token)
-  const handleImageError = useCallback(async (imageId: string, urlIndex: number) => {
-    const image = images?.find(i => i.id === imageId);
-    if (!image) return;
-
-    const originalUrl = image.generated_image_urls?.[urlIndex];
-    if (!originalUrl) return;
-
-    const errorKey = `${imageId}-${urlIndex}`;
-    if (failedUrls.has(errorKey)) return; // Already retried
-
-    try {
-      // Force re-sign by calling Supabase directly (bypass cache)
-      const filePath = originalUrl.startsWith('http') ? null : originalUrl;
-      let path = filePath;
-      if (!path) {
-        // Extract path from URL
-        const match = originalUrl.match(/jewelry-images\/(.+?)(?:\?|$)/);
-        path = match?.[1] || null;
+    for (const image of images) {
+      if (image.generated_image_urls?.length > 0) {
+        urlMap[image.id] = image.generated_image_urls
+          .map(url => getPublicImageUrl(url))
+          .filter(Boolean) as string[];
       }
-
-      if (path) {
-        const { data } = await supabase.storage
-          .from('jewelry-images')
-          .createSignedUrl(path, 2 * 60 * 60);
-
-        if (data?.signedUrl) {
-          setSignedUrls(prev => {
-            const updated = { ...prev };
-            if (updated[imageId]) {
-              updated[imageId] = [...updated[imageId]];
-              updated[imageId][urlIndex] = data.signedUrl;
-            }
-            return updated;
-          });
-          return;
-        }
+      if (image.original_image_url) {
+        const pub = getPublicImageUrl(image.original_image_url);
+        if (pub) originalUrlMap[image.id] = pub;
       }
-    } catch (err) {
-      console.error('Re-sign failed for', imageId, urlIndex, err);
     }
 
-    // Mark as permanently failed
-    setFailedUrls(prev => new Set(prev).add(errorKey));
-  }, [images, failedUrls]);
+    setSignedUrls(urlMap);
+    setSignedOriginalUrls(originalUrlMap);
+  }, [images]);
 
   // Keyboard navigation for gallery
   useEffect(() => {
@@ -293,19 +232,12 @@ export default function Gallery() {
                       }}
                     >
                       {getImageUrls(image)?.[0] ? (
-                        failedUrls.has(`${image.id}-0`) ? (
-                          <div className="w-full h-full bg-muted flex flex-col items-center justify-center gap-2 p-4">
-                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground text-center">Gorsel yuklenemedi</span>
-                          </div>
-                        ) : (
-                          <img
-                            src={getImageUrls(image)[0]}
-                            alt="Generated jewelry"
-                            className="w-full h-full object-cover"
-                            onError={() => handleImageError(image.id, 0)}
-                          />
-                        )
+                        <img
+                          src={getImageUrls(image)[0]}
+                          alt="Generated jewelry"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                        />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
                           <ImageIcon className="h-8 w-8 text-muted-foreground" />
@@ -390,7 +322,7 @@ export default function Gallery() {
                         src={getImageUrls(selectedImage)[selectedVariation]}
                         alt="Generated jewelry"
                         className="w-full h-full object-contain"
-                        onError={() => handleImageError(selectedImage.id, selectedVariation)}
+                        onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -650,7 +582,7 @@ export default function Gallery() {
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl pinch-zoom-enabled"
                 onClick={(e) => e.stopPropagation()}
-                onError={() => handleImageError(selectedImage.id, selectedVariation)}
+                onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                 drag
                 dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
                 dragElastic={0.1}

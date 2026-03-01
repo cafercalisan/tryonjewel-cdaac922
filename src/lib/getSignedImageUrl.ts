@@ -1,45 +1,30 @@
-import { supabase } from "@/integrations/supabase/client";
-
-// Cache for signed URLs to avoid redundant API calls
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-// Cache duration: 1 hour (slightly less than actual expiry to be safe)
-const CACHE_DURATION_MS = 60 * 60 * 1000;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const PUBLIC_BASE = `${SUPABASE_URL}/storage/v1/object/public/jewelry-images/`;
 
 /**
- * Extract file path from various URL formats
- * Handles both public URLs and signed URLs from Supabase storage
+ * Extract file path from any Supabase storage URL format.
  */
 function extractFilePath(url: string): string | null {
   if (!url) return null;
-  
-  // Check if it's already a file path (no http)
-  if (!url.startsWith('http')) {
-    return url;
-  }
-  
+
+  // Already a bare file path (no http)
+  if (!url.startsWith('http')) return url;
+
   try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    
-    // Pattern 1: Public URL - /storage/v1/object/public/jewelry-images/...
-    const publicMatch = pathname.match(/\/storage\/v1\/object\/public\/jewelry-images\/(.+)/);
-    if (publicMatch) {
-      return publicMatch[1];
-    }
-    
-    // Pattern 2: Signed URL - /storage/v1/object/sign/jewelry-images/...
-    const signedMatch = pathname.match(/\/storage\/v1\/object\/sign\/jewelry-images\/(.+)/);
-    if (signedMatch) {
-      return signedMatch[1];
-    }
-    
-    // Pattern 3: Direct path after bucket name
-    const directMatch = pathname.match(/jewelry-images\/(.+)/);
-    if (directMatch) {
-      return directMatch[1];
-    }
-    
+    const pathname = new URL(url).pathname;
+
+    // /storage/v1/object/public/jewelry-images/...
+    const pub = pathname.match(/\/storage\/v1\/object\/public\/jewelry-images\/(.+)/);
+    if (pub) return decodeURIComponent(pub[1]);
+
+    // /storage/v1/object/sign/jewelry-images/...
+    const sign = pathname.match(/\/storage\/v1\/object\/sign\/jewelry-images\/(.+)/);
+    if (sign) return decodeURIComponent(sign[1]);
+
+    // Any other path containing jewelry-images/
+    const gen = pathname.match(/jewelry-images\/(.+)/);
+    if (gen) return decodeURIComponent(gen[1]);
+
     return null;
   } catch {
     return null;
@@ -47,115 +32,37 @@ function extractFilePath(url: string): string | null {
 }
 
 /**
- * Check if a signed URL is still valid
+ * Convert any stored image URL to a working public URL.
+ * Pure synchronous function — zero API calls.
+ * Bucket must be public for this to work.
  */
-function isSignedUrlValid(url: string): boolean {
-  if (!url.includes('token=')) return false;
-  
-  try {
-    const urlObj = new URL(url);
-    const token = urlObj.searchParams.get('token');
-    if (!token) return false;
-    
-    // Try to decode the JWT-like token to check expiry
-    // Supabase signed URLs contain a base64 encoded payload
-    const parts = token.split('.');
-    if (parts.length >= 2) {
-      const payload = JSON.parse(atob(parts[1]));
-      if (payload.exp) {
-        // Check if expired (with 5 minute buffer)
-        return payload.exp * 1000 > Date.now() + 5 * 60 * 1000;
-      }
-    }
-    return false;
-  } catch {
-    return false;
+export function getPublicImageUrl(originalUrl: string | null | undefined): string | null {
+  if (!originalUrl) return null;
+  if (originalUrl.startsWith('data:')) return originalUrl;
+
+  // If it's already a valid public URL, return as-is
+  if (originalUrl.includes('/object/public/jewelry-images/')) {
+    return originalUrl.split('?')[0]; // strip expired query params
   }
+
+  const filePath = extractFilePath(originalUrl);
+  if (!filePath) return originalUrl;
+
+  return `${PUBLIC_BASE}${filePath}`;
 }
 
 /**
- * Build a public URL for a file in the jewelry-images bucket
- */
-function buildPublicUrl(filePath: string): string {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  return `${supabaseUrl}/storage/v1/object/public/jewelry-images/${filePath}`;
-}
-
-/**
- * Get a working URL for a Supabase storage image.
- * With public bucket: builds direct public URL from file path.
- * With private bucket: creates signed URL via Supabase client.
- * Caches results and handles various URL formats.
+ * Async wrapper — kept for backward compatibility.
+ * Now just delegates to the sync version.
  */
 export async function getSignedImageUrl(originalUrl: string | null | undefined): Promise<string | null> {
-  if (!originalUrl) return null;
-
-  // If it's a data URL, return as-is
-  if (originalUrl.startsWith('data:')) {
-    return originalUrl;
-  }
-
-  // If it's already a valid signed URL, return as-is
-  if (isSignedUrlValid(originalUrl)) {
-    return originalUrl;
-  }
-
-  // Check cache
-  const cached = signedUrlCache.get(originalUrl);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.url;
-  }
-
-  // Extract file path
-  const filePath = extractFilePath(originalUrl);
-  if (!filePath) {
-    console.warn('Could not extract file path from URL:', originalUrl);
-    return originalUrl;
-  }
-
-  try {
-    // Try signed URL first (works for both public and private buckets)
-    const { data, error } = await supabase.storage
-      .from('jewelry-images')
-      .createSignedUrl(filePath, 2 * 60 * 60);
-
-    if (!error && data?.signedUrl) {
-      signedUrlCache.set(originalUrl, {
-        url: data.signedUrl,
-        expiresAt: Date.now() + CACHE_DURATION_MS,
-      });
-      return data.signedUrl;
-    }
-
-    // Fallback: build public URL directly (works when bucket is public)
-    const publicUrl = buildPublicUrl(filePath);
-    signedUrlCache.set(originalUrl, {
-      url: publicUrl,
-      expiresAt: Date.now() + CACHE_DURATION_MS,
-    });
-    return publicUrl;
-  } catch (err) {
-    console.error('Error getting signed URL:', err);
-    // Last resort: try public URL
-    const filePath2 = extractFilePath(originalUrl);
-    if (filePath2) {
-      return buildPublicUrl(filePath2);
-    }
-    return originalUrl;
-  }
+  return getPublicImageUrl(originalUrl);
 }
 
-/**
- * Hook-friendly version that returns a loading state
- * Use with React Query or useEffect
- */
 export async function getSignedImageUrls(urls: (string | null | undefined)[]): Promise<(string | null)[]> {
-  return Promise.all(urls.map(url => getSignedImageUrl(url)));
+  return urls.map(url => getPublicImageUrl(url));
 }
 
-/**
- * Clear the URL cache (useful for logout or refresh)
- */
 export function clearSignedUrlCache(): void {
-  signedUrlCache.clear();
+  // No-op — no cache needed for public URLs
 }
