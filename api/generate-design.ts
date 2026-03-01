@@ -225,13 +225,18 @@ OUTPUT REQUIREMENTS:
       return sendCorsResponse(res, 500, { error: 'Failed to save design' });
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('jewelry-images')
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 7 * 24 * 60 * 60); // 7-day signed URL
 
-    console.log('Design generated and uploaded:', publicUrl);
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error('Failed to create signed URL for design:', signedUrlError);
+      return sendCorsResponse(res, 500, { error: 'Failed to generate design URL' });
+    }
 
-    return sendCorsResponse(res, 200, { success: true, designUrl: publicUrl });
+    console.log('Design generated and uploaded:', signedUrlData.signedUrl);
+
+    return sendCorsResponse(res, 200, { success: true, designUrl: signedUrlData.signedUrl });
 
   } catch (error) {
     console.error('Error:', error);
