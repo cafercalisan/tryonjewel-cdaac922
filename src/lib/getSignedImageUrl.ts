@@ -74,58 +74,73 @@ function isSignedUrlValid(url: string): boolean {
 }
 
 /**
- * Get a working signed URL for a Supabase storage image
- * Handles various URL formats and caches results
+ * Build a public URL for a file in the jewelry-images bucket
+ */
+function buildPublicUrl(filePath: string): string {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/storage/v1/object/public/jewelry-images/${filePath}`;
+}
+
+/**
+ * Get a working URL for a Supabase storage image.
+ * With public bucket: builds direct public URL from file path.
+ * With private bucket: creates signed URL via Supabase client.
+ * Caches results and handles various URL formats.
  */
 export async function getSignedImageUrl(originalUrl: string | null | undefined): Promise<string | null> {
   if (!originalUrl) return null;
-  
+
   // If it's a data URL, return as-is
   if (originalUrl.startsWith('data:')) {
     return originalUrl;
   }
-  
+
   // If it's already a valid signed URL, return as-is
   if (isSignedUrlValid(originalUrl)) {
     return originalUrl;
   }
-  
+
   // Check cache
   const cached = signedUrlCache.get(originalUrl);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.url;
   }
-  
+
   // Extract file path
   const filePath = extractFilePath(originalUrl);
   if (!filePath) {
     console.warn('Could not extract file path from URL:', originalUrl);
-    return originalUrl; // Return original as fallback
+    return originalUrl;
   }
-  
+
   try {
-    // Generate signed URL (2 hours expiry)
+    // Try signed URL first (works for both public and private buckets)
     const { data, error } = await supabase.storage
       .from('jewelry-images')
-      .createSignedUrl(filePath, 2 * 60 * 60); // 2 hours
-    
-    if (error) {
-      console.error('Error creating signed URL:', error);
-      return originalUrl; // Return original as fallback
-    }
-    
-    if (data?.signedUrl) {
-      // Cache the result
+      .createSignedUrl(filePath, 2 * 60 * 60);
+
+    if (!error && data?.signedUrl) {
       signedUrlCache.set(originalUrl, {
         url: data.signedUrl,
         expiresAt: Date.now() + CACHE_DURATION_MS,
       });
       return data.signedUrl;
     }
-    
-    return originalUrl;
+
+    // Fallback: build public URL directly (works when bucket is public)
+    const publicUrl = buildPublicUrl(filePath);
+    signedUrlCache.set(originalUrl, {
+      url: publicUrl,
+      expiresAt: Date.now() + CACHE_DURATION_MS,
+    });
+    return publicUrl;
   } catch (err) {
     console.error('Error getting signed URL:', err);
+    // Last resort: try public URL
+    const filePath2 = extractFilePath(originalUrl);
+    if (filePath2) {
+      return buildPublicUrl(filePath2);
+    }
     return originalUrl;
   }
 }
