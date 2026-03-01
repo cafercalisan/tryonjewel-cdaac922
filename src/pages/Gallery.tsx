@@ -334,7 +334,7 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="!flex !flex-col max-w-5xl p-0 overflow-hidden max-h-[90vh]">
+          <DialogContent className="!flex !flex-col max-w-5xl h-[85vh] p-0 overflow-hidden">
             {selectedImage && (
               <>
                 {/* Header with editable name */}
@@ -387,8 +387,7 @@ export default function Gallery() {
                       />
                     ) : (
                       <div
-                        className="w-full max-h-full rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
-                        style={{ aspectRatio: '4/5' }}
+                        className="w-full h-full rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
                         onClick={(e) => {
                           e.stopPropagation();
                           setLightboxOpen(true);
@@ -445,7 +444,7 @@ export default function Gallery() {
                   </div>
 
                   {/* Right: Sidebar with metadata + actions */}
-                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto md:w-[280px] shrink-0">
+                  <div className="border-l p-4 flex flex-col gap-4 overflow-y-auto w-[280px] shrink-0">
                     {/* Metadata */}
                     <div className="space-y-1.5">
                       <p className="text-sm text-muted-foreground">
