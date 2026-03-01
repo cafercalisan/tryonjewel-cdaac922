@@ -374,7 +374,7 @@ export default function Gallery() {
                 </DialogHeader>
 
                 {/* Split panel: image left, actions right */}
-                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
                   {/* Left: Image */}
                   <div className="relative flex-1 min-h-0 min-w-0 p-4 pt-0 flex flex-col items-center justify-center">
                     {showComparison && getOriginalUrl(selectedImage) ? (
