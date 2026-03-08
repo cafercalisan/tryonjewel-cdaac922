@@ -16,6 +16,7 @@ import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 import { ProgressiveImage } from '@/components/ui/progressive-image';
 import { getPublicImageUrl, getThumbnailUrl } from '@/lib/getSignedImageUrl';
 import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ImageRecord {
   id: string;
@@ -32,6 +33,7 @@ interface ImageRecord {
 export default function Gallery() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null);
   const [selectedVariation, setSelectedVariation] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -89,6 +91,14 @@ export default function Gallery() {
     setThumbUrls(thumbMap);
   }, [images]);
 
+  // Lock body scroll when mobile detail is open
+  useEffect(() => {
+    if (isMobile && selectedImage) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [isMobile, selectedImage]);
+
   // Keyboard navigation for gallery
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -142,7 +152,6 @@ export default function Gallery() {
     }
   }, [editingName]);
 
-  // Helper to get image URLs for an image record
   const getImageUrls = useCallback((image: ImageRecord): string[] => {
     if (signedUrls[image.id] && signedUrls[image.id].length > 0) {
       return signedUrls[image.id];
@@ -150,28 +159,21 @@ export default function Gallery() {
     return image.generated_image_urls || [];
   }, [signedUrls]);
 
-  // Helper to get original image URL
   const getOriginalUrl = useCallback((image: ImageRecord): string => {
     return signedOriginalUrls[image.id] || image.original_image_url || '';
   }, [signedOriginalUrls]);
 
-  // Helper to get thumbnail URLs for grid display
   const getThumbUrls = useCallback((image: ImageRecord): string[] => {
     return thumbUrls[image.id] || [];
   }, [thumbUrls]);
 
-  // Helper to get display name
   const getDisplayName = (image: ImageRecord): string => {
     return image.name || image.scenes?.name_tr || 'Adsiz Gorsel';
   };
 
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
-      const { error } = await supabase
-        .from('images')
-        .delete()
-        .eq('id', imageId);
-
+      const { error } = await supabase.from('images').delete().eq('id', imageId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -186,11 +188,7 @@ export default function Gallery() {
 
   const renameMutation = useMutation({
     mutationFn: async ({ imageId, name }: { imageId: string; name: string }) => {
-      const { error } = await supabase
-        .from('images')
-        .update({ name: name.trim() || null })
-        .eq('id', imageId);
-
+      const { error } = await supabase.from('images').update({ name: name.trim() || null }).eq('id', imageId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -205,7 +203,6 @@ export default function Gallery() {
   const handleDownload = async (url: string, index: number) => {
     const id = selectedImage?.id;
     if (!id) return;
-
     await downloadImageAs4kJpeg({
       url,
       filenameBase: `jewelry-${id}-${index + 1}-4k`,
@@ -221,7 +218,6 @@ export default function Gallery() {
     const currentName = selectedImage.name || '';
     if (trimmed !== currentName) {
       renameMutation.mutate({ imageId: selectedImage.id, name: trimmed });
-      // Optimistically update selectedImage
       setSelectedImage({ ...selectedImage, name: trimmed || null });
     }
     setEditingName(false);
@@ -233,8 +229,178 @@ export default function Gallery() {
     setEditingName(true);
   };
 
-  // Only show completed images
+  const openDetail = (image: ImageRecord, index: number) => {
+    setSelectedImage(image);
+    setSelectedVariation(0);
+    setLightboxOpen(false);
+    setLightboxScale(1);
+    setLightboxKey(prev => prev + 1);
+    setShowComparison(false);
+    setSelectedImageIndex(index);
+    setEditingName(false);
+  };
+
+  const closeDetail = () => {
+    setSelectedImage(null);
+    setEditingName(false);
+  };
+
   const completedImages = images?.filter(i => i.status === 'completed') || [];
+
+  // ─── Shared detail content (used in both mobile overlay & desktop dialog) ───
+
+  const renderEditableName = () => (
+    editingName ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+        <Input
+          ref={nameInputRef}
+          value={nameValue}
+          onChange={(e) => setNameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSaveName();
+            if (e.key === 'Escape') setEditingName(false);
+          }}
+          onBlur={handleSaveName}
+          className="h-7 text-base font-semibold"
+          placeholder="Gorsel adi girin..."
+        />
+        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleSaveName}>
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    ) : (
+      <button
+        onClick={handleStartEditing}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left' }}
+        className="hover:text-primary transition-colors"
+      >
+        <span className="text-base font-semibold">{selectedImage ? getDisplayName(selectedImage) : ''}</span>
+        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+    )
+  );
+
+  const renderImageArea = (minH: string) => {
+    if (!selectedImage) return null;
+    return showComparison && getOriginalUrl(selectedImage) ? (
+      <BeforeAfterComparison
+        beforeImage={getOriginalUrl(selectedImage)}
+        afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
+        beforeLabel="Orijinal"
+        afterLabel="Sonuc"
+        className="w-full rounded-lg"
+        style={{ maxHeight: minH }}
+      />
+    ) : (
+      <div
+        style={{ width: '100%', minHeight: minH, position: 'relative', borderRadius: 8, overflow: 'hidden', background: 'var(--muted)' }}
+        onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); setLightboxScale(1); }}
+      >
+        {getImageUrls(selectedImage)?.[selectedVariation] ? (
+          <ProgressiveImage
+            src={getImageUrls(selectedImage)[selectedVariation]}
+            alt="Generated jewelry"
+            className="w-full h-full object-contain"
+            containerClassName="w-full h-full"
+            eager
+          />
+        ) : (
+          <div style={{ width: '100%', height: minH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ImageIcon className="h-12 w-12 text-muted-foreground" />
+          </div>
+        )}
+        {/* Nav arrows */}
+        {getImageUrls(selectedImage).length > 1 && (
+          <>
+            <Button
+              size="icon" variant="secondary"
+              style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}
+              className="h-8 w-8"
+              onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); setSelectedVariation(p => p > 0 ? p - 1 : u.length - 1); }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon" variant="secondary"
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}
+              className="h-8 w-8"
+              onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); setSelectedVariation(p => p < u.length - 1 ? p + 1 : 0); }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderThumbnails = () => {
+    if (!selectedImage) return null;
+    const urls = getImageUrls(selectedImage);
+    if (urls.length <= 1 && !getOriginalUrl(selectedImage)) return null;
+    return (
+      <div>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Varyasyonlar</p>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          {getOriginalUrl(selectedImage) && (
+            <div style={{ flexShrink: 0 }}>
+              <button
+                onClick={() => setShowComparison(true)}
+                style={{ width: 56, height: 70, borderRadius: 6, overflow: 'hidden', border: showComparison ? '2px solid var(--primary)' : '2px solid var(--muted)', opacity: showComparison ? 1 : 0.6 }}
+              >
+                <img src={getOriginalUrl(selectedImage)} alt="Orijinal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
+              </button>
+              <span style={{ display: 'block', textAlign: 'center', fontSize: 9 }} className="text-muted-foreground mt-0.5">Orijinal</span>
+            </div>
+          )}
+          {urls.map((url, index) => (
+            <div key={index} style={{ flexShrink: 0 }}>
+              <button
+                onClick={() => { setSelectedVariation(index); setShowComparison(false); }}
+                style={{ width: 56, height: 70, borderRadius: 6, overflow: 'hidden', outline: selectedVariation === index && !showComparison ? '2px solid var(--primary)' : 'none', opacity: selectedVariation === index && !showComparison ? 1 : 0.6 }}
+              >
+                <img src={url} alt={`Varyasyon ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderActions = (gridCols: number) => {
+    if (!selectedImage) return null;
+    return (
+      <div>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Aksiyonlar</p>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 8 }}>
+          <Button className="w-full justify-start" size="sm" onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); if (u[selectedVariation]) handleDownload(u[selectedVariation], selectedVariation); }}>
+            <Download className="mr-2 h-4 w-4" />Indir (4K)
+          </Button>
+          <Button className="w-full justify-start" size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); setLightboxScale(1); }}>
+            <ZoomIn className="mr-2 h-4 w-4" />Buyut
+          </Button>
+          <VideoGenerateButton imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''} variant="outline" size="sm" className="w-full justify-start" />
+          {getOriginalUrl(selectedImage) && (
+            <Button className="w-full justify-start" size="sm" variant={showComparison ? 'default' : 'outline'} onClick={() => setShowComparison(!showComparison)}>
+              <ArrowLeftRight className="mr-2 h-4 w-4" />{showComparison ? 'Kapat' : 'Once/Sonra'}
+            </Button>
+          )}
+          <Button
+            className="w-full justify-start"
+            style={gridCols > 1 ? { gridColumn: `span ${gridCols}` } : undefined}
+            size="sm" variant="destructive"
+            onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(selectedImage.id); }}
+            disabled={deleteMutation.isPending}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />Gorseli Sil
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render ───
 
   return (
     <AppLayout>
@@ -243,16 +409,11 @@ export default function Gallery() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl font-semibold mb-1">Gorsellerim</h1>
-            <p className="text-muted-foreground text-sm">
-              Tum olusturdugunuz gorselleri buradan yonetin
-            </p>
+            <p className="text-muted-foreground text-sm">Tum olusturdugunuz gorselleri buradan yonetin</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Link to="/olustur">
-              <Button size="sm" className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Yeni Olustur
-              </Button>
+              <Button size="sm" className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Yeni Olustur</Button>
             </Link>
           </div>
         </div>
@@ -269,15 +430,11 @@ export default function Gallery() {
             <h3 className="text-xl font-semibold mb-2">Henuz gorsel yok</h3>
             <p className="text-muted-foreground mb-6">Ilk mucevher gorselinizi olusturun</p>
             <Link to="/olustur">
-              <Button size="lg">
-                <Plus className="mr-2 h-5 w-5" />
-                Ilk Gorselimi Olustur
-              </Button>
+              <Button size="lg"><Plus className="mr-2 h-5 w-5" />Ilk Gorselimi Olustur</Button>
             </Link>
           </div>
         ) : (
           <>
-            {/* Completed Images */}
             {completedImages.length > 0 && (
               <div>
                 <h2 className="text-lg font-medium mb-4">Tamamlanan ({completedImages.length})</h2>
@@ -285,19 +442,8 @@ export default function Gallery() {
                   {completedImages.map((image, index) => (
                     <div
                       key={image.id}
-                      className={`group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer transition-all ${
-                        selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''
-                      }`}
-                      onClick={() => {
-                        setSelectedImage(image);
-                        setSelectedVariation(0);
-                        setLightboxOpen(false);
-                        setLightboxScale(1);
-                        setLightboxKey(prev => prev + 1);
-                        setShowComparison(false);
-                        setSelectedImageIndex(index);
-                        setEditingName(false);
-                      }}
+                      className={`group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                      onClick={() => openDetail(image, index)}
                     >
                       {getImageUrls(image)?.[0] ? (
                         <ProgressiveImage
@@ -313,10 +459,7 @@ export default function Gallery() {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <Button size="sm" variant="secondary">
-                          <Eye className="mr-2 h-4 w-4" />
-                          Goruntule
-                        </Button>
+                        <Button size="sm" variant="secondary"><Eye className="mr-2 h-4 w-4" />Goruntule</Button>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent">
                         <p className="text-sm text-background font-medium truncate">
@@ -329,286 +472,107 @@ export default function Gallery() {
                     </div>
                   ))}
                 </div>
-
-                {/* Keyboard hint */}
-                <p className="text-xs text-muted-foreground text-center mt-4">
-                  Gorseller arasinda gezinmek icin ok tuslarini kullanin
-                </p>
+                <p className="text-xs text-muted-foreground text-center mt-4">Gorseller arasinda gezinmek icin ok tuslarini kullanin</p>
               </div>
             )}
           </>
         )}
 
-        {/* Detail Modal - Horizontal Split Panel */}
-        <Dialog open={!!selectedImage} onOpenChange={(open) => {
-          if (!open) {
-            setSelectedImage(null);
-            setEditingName(false);
-          }
-        }}>
-          <DialogContent
-            className="p-0 overflow-hidden rounded-xl"
+        {/* ═══ MOBILE: Full-screen native overlay (NO Radix Dialog) ═══ */}
+        {isMobile && selectedImage && (
+          <div
             style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 50,
+              background: 'hsl(var(--background))',
               display: 'flex',
               flexDirection: 'column',
-              maxWidth: '95vw',
-              height: '95vh',
+              overflow: 'hidden',
             }}
           >
-            {selectedImage && (
-              <>
-                {/* Header with editable name */}
-                <DialogHeader className="px-4 md:px-6 pt-4 md:pt-5 pb-2 md:pb-3 pr-12 shrink-0">
-                  <DialogTitle className="text-base flex items-center gap-2">
-                    {editingName ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          ref={nameInputRef}
-                          value={nameValue}
-                          onChange={(e) => setNameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveName();
-                            if (e.key === 'Escape') setEditingName(false);
-                          }}
-                          onBlur={handleSaveName}
-                          className="h-7 text-base font-semibold"
-                          placeholder="Gorsel adi girin..."
-                        />
-                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleSaveName}>
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleStartEditing}
-                        className="flex items-center gap-1.5 hover:text-primary transition-colors text-left"
-                      >
-                        <span>{getDisplayName(selectedImage)}</span>
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    )}
-                  </DialogTitle>
-                  <DialogDescription className="sr-only">
-                    Gorsel detayi ve aksiyonlar
-                  </DialogDescription>
-                </DialogHeader>
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', flexShrink: 0 }}>
+              {renderEditableName()}
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 ml-2" onClick={closeDetail}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
 
-                {/* Mobile: vertical scroll layout */}
-                <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
-                  <div className="flex flex-col md:flex-row h-full" style={{ minHeight: 0 }}>
-                    {/* Image area */}
-                    <div
-                      className="relative w-full md:flex-1 min-w-0 p-3 md:p-4 pt-0 flex flex-col items-center justify-center"
-                      style={{ minHeight: '50vh' }}
-                    >
-                      {showComparison && getOriginalUrl(selectedImage) ? (
-                        <BeforeAfterComparison
-                          beforeImage={getOriginalUrl(selectedImage)}
-                          afterImage={getImageUrls(selectedImage)[selectedVariation] || ''}
-                          beforeLabel="Orijinal"
-                          afterLabel="Sonuc"
-                          className="w-full max-h-full rounded-lg"
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full rounded-lg overflow-hidden bg-muted cursor-zoom-in group relative"
-                          style={{ minHeight: '45vh' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLightboxOpen(true);
-                            setLightboxScale(1);
-                          }}
-                        >
-                          {getImageUrls(selectedImage)?.[selectedVariation] ? (
-                            <ProgressiveImage
-                              src={getImageUrls(selectedImage)[selectedVariation]}
-                              alt="Generated jewelry"
-                              className="w-full h-full object-contain"
-                              containerClassName="w-full h-full"
-                              eager
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                            <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
-                          </div>
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 12px 24px' }}>
+              {/* Image */}
+              {renderImageArea('55vh')}
 
-                          {/* Navigation arrows on image */}
-                          {getImageUrls(selectedImage).length > 1 && (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="secondary"
-                                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const urls = getImageUrls(selectedImage);
-                                  setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
-                                }}
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="secondary"
-                                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const urls = getImageUrls(selectedImage);
-                                  setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
-                                }}
-                              >
-                                <ChevronRight className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      )}
+              {/* Variation indicator */}
+              {getImageUrls(selectedImage).length > 1 && (
+                <p style={{ textAlign: 'center', fontSize: 13, marginTop: 8 }} className="text-muted-foreground">
+                  {selectedVariation + 1} / {getImageUrls(selectedImage).length}
+                </p>
+              )}
+
+              {/* Metadata row */}
+              <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 14 }}>
+                <p className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Sahne:</span> {selectedImage.scenes?.name_tr || 'Ozel'}
+                </p>
+                <p className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Tarih:</span>{' '}
+                  {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+
+              {/* Thumbnails */}
+              <div style={{ marginTop: 16 }}>{renderThumbnails()}</div>
+
+              {/* Separator */}
+              <Separator className="my-4" />
+
+              {/* Actions: 2-col grid */}
+              {renderActions(2)}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ DESKTOP: Radix Dialog (horizontal split panel) ═══ */}
+        {!isMobile && (
+          <Dialog open={!!selectedImage} onOpenChange={(open) => { if (!open) closeDetail(); }}>
+            <DialogContent className="max-w-5xl h-[85vh] p-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+              {selectedImage && (
+                <>
+                  <DialogHeader className="px-6 pt-5 pb-3 pr-12 shrink-0">
+                    <DialogTitle className="text-base flex items-center gap-2">
+                      {renderEditableName()}
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">Gorsel detayi ve aksiyonlar</DialogDescription>
+                  </DialogHeader>
+
+                  <div style={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                    {/* Left: Image */}
+                    <div style={{ flex: 1, minWidth: 0, padding: '0 16px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      {renderImageArea('100%')}
                     </div>
 
-                    {/* Sidebar: below image on mobile, right side on desktop */}
-                    <div className="border-t md:border-t-0 md:border-l p-3 md:p-4 flex flex-col gap-3 md:gap-4 md:overflow-y-auto w-full md:w-[280px] md:shrink-0">
-                      {/* Metadata */}
-                      <div className="flex gap-4 md:flex-col md:gap-1.5">
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium text-foreground">Sahne:</span>{' '}
-                          {selectedImage.scenes?.name_tr || 'Ozel'}
-                        </p>
+                    {/* Right: Sidebar */}
+                    <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid hsl(var(--border))', padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      <div className="space-y-1.5">
+                        <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Sahne:</span> {selectedImage.scenes?.name_tr || 'Ozel'}</p>
                         <p className="text-sm text-muted-foreground">
                           <span className="font-medium text-foreground">Tarih:</span>{' '}
-                          {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
+                          {new Date(selectedImage.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       </div>
 
-                      {/* Thumbnails */}
-                      {(getImageUrls(selectedImage)?.length > 1 || getOriginalUrl(selectedImage)) && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Varyasyonlar</p>
-                          <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-x-visible md:pb-0">
-                            {/* Original thumbnail */}
-                            {getOriginalUrl(selectedImage) && (
-                              <div className="relative shrink-0">
-                                <button
-                                  onClick={() => setShowComparison(true)}
-                                  className={`w-14 h-[70px] rounded-md overflow-hidden transition-all border-2 ${
-                                    showComparison ? 'border-primary scale-105' : 'border-muted opacity-60 hover:opacity-100'
-                                  }`}
-                                >
-                                  <img
-                                    src={getOriginalUrl(selectedImage)}
-                                    alt="Orijinal"
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                    decoding="async"
-                                  />
-                                </button>
-                                <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
-                                  Orijinal
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Generated thumbnails */}
-                            {getImageUrls(selectedImage).map((url, index) => (
-                              <div key={index} className="relative shrink-0">
-                                <button
-                                  onClick={() => {
-                                    setSelectedVariation(index);
-                                    setShowComparison(false);
-                                  }}
-                                  className={`w-14 h-[70px] rounded-md overflow-hidden transition-all ${
-                                    selectedVariation === index && !showComparison
-                                      ? 'ring-2 ring-primary scale-105'
-                                      : 'opacity-60 hover:opacity-100'
-                                  }`}
-                                >
-                                  <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
+                      {renderThumbnails()}
                       <Separator />
-
-                      {/* Actions */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Aksiyonlar</p>
-                        <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-                          <Button
-                            className="w-full justify-start"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const urls = getImageUrls(selectedImage);
-                              if (urls[selectedVariation]) {
-                                handleDownload(urls[selectedVariation], selectedVariation);
-                              }
-                            }}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Indir (4K)
-                          </Button>
-                          <Button
-                            className="w-full justify-start"
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setLightboxOpen(true);
-                              setLightboxScale(1);
-                            }}
-                          >
-                            <ZoomIn className="mr-2 h-4 w-4" />
-                            Buyut
-                          </Button>
-                          <VideoGenerateButton
-                            imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-start"
-                          />
-                          {getOriginalUrl(selectedImage) && (
-                            <Button
-                              className="w-full justify-start"
-                              size="sm"
-                              variant={showComparison ? 'default' : 'outline'}
-                              onClick={() => setShowComparison(!showComparison)}
-                            >
-                              <ArrowLeftRight className="mr-2 h-4 w-4" />
-                              {showComparison ? 'Kapat' : 'Once/Sonra'}
-                            </Button>
-                          )}
-                          <Button
-                            className="w-full justify-start col-span-2 md:col-span-1"
-                            size="sm"
-                            variant="destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteMutation.mutate(selectedImage.id);
-                            }}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Gorseli Sil
-                          </Button>
-                        </div>
-                      </div>
+                      {renderActions(1)}
                     </div>
                   </div>
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Fullscreen Lightbox with Navigation */}
         <AnimatePresence mode="wait">
@@ -619,101 +583,41 @@ export default function Gallery() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4 touch-manipulation"
-              onClick={() => {
-                setLightboxOpen(false);
-                setLightboxScale(1);
-              }}
+              onClick={() => { setLightboxOpen(false); setLightboxScale(1); }}
             >
-              {/* Navigation arrows */}
               {getImageUrls(selectedImage).length > 1 && (
                 <>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const urls = getImageUrls(selectedImage);
-                      setSelectedVariation(prev => prev > 0 ? prev - 1 : urls.length - 1);
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
+                    onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); setSelectedVariation(p => p > 0 ? p - 1 : u.length - 1); }}>
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const urls = getImageUrls(selectedImage);
-                      setSelectedVariation(prev => prev < urls.length - 1 ? prev + 1 : 0);
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10"
+                    onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); setSelectedVariation(p => p < u.length - 1 ? p + 1 : 0); }}>
                     <ChevronRight className="h-5 w-5" />
                   </Button>
                 </>
               )}
 
-              {/* Controls - top bar */}
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-                {/* Scale indicator - left */}
                 <div className="bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
                   <span className="text-sm font-medium">{Math.round(lightboxScale * 100)}%</span>
                 </div>
-
-                {/* Controls - right */}
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-9 w-9 sm:h-10 sm:w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxScale(s => Math.max(0.5, s - 0.25));
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="h-9 w-9 sm:h-10 sm:w-10" onClick={(e) => { e.stopPropagation(); setLightboxScale(s => Math.max(0.5, s - 0.25)); }}>
                     <ZoomOut className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-9 w-9 sm:h-10 sm:w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxScale(s => Math.min(3, s + 0.25));
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="h-9 w-9 sm:h-10 sm:w-10" onClick={(e) => { e.stopPropagation(); setLightboxScale(s => Math.min(3, s + 0.25)); }}>
                     <ZoomIn className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-9 w-9 sm:h-10 sm:w-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const urls = getImageUrls(selectedImage);
-                      if (urls[selectedVariation]) {
-                        handleDownload(urls[selectedVariation], selectedVariation);
-                      }
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="h-9 w-9 sm:h-10 sm:w-10" onClick={(e) => { e.stopPropagation(); const u = getImageUrls(selectedImage); if (u[selectedVariation]) handleDownload(u[selectedVariation], selectedVariation); }}>
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-9 w-9 sm:h-10 sm:w-10"
-                    onClick={() => {
-                      setLightboxOpen(false);
-                      setLightboxScale(1);
-                    }}
-                  >
+                  <Button size="icon" variant="secondary" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => { setLightboxOpen(false); setLightboxScale(1); }}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Image with pinch zoom support */}
               <motion.img
                 src={getImageUrls(selectedImage)[selectedVariation]}
                 alt="Generated jewelry fullscreen"
@@ -729,12 +633,9 @@ export default function Gallery() {
                 dragElastic={0.1}
               />
 
-              {/* Variation indicator - bottom */}
               {getImageUrls(selectedImage).length > 1 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-secondary/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <span className="text-sm font-medium">
-                    {selectedVariation + 1} / {getImageUrls(selectedImage).length}
-                  </span>
+                  <span className="text-sm font-medium">{selectedVariation + 1} / {getImageUrls(selectedImage).length}</span>
                 </div>
               )}
             </motion.div>
