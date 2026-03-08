@@ -1,13 +1,13 @@
 # TryOnJewel — Roadmap
 
-**4 phases** | **20 requirements mapped** | All v1 requirements covered ✓
+**4 phases** | **18 requirements mapped** | All v1 requirements covered ✓
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|-----------------|
-| 1 | Security Hardening | Complete    | 2026-03-01 | 4 |
-| 2 | Refactor & Testing | Reduce tech debt, add test coverage | REF-01..04, TEST-01..03 | 5 |
-| 3 | User Galleries | Users can manage and organize their generated images | GAL-01..05 | 4 |
-| 4 | Templates & Video | Preset scenes + professional video shot controls | TPL-01..04, VID-01..03 | 5 |
+| 1 | Security Hardening | Complete | 2026-03-01 | 4 |
+| 2 | Bug Fixes (Zoom/Resize) | Fix zoom/resize crashes and layout breaks | BUG-01..04 | 4 |
+| 3 | Performance (Image Loading) | Fast, fluid image loading with lazy load and optimization | PERF-01..05 | 5 |
+| 4 | Hetzner Migration | Move from Vercel to self-hosted Hetzner with Docker + Nginx | MIG-01..05 | 5 |
 
 ---
 
@@ -19,9 +19,6 @@
 
 **Plans:**
 4/4 plans complete
-2. Add `authenticateUser` to both video endpoints — proper 401 responses
-3. Atomic credit+job transaction — refund on insert failure
-4. Make storage bucket private — generate signed URLs for all image access
 
 **Success Criteria:**
 1. Google API key does not appear in any `video_url` stored in `processing_jobs`
@@ -31,65 +28,47 @@
 
 ---
 
-## Phase 2: Refactor & Testing
+## Phase 2: Bug Fixes (Zoom/Resize)
 
-**Goal:** Split the 2309-line monolith, eliminate duplicated code, add rate limiting, and establish a test foundation.
+**Goal:** Fix all zoom/resize related page crashes and layout breaks so the app works flawlessly at any zoom level.
 
-**Requirements:** REF-01, REF-02, REF-03, REF-04, TEST-01, TEST-02, TEST-03
+**Requirements:** BUG-01, BUG-02, BUG-03, BUG-04
 
-**Plans:**
-1. Refactor `api/generate-jewelry.ts` — extract scene engine, prompt builder, image processor, job manager
-2. Consolidate shared utilities — single `VIDEO_CREDIT_COST`, single base64 util in `api/_lib/`
-3. Rate limiting middleware — `api/_lib/rateLimit.ts`, applied to all endpoints
-4. Test infrastructure — Vitest config, first tests for `_lib/` utilities and business logic
+**Plans:** 1 plan
+- [ ] 02-01-PLAN.md — Debounce resize handlers, fix use-mobile hook, audit zoom robustness
 
 **Success Criteria:**
-1. `api/generate-jewelry.ts` is <400 lines (handler only); modules in `api/_lib/jewelry/`
-2. `VIDEO_CREDIT_COST` imported from one location in both video files
-3. `POST /api/generate-jewelry` returns 429 after exceeding rate limit
-4. `npm test` passes with ≥10 unit tests covering auth, cors, credit deduction
+1. PremiumHero canvas handles rapid resize without jank or beam regeneration storms
+2. InfiniteProductShowcase handles resize without excessive re-renders
+3. Browser zoom from 50% to 200% causes no JS errors or layout breaks
+4. All responsive breakpoints transition smoothly without flicker
 
 ---
 
-## Phase 3: User Galleries
+## Phase 3: Performance (Image Loading)
 
-**Goal:** Users can view, favorite, filter, and delete their generated images in a persistent gallery.
+**Goal:** Dramatically improve image loading speed — lazy load off-screen images, optimize previews, preload critical assets.
 
-**Requirements:** GAL-01, GAL-02, GAL-03, GAL-04, GAL-05
-
-**Plans:**
-1. Supabase migration — add `is_favorite` column to `generated_images`, ensure RLS policies
-2. Gallery page `/gorsellerim` — grid view, pagination, image modal
-3. Favorite & delete actions — optimistic UI with TanStack Query
-4. Gallery filter UI — all / favorites toggle
+**Requirements:** PERF-01, PERF-02, PERF-03, PERF-04, PERF-05
 
 **Success Criteria:**
-1. `/gorsellerim` shows all user's generated images in a grid
-2. User can click heart icon to favorite; favorites persist after page reload
-3. Filter by favorites shows only favorited images
-4. User can delete an image; it disappears from gallery and storage
-5. Gallery state persists across sessions (Supabase-backed)
+1. Gallery, Dashboard, Results pages use lazy loading for off-screen images
+2. ProgressiveImage shows blur placeholder while loading, transitions smoothly
+3. Lightbox loads optimized preview first, full-res on zoom/demand
+4. Above-fold hero images are preloaded — LCP < 2.5s on 4G
+5. All image elements use `decoding="async"` where appropriate
 
 ---
 
-## Phase 4: Templates & Video Improvements
+## Phase 4: Hetzner Migration
 
-**Goal:** Preset scene templates for faster generation + professional camera angle/shot controls for Veo video.
+**Goal:** Migrate entire stack (frontend + API) from Vercel to a self-hosted Hetzner VPS with Docker and Nginx.
 
-**Requirements:** TPL-01, TPL-02, TPL-03, TPL-04, VID-01, VID-02, VID-03
-
-**Plans:**
-1. Connect `scenes` DB table to generation flow — replace hardcoded pool with DB presets
-2. Preset UI in Generate page — visual scene selector with thumbnails
-3. Custom preset save — user can name and save their current scene config
-4. Admin preset management — CRUD in admin panel
-5. Video shot controls — angle selector (close-up / medium / wide) + movement (static / zoom / orbital)
-6. Veo prompt builder — incorporate angle + movement into generated prompt
+**Requirements:** MIG-01, MIG-02, MIG-03, MIG-04, MIG-05
 
 **Success Criteria:**
-1. Generation page shows ≥5 preset scene options loaded from Supabase `scenes` table
-2. Selecting a preset auto-fills scene parameters; generation produces matching style
-3. User can save current settings as named preset (stored in Supabase)
-4. Admin can add/disable presets from admin panel
-5. Video generation page shows angle + movement selectors
-6. Generated Veo prompt includes selected angle and movement language
+1. Frontend builds and serves from Docker container on Hetzner
+2. All API endpoints work as Express/Fastify routes (no Vercel serverless dependency)
+3. Nginx routes `/api/*` to backend, `/*` to frontend static files
+4. All environment variables configured and secrets secured on Hetzner
+5. Push to main triggers automated build and deploy to Hetzner
