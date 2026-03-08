@@ -346,7 +346,7 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="!flex !flex-col max-w-5xl h-[85vh] md:h-[85vh] max-h-[95vh] p-0 overflow-hidden">
+          <DialogContent className="!flex !flex-col !max-w-[95vw] md:!max-w-5xl h-[95vh] md:h-[85vh] p-0 overflow-hidden rounded-xl">
             {selectedImage && (
               <>
                 {/* Header with editable name */}
@@ -386,9 +386,9 @@ export default function Gallery() {
                 </DialogHeader>
 
                 {/* Split panel: vertical on mobile, horizontal on desktop */}
-                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden overflow-y-auto md:overflow-y-hidden">
                   {/* Top/Left: Image */}
-                  <div className="relative flex-1 min-h-0 min-w-0 p-4 pt-0 flex flex-col items-center justify-center">
+                  <div className="relative min-h-[40vh] md:min-h-0 md:flex-1 shrink-0 md:shrink min-w-0 p-4 pt-0 flex flex-col items-center justify-center">
                     {showComparison && getOriginalUrl(selectedImage) ? (
                       <BeforeAfterComparison
                         beforeImage={getOriginalUrl(selectedImage)}
@@ -456,7 +456,7 @@ export default function Gallery() {
                   </div>
 
                   {/* Bottom/Right: Sidebar with metadata + actions */}
-                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto w-full md:w-[280px] shrink-0 max-h-[40vh] md:max-h-none">
+                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-3 md:gap-4 md:overflow-y-auto w-full md:w-[280px] shrink-0">
                     {/* Metadata */}
                     <div className="space-y-1.5">
                       <p className="text-sm text-muted-foreground">
@@ -525,74 +525,69 @@ export default function Gallery() {
 
                     <Separator />
 
-                    {/* Actions - vertical stack */}
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Aksiyonlar</p>
-                      <Button
-                        className="w-full justify-start"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const urls = getImageUrls(selectedImage);
-                          if (urls[selectedVariation]) {
-                            handleDownload(urls[selectedVariation], selectedVariation);
-                          }
-                        }}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Indir (4K)
-                      </Button>
-                      <Button
-                        className="w-full justify-start"
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLightboxOpen(true);
-                          setLightboxScale(1);
-                        }}
-                      >
-                        <ZoomIn className="mr-2 h-4 w-4" />
-                        Buyut
-                      </Button>
-                      <VideoGenerateButton
-                        imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                      />
-                      {getOriginalUrl(selectedImage) && (
+                    {/* Actions - grid on mobile, vertical stack on desktop */}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Aksiyonlar</p>
+                      <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
                         <Button
                           className="w-full justify-start"
                           size="sm"
-                          variant={showComparison ? 'default' : 'outline'}
-                          onClick={() => setShowComparison(!showComparison)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const urls = getImageUrls(selectedImage);
+                            if (urls[selectedVariation]) {
+                              handleDownload(urls[selectedVariation], selectedVariation);
+                            }
+                          }}
                         >
-                          <ArrowLeftRight className="mr-2 h-4 w-4" />
-                          {showComparison ? 'Karsilastirmayi Kapat' : 'Once/Sonra'}
+                          <Download className="mr-2 h-4 w-4" />
+                          Indir (4K)
                         </Button>
-                      )}
+                        <Button
+                          className="w-full justify-start"
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxOpen(true);
+                            setLightboxScale(1);
+                          }}
+                        >
+                          <ZoomIn className="mr-2 h-4 w-4" />
+                          Buyut
+                        </Button>
+                        <VideoGenerateButton
+                          imageUrl={getImageUrls(selectedImage)[selectedVariation] || ''}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start"
+                        />
+                        {getOriginalUrl(selectedImage) && (
+                          <Button
+                            className="w-full justify-start"
+                            size="sm"
+                            variant={showComparison ? 'default' : 'outline'}
+                            onClick={() => setShowComparison(!showComparison)}
+                          >
+                            <ArrowLeftRight className="mr-2 h-4 w-4" />
+                            {showComparison ? 'Kapat' : 'Once/Sonra'}
+                          </Button>
+                        )}
+                        <Button
+                          className="w-full justify-start col-span-2 md:col-span-1"
+                          size="sm"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteMutation.mutate(selectedImage.id);
+                          }}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Gorseli Sil
+                        </Button>
+                      </div>
                     </div>
-
-                    {/* Spacer to push delete to bottom */}
-                    <div className="flex-1" />
-
-                    <Separator />
-
-                    {/* Delete - separated at bottom */}
-                    <Button
-                      className="w-full justify-start"
-                      size="sm"
-                      variant="destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteMutation.mutate(selectedImage.id);
-                      }}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Gorseli Sil
-                    </Button>
                   </div>
                 </div>
               </>
