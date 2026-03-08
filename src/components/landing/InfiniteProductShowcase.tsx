@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useRef, useEffect, useState } from 'react';
+import { useRef } from 'react';
 
 // Import only AI-generated result images (no originals)
 import blueSapphireBraceletResult from '@/assets/showcase/blue-sapphire-bracelet-result.webp';
@@ -41,7 +41,6 @@ interface MarqueeRowProps {
 
 const MarqueeRow = ({ images, direction, duration = 60, className = '', onImageClick }: MarqueeRowProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
 
   // Duplicate images for seamless loop - 4x for smoother infinite scroll
   const duplicatedImages = [...images, ...images, ...images, ...images];
@@ -50,21 +49,6 @@ const MarqueeRow = ({ images, direction, duration = 60, className = '', onImageC
   const imageWidth = 380;
   const gap = 24;
   const singleSetWidth = images.length * (imageWidth + gap);
-
-  useEffect(() => {
-    if (containerRef.current) {
-      setContainerWidth(containerRef.current.offsetWidth);
-    }
-
-    const handleResize = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   return (
     <div

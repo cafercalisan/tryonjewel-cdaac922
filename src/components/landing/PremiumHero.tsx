@@ -42,6 +42,7 @@ export const PremiumHero = () => {
   const noiseRef = useRef<HTMLCanvasElement>(null);
   const beamsRef = useRef<Beam[]>([]);
   const animationFrameRef = useRef<number>(0);
+  const sizeRef = useRef({ w: 0, h: 0 });
   const [titleNumber, setTitleNumber] = useState(0);
 
   const LAYERS = 3;
@@ -57,32 +58,60 @@ export const PremiumHero = () => {
     const nCtx = noiseCanvas.getContext("2d");
     if (!ctx || !nCtx) return;
 
-    const resizeCanvas = () => {
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const updateCanvasDimensions = () => {
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
 
-      noiseCanvas.width = window.innerWidth * dpr;
-      noiseCanvas.height = window.innerHeight * dpr;
-      noiseCanvas.style.width = `${window.innerWidth}px`;
-      noiseCanvas.style.height = `${window.innerHeight}px`;
+      noiseCanvas.width = w * dpr;
+      noiseCanvas.height = h * dpr;
+      noiseCanvas.style.width = `${w}px`;
+      noiseCanvas.style.height = `${h}px`;
       nCtx.setTransform(1, 0, 0, 1, 0, 0);
       nCtx.scale(dpr, dpr);
 
+      sizeRef.current = { w, h };
+    };
+
+    const initBeams = () => {
+      const { w, h } = sizeRef.current;
       beamsRef.current = [];
       for (let layer = 1; layer <= LAYERS; layer++) {
         for (let i = 0; i < BEAMS_PER_LAYER; i++) {
-          beamsRef.current.push(createBeam(window.innerWidth, window.innerHeight, layer));
+          beamsRef.current.push(createBeam(w, h, layer));
         }
       }
     };
 
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
+    const handleResize = () => {
+      updateCanvasDimensions();
+      // Clamp existing beams to new dimensions instead of regenerating
+      const { w, h } = sizeRef.current;
+      beamsRef.current.forEach((beam) => {
+        beam.x = Math.min(beam.x, w);
+        beam.y = Math.min(beam.y, h);
+        beam.length = h * 2.5;
+      });
+    };
+
+    const debouncedResize = () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 200);
+    };
+
+    // Initial setup: set dimensions and create beams
+    updateCanvasDimensions();
+    initBeams();
+    window.addEventListener("resize", debouncedResize);
 
     const generateNoise = () => {
       const imgData = nCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
@@ -118,18 +147,19 @@ export const PremiumHero = () => {
     const animate = () => {
       if (!canvas || !ctx) return;
 
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      const { w, h } = sizeRef.current;
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
       gradient.addColorStop(0, "#050505");
       gradient.addColorStop(1, "#111111");
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, w, h);
 
       beamsRef.current.forEach((beam) => {
         beam.y -= beam.speed * (beam.layer / LAYERS + 0.5);
         beam.pulse += beam.pulseSpeed;
         if (beam.y + beam.length < -50) {
-          beam.y = window.innerHeight + 50;
-          beam.x = Math.random() * window.innerWidth;
+          beam.y = h + 50;
+          beam.x = Math.random() * w;
         }
         drawBeam(beam);
       });
@@ -140,7 +170,8 @@ export const PremiumHero = () => {
     animate();
 
     return () => {
-      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("resize", debouncedResize);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
       cancelAnimationFrame(animationFrameRef.current);
     };
   }, []);
