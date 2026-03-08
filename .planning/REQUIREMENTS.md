@@ -9,39 +9,28 @@
 - [x] **SEC-03**: Credit deduction and job insertion occur atomically — no credits deducted without a corresponding job record
 - [x] **SEC-04**: `jewelry-images` Supabase storage bucket is private; signed URLs used for all access
 
-### Refactor (Phase 2 — Technical Debt)
+### Bug Fixes (Phase 2 — Zoom/Resize)
 
-- [ ] **REF-01**: `api/generate-jewelry.ts` split into ≤5 focused modules (scene engine, prompt builder, image processor, job manager, HTTP handler)
-- [ ] **REF-02**: `VIDEO_CREDIT_COST` defined in one shared location, imported by both video endpoints
-- [ ] **REF-03**: Base64 conversion consolidated into one utility in `api/_lib/`
-- [ ] **REF-04**: Rate limiting middleware applied to all `api/` endpoints (max requests per user/IP per minute)
+- [x] **BUG-01**: PremiumHero canvas resize handler debounced — no beam regeneration on every resize event
+- [x] **BUG-02**: InfiniteProductShowcase resize handler debounced — no excessive re-renders during window resize
+- [x] **BUG-03**: use-mobile hook uses matchMedia result instead of redundant window.innerWidth check
+- [x] **BUG-04**: All responsive components handle zoom in/out without layout breaks or JS errors
 
-### Test Infrastructure (Phase 2)
+### Performance (Phase 3 — Image Loading)
 
-- [ ] **TEST-01**: Vitest + Testing Library installed and configured
-- [ ] **TEST-02**: Unit tests for `api/_lib/` utilities (cors, auth, supabase)
-- [ ] **TEST-03**: Unit tests for core business logic (credit deduction, job status transitions)
+- [ ] **PERF-01**: All non-critical images use `loading="lazy"` (Gallery, Dashboard, Results, BeforeAfter)
+- [ ] **PERF-02**: ProgressiveImage component supports lazy loading with blur-up placeholder
+- [ ] **PERF-03**: Lightbox/modal images load optimized resolution first, full-res on demand
+- [ ] **PERF-04**: Critical images (hero, above-fold) use preloading (`<link rel="preload">` or equivalent)
+- [ ] **PERF-05**: Image components use `decoding="async"` where appropriate
 
-### User Galleries (Phase 3)
+### Hetzner Migration (Phase 4 — Server)
 
-- [ ] **GAL-01**: User can view all their generated images on a `/gorsellerim` gallery page
-- [ ] **GAL-02**: User can mark any generated image as favorite
-- [ ] **GAL-03**: User can filter gallery by favorites
-- [ ] **GAL-04**: User can delete their own generated images
-- [ ] **GAL-05**: Gallery persists across sessions (stored in Supabase)
-
-### Design Templates / Presets (Phase 4)
-
-- [ ] **TPL-01**: User can select from preset scene styles (e.g. "Studio White", "Editorial Dark", "Nature Outdoor") when generating
-- [ ] **TPL-02**: Presets are stored in Supabase `scenes` table and loaded dynamically
-- [ ] **TPL-03**: User can save their own custom preset configurations
-- [ ] **TPL-04**: Admin can add/edit/disable presets via admin panel
-
-### Video Improvements (Phase 4)
-
-- [ ] **VID-01**: Video generation supports professional angle/shot framing options (close-up, medium shot, wide angle)
-- [ ] **VID-02**: User can select camera movement style (static, slow zoom, orbital)
-- [ ] **VID-03**: Video prompt builder uses selected angle + movement to construct Veo prompt
+- [ ] **MIG-01**: Docker containerization — Dockerfile for frontend build + Node.js API server
+- [ ] **MIG-02**: Vercel serverless functions converted to Express/Fastify routes on Hetzner
+- [ ] **MIG-03**: Nginx reverse proxy configured for frontend + API routing
+- [ ] **MIG-04**: Environment variables and secrets managed on Hetzner (Supabase, Google API keys)
+- [ ] **MIG-05**: CI/CD pipeline for automated deployment to Hetzner
 
 ## v2 Requirements (deferred)
 
@@ -49,6 +38,11 @@
 - Social sharing (Instagram/Twitter)
 - Mobile PWA
 - White-label B2B widget
+- REF-01..04: Monolith refactoring (deferred from v1 Phase 2)
+- TEST-01..03: Test infrastructure (deferred from v1 Phase 2)
+- GAL-01..05: User galleries (deferred from v1 Phase 3)
+- TPL-01..04: Design templates/presets (deferred from v1 Phase 4)
+- VID-01..03: Video improvements (deferred from v1 Phase 4)
 
 ## Out of Scope
 
@@ -61,6 +55,6 @@
 | Phase | Requirements |
 |-------|-------------|
 | Phase 1: Security Hardening | SEC-01, SEC-02, SEC-03, SEC-04 |
-| Phase 2: Refactor & Testing | REF-01, REF-02, REF-03, REF-04, TEST-01, TEST-02, TEST-03 |
-| Phase 3: User Galleries | GAL-01, GAL-02, GAL-03, GAL-04, GAL-05 |
-| Phase 4: Templates & Video | TPL-01, TPL-02, TPL-03, TPL-04, VID-01, VID-02, VID-03 |
+| Phase 2: Bug Fixes (Zoom/Resize) | BUG-01, BUG-02, BUG-03, BUG-04 |
+| Phase 3: Performance (Image Loading) | PERF-01, PERF-02, PERF-03, PERF-04, PERF-05 |
+| Phase 4: Hetzner Migration | MIG-01, MIG-02, MIG-03, MIG-04, MIG-05 |

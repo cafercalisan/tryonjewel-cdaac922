@@ -34,8 +34,8 @@
 
 **Requirements:** BUG-01, BUG-02, BUG-03, BUG-04
 
-**Plans:** 1 plan
-- [ ] 02-01-PLAN.md — Debounce resize handlers, fix use-mobile hook, audit zoom robustness
+**Plans:** 1/1 plans complete
+- [x] 02-01-PLAN.md — Debounce resize handlers, fix use-mobile hook, audit zoom robustness
 
 **Success Criteria:**
 1. PremiumHero canvas handles rapid resize without jank or beam regeneration storms

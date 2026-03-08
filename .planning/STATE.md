@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-01T14:42:51.084Z"
+status: in-progress
+last_updated: "2026-03-08T12:20:58Z"
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # TryOnJewel — Project State
 
 ## Current Phase
 
-**Phase 1: Security Hardening** — Complete (Plan 4/4 complete)
+**Phase 2: Bug Fixes (Zoom/Resize)** — Complete (Plan 1/1 complete)
 
 ## Phase Status
 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 1 — Security Hardening | ✅ Complete | All 4 plans done |
-| 2 — Refactor & Testing | ⏳ Pending | After Phase 1 |
-| 3 — User Galleries | ⏳ Pending | |
-| 4 — Templates & Video | ⏳ Pending | |
+| 2 — Bug Fixes (Zoom/Resize) | ✅ Complete | All 1 plan done |
+| 3 — Performance (Image Loading) | ⏳ Pending | Lazy load, optimization |
+| 4 — Hetzner Migration | ⏳ Pending | Vercel → Hetzner VPS |
 
 ## Completed Work
 
@@ -34,6 +34,7 @@ progress:
 - [2026-03-01] Phase 1 Plan 01: Strip API key from stored video URL (SEC-01)
 - [2026-03-01] Phase 1 Plan 03: Atomic credit refund on handler failure (SEC-03)
 - [2026-03-01] Phase 1 Plan 04: Make jewelry-images bucket private + signed URLs everywhere (SEC-04)
+- [2026-03-08] Phase 2 Plan 01: Debounce resize handlers, fix use-mobile hook, audit zoom robustness (BUG-01..04)
 
 ## Decisions Made
 
@@ -47,6 +48,9 @@ progress:
 - [Phase 1 Plan 03] creditsDeducted flag; refund failure logged as CRITICAL but does not suppress original error
 - [Phase 1 Plan 04] Set jewelry-images bucket private (public = false) to re-activate existing RLS policies
 - [Phase 1 Plan 04] Use 7-day createSignedUrl in generate-design.ts; nullify stale public video_url on deploy
+- [Phase 2 Plan 01] Removed dead containerWidth state entirely rather than debouncing (never consumed in render)
+- [Phase 2 Plan 01] Beam clamping on resize instead of regeneration preserves animation continuity
+- [Phase 2 Plan 01] Cache dimensions in useRef for animation loop to avoid layout thrashing per frame
 
 ## Active Blockers
 
@@ -59,4 +63,4 @@ None.
 - Codebase map available in `.planning/codebase/` for detailed analysis
 
 ---
-*Last updated: 2026-03-01 — Phase 1 Plan 03 completed (SEC-03 done)*
+*Last updated: 2026-03-08 — Phase 2 Plan 01 completed (BUG-01..04 done)*
