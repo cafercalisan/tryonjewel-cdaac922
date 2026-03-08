@@ -1,24 +1,58 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ProgressiveImageProps {
   src: string;
   alt: string;
+  thumbnailSrc?: string;
   className?: string;
   containerClassName?: string;
+  eager?: boolean;
 }
 
-export function ProgressiveImage({ src, alt, className, containerClassName }: ProgressiveImageProps) {
-  const [loaded, setLoaded] = useState(false);
+export function ProgressiveImage({
+  src,
+  alt,
+  thumbnailSrc,
+  className,
+  containerClassName,
+  eager = false,
+}: ProgressiveImageProps) {
+  const [thumbLoaded, setThumbLoaded] = useState(false);
+  const [fullLoaded, setFullLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const [isVisible, setIsVisible] = useState(eager);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleLoad = useCallback(() => setLoaded(true), []);
+  // IntersectionObserver for lazy rendering
+  useEffect(() => {
+    if (eager || isVisible) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [eager, isVisible]);
+
+  const handleThumbLoad = useCallback(() => setThumbLoaded(true), []);
+  const handleFullLoad = useCallback(() => setFullLoaded(true), []);
   const handleError = useCallback(() => setError(true), []);
 
+  const activeSrc = thumbnailSrc || src;
+
   return (
-    <div className={cn('relative overflow-hidden', containerClassName)}>
-      {/* Shimmer skeleton */}
-      {!loaded && !error && (
+    <div ref={containerRef} className={cn('relative overflow-hidden', containerClassName)}>
+      {/* Shimmer skeleton — shown until something loads */}
+      {!thumbLoaded && !fullLoaded && !error && (
         <div className="absolute inset-0 bg-muted animate-pulse">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent animate-[shimmer_1.5s_infinite]" />
         </div>
@@ -32,19 +66,43 @@ export function ProgressiveImage({ src, alt, className, containerClassName }: Pr
             </svg>
           </div>
         </div>
-      ) : (
-        <img
-          src={src}
-          alt={alt}
-          onLoad={handleLoad}
-          onError={handleError}
-          className={cn(
-            'transition-all duration-700 ease-out',
-            loaded ? 'blur-0 opacity-100 scale-100' : 'blur-md opacity-0 scale-105',
-            className
+      ) : isVisible ? (
+        <>
+          {/* Thumbnail (small, fast) — shown first */}
+          {thumbnailSrc && !fullLoaded && (
+            <img
+              src={thumbnailSrc}
+              alt={alt}
+              loading={eager ? 'eager' : 'lazy'}
+              decoding="async"
+              onLoad={handleThumbLoad}
+              onError={handleError}
+              className={cn(
+                'transition-opacity duration-500 ease-out',
+                thumbLoaded ? 'opacity-100' : 'opacity-0',
+                className,
+              )}
+            />
           )}
-        />
-      )}
+
+          {/* Full resolution — loads on top of thumbnail */}
+          <img
+            src={thumbnailSrc ? src : activeSrc}
+            alt={alt}
+            loading={eager ? 'eager' : 'lazy'}
+            decoding="async"
+            onLoad={thumbnailSrc ? handleFullLoad : handleThumbLoad}
+            onError={handleError}
+            className={cn(
+              'transition-all duration-700 ease-out',
+              thumbnailSrc
+                ? (fullLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0')
+                : (thumbLoaded ? 'blur-0 opacity-100 scale-100' : 'blur-md opacity-0 scale-105'),
+              className,
+            )}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

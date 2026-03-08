@@ -14,7 +14,7 @@ import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
 import { ProgressiveImage } from '@/components/ui/progressive-image';
-import { getPublicImageUrl } from '@/lib/getSignedImageUrl';
+import { getPublicImageUrl, getThumbnailUrl } from '@/lib/getSignedImageUrl';
 import { BeforeAfterComparison } from '@/components/gallery/BeforeAfterComparison';
 
 interface ImageRecord {
@@ -39,6 +39,7 @@ export default function Gallery() {
   const [lightboxScale, setLightboxScale] = useState(1);
   const [signedUrls, setSignedUrls] = useState<Record<string, string[]>>({});
   const [signedOriginalUrls, setSignedOriginalUrls] = useState<Record<string, string>>({});
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string[]>>({});
   const [showComparison, setShowComparison] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [editingName, setEditingName] = useState(false);
@@ -60,17 +61,21 @@ export default function Gallery() {
     enabled: !!user,
   });
 
-  // Convert stored URLs to public URLs (synchronous, zero API calls)
+  // Convert stored URLs to public URLs + thumbnail URLs (synchronous, zero API calls)
   useEffect(() => {
     if (!images || images.length === 0) return;
 
     const urlMap: Record<string, string[]> = {};
     const originalUrlMap: Record<string, string> = {};
+    const thumbMap: Record<string, string[]> = {};
 
     for (const image of images) {
       if (image.generated_image_urls?.length > 0) {
         urlMap[image.id] = image.generated_image_urls
           .map(url => getPublicImageUrl(url))
+          .filter(Boolean) as string[];
+        thumbMap[image.id] = image.generated_image_urls
+          .map(url => getThumbnailUrl(url, 400, 500, 60))
           .filter(Boolean) as string[];
       }
       if (image.original_image_url) {
@@ -81,6 +86,7 @@ export default function Gallery() {
 
     setSignedUrls(urlMap);
     setSignedOriginalUrls(originalUrlMap);
+    setThumbUrls(thumbMap);
   }, [images]);
 
   // Keyboard navigation for gallery
@@ -148,6 +154,11 @@ export default function Gallery() {
   const getOriginalUrl = useCallback((image: ImageRecord): string => {
     return signedOriginalUrls[image.id] || image.original_image_url || '';
   }, [signedOriginalUrls]);
+
+  // Helper to get thumbnail URLs for grid display
+  const getThumbUrls = useCallback((image: ImageRecord): string[] => {
+    return thumbUrls[image.id] || [];
+  }, [thumbUrls]);
 
   // Helper to get display name
   const getDisplayName = (image: ImageRecord): string => {
@@ -291,6 +302,7 @@ export default function Gallery() {
                       {getImageUrls(image)?.[0] ? (
                         <ProgressiveImage
                           src={getImageUrls(image)[0]}
+                          thumbnailSrc={getThumbUrls(image)?.[0]}
                           alt="Generated jewelry"
                           className="w-full h-full object-cover"
                           containerClassName="w-full h-full"
@@ -334,7 +346,7 @@ export default function Gallery() {
             setEditingName(false);
           }
         }}>
-          <DialogContent className="!flex !flex-col max-w-5xl h-[85vh] p-0 overflow-hidden">
+          <DialogContent className="!flex !flex-col max-w-5xl h-[85vh] md:h-[85vh] max-h-[95vh] p-0 overflow-hidden">
             {selectedImage && (
               <>
                 {/* Header with editable name */}
@@ -373,9 +385,9 @@ export default function Gallery() {
                   </DialogDescription>
                 </DialogHeader>
 
-                {/* Split panel: image left, actions right */}
-                <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
-                  {/* Left: Image */}
+                {/* Split panel: vertical on mobile, horizontal on desktop */}
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+                  {/* Top/Left: Image */}
                   <div className="relative flex-1 min-h-0 min-w-0 p-4 pt-0 flex flex-col items-center justify-center">
                     {showComparison && getOriginalUrl(selectedImage) ? (
                       <BeforeAfterComparison
@@ -443,8 +455,8 @@ export default function Gallery() {
                     )}
                   </div>
 
-                  {/* Right: Sidebar with metadata + actions */}
-                  <div className="border-l p-4 flex flex-col gap-4 overflow-y-auto w-[280px] shrink-0">
+                  {/* Bottom/Right: Sidebar with metadata + actions */}
+                  <div className="border-t md:border-t-0 md:border-l p-4 flex flex-col gap-4 overflow-y-auto w-full md:w-[280px] shrink-0 max-h-[40vh] md:max-h-none">
                     {/* Metadata */}
                     <div className="space-y-1.5">
                       <p className="text-sm text-muted-foreground">
@@ -465,7 +477,7 @@ export default function Gallery() {
                     {(getImageUrls(selectedImage)?.length > 1 || getOriginalUrl(selectedImage)) && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Varyasyonlar</p>
-                        <div className="flex gap-2 flex-wrap">
+                        <div className="flex gap-2 flex-nowrap overflow-x-auto md:flex-wrap md:overflow-x-visible pb-1 md:pb-0">
                           {/* Original thumbnail */}
                           {getOriginalUrl(selectedImage) && (
                             <div className="relative">
@@ -479,6 +491,8 @@ export default function Gallery() {
                                   src={getOriginalUrl(selectedImage)}
                                   alt="Orijinal"
                                   className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
                                 />
                               </button>
                               <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
@@ -501,7 +515,7 @@ export default function Gallery() {
                                     : 'opacity-60 hover:opacity-100'
                                 }`}
                               >
-                                <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" />
+                                <img src={url} alt={`Varyasyon ${index + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                               </button>
                             </div>
                           ))}

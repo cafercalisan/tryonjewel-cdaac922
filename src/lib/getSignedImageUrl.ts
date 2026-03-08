@@ -1,5 +1,6 @@
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const PUBLIC_BASE = `${SUPABASE_URL}/storage/v1/object/public/jewelry-images/`;
+const RENDER_BASE = `${SUPABASE_URL}/storage/v1/render/image/public/jewelry-images/`;
 
 /**
  * Extract file path from any Supabase storage URL format.
@@ -12,6 +13,10 @@ function extractFilePath(url: string): string | null {
 
   try {
     const pathname = new URL(url).pathname;
+
+    // /storage/v1/render/image/public/jewelry-images/...
+    const render = pathname.match(/\/storage\/v1\/render\/image\/public\/jewelry-images\/(.+)/);
+    if (render) return decodeURIComponent(render[1]);
 
     // /storage/v1/object/public/jewelry-images/...
     const pub = pathname.match(/\/storage\/v1\/object\/public\/jewelry-images\/(.+)/);
@@ -40,15 +45,31 @@ export function getPublicImageUrl(originalUrl: string | null | undefined): strin
   if (!originalUrl) return null;
   if (originalUrl.startsWith('data:')) return originalUrl;
 
-  // If it's already a valid public URL, return as-is
-  if (originalUrl.includes('/object/public/jewelry-images/')) {
-    return originalUrl.split('?')[0]; // strip expired query params
-  }
-
+  // Always extract file path and rebuild — handles expired signed URLs,
+  // stale query params, and any other URL format consistently.
   const filePath = extractFilePath(originalUrl);
   if (!filePath) return originalUrl;
 
   return `${PUBLIC_BASE}${filePath}`;
+}
+
+/**
+ * Get a resized thumbnail URL via Supabase image transforms.
+ * Falls back to full public URL if the source can't be parsed.
+ */
+export function getThumbnailUrl(
+  originalUrl: string | null | undefined,
+  width = 400,
+  height = 500,
+  quality = 60,
+): string | null {
+  if (!originalUrl) return null;
+  if (originalUrl.startsWith('data:')) return originalUrl;
+
+  const filePath = extractFilePath(originalUrl);
+  if (!filePath) return originalUrl;
+
+  return `${RENDER_BASE}${filePath}?width=${width}&height=${height}&resize=cover&quality=${quality}`;
 }
 
 /**
