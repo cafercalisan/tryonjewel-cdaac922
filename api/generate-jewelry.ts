@@ -1,14 +1,56 @@
 import type { Request, Response } from 'express';
-import OpenAI from 'openai';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
-const ANALYSIS_MODEL = 'gpt-4.1';
-const IMAGE_GEN_MODEL = 'gemini-3.1-flash-lite-preview';
+const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';
+const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview';
+
+// ── Gemini Text/Vision Analysis Helper ──
+async function callGeminiAnalysis(opts: {
+  prompt: string;
+  imageBase64?: string;
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<string> {
+  const apiKey = GOOGLE_IMAGE_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_API_KEY not configured');
+
+  const parts: any[] = [{ text: opts.prompt }];
+  if (opts.imageBase64) {
+    parts.push({
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: opts.imageBase64,
+      },
+    });
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: opts.temperature ?? 0.1,
+        maxOutputTokens: opts.maxTokens ?? 2048,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini analysis API error ${response.status}: ${errText.substring(0, 500)}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  return text;
+}
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
@@ -535,23 +577,8 @@ async function enhanceScenePrompt(
   analysisResult: any,
   sceneType: string,
 ): Promise<string> {
-  if (!OPENAI_API_KEY) {
-    console.warn('OPENAI_API_KEY not set, skipping prompt enhancement');
-    return templatePrompt;
-  }
-
   try {
-    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const completion = await openai.chat.completions.create({
-      model: ANALYSIS_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: `You are a world-class luxury jewelry photography art director. Your task is to enhance and optimize an image generation prompt for a jewelry piece.
+    const prompt = `You are a world-class luxury jewelry photography art director. Your task is to enhance and optimize an image generation prompt for a jewelry piece.
 
 RULES:
 - Keep ALL existing product identity, fidelity constraints, and technical specs EXACTLY as they are
@@ -561,12 +588,10 @@ RULES:
 - Add lighting nuances based on the jewelry's metal type and stone characteristics
 - Suggest specific color harmonies between the jewelry and the scene/background
 - Keep the output as a single enhanced prompt text — same format, just richer and more detailed
-- Output ONLY the enhanced prompt, nothing else — no explanations, no markdown headers
-- Keep it under 2000 words`
-        },
-        {
-          role: 'user',
-          content: `Scene type: ${sceneType}
+- Output ONLY the enhanced prompt as a JSON object: {"enhanced_prompt": "..."}
+- Keep it under 2000 words
+
+Scene type: ${sceneType}
 
 Jewelry analysis summary:
 - Type: ${analysisResult.type || 'jewelry'}
@@ -576,27 +601,19 @@ Jewelry analysis summary:
 - Visual fingerprint: ${analysisResult.visual_fingerprint || 'N/A'}
 
 Original prompt to enhance:
-${templatePrompt}`
-        }
-      ],
-      temperature: 0.4,
-      max_tokens: 3000,
-    }, { signal: controller.signal });
+${templatePrompt}`;
 
-    clearTimeout(timeout);
+    const text = await callGeminiAnalysis({ prompt, temperature: 0.4, maxTokens: 3000 });
+    const parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim());
+    const enhanced = parsed.enhanced_prompt || parsed.prompt || text;
 
-    const enhanced = completion.choices[0]?.message?.content;
-    if (enhanced && enhanced.length > 100) {
-      console.log(`GPT-4.1 enhanced ${sceneType} prompt (${enhanced.length} chars)`);
+    if (typeof enhanced === 'string' && enhanced.length > 100) {
+      console.log(`Gemini enhanced ${sceneType} prompt (${enhanced.length} chars)`);
       return enhanced;
     }
     return templatePrompt;
   } catch (err: any) {
-    if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
-      console.warn(`GPT-4.1 prompt enhancement timed out for ${sceneType} (8s), using template`);
-    } else {
-      console.error(`GPT-4.1 prompt enhancement failed for ${sceneType}:`, err?.message || err);
-    }
+    console.error(`Gemini prompt enhancement failed for ${sceneType}:`, err?.message || err);
     return templatePrompt;
   }
 }
@@ -1340,8 +1357,6 @@ interface StyleReferenceAnalysis {
 
 async function analyzeStyleReference(styleBase64: string): Promise<StyleReferenceAnalysis | null> {
   try {
-    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
     const stylePrompt = `You are an expert photography and art director. Analyze this style reference image with extreme precision for the purpose of recreating its visual style in a new jewelry photograph.
 
 Return JSON:
@@ -1364,7 +1379,7 @@ Return JSON:
     "depth_of_field": "shallow/deep with estimated f-stop"
   },
   "model": {
-    "present": true/false,
+    "present": true,
     "pose_description": "detailed pose description if present",
     "body_parts_visible": "which body parts are visible",
     "expression_mood": "facial expression and mood if visible",
@@ -1378,7 +1393,7 @@ Return JSON:
     "editorial_genre": "high-fashion/lifestyle/commercial/etc"
   },
   "existing_jewelry": {
-    "present": true/false,
+    "present": true,
     "description": "description of any jewelry visible",
     "location": "where on the body/scene the jewelry is"
   }
@@ -1386,23 +1401,7 @@ Return JSON:
 
 ONLY valid JSON.`;
 
-    const completion = await openai.chat.completions.create({
-      model: ANALYSIS_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: stylePrompt },
-            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${styleBase64}` } },
-          ],
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 2048,
-      response_format: { type: 'json_object' },
-    });
-
-    const content = completion.choices[0]?.message?.content || '{}';
+    const content = await callGeminiAnalysis({ prompt: stylePrompt, imageBase64: styleBase64 });
     const result = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
     console.log('Style reference analysis:', JSON.stringify(result, null, 2));
     return result as StyleReferenceAnalysis;
@@ -1550,8 +1549,6 @@ async function processGeneration(params: {
     console.log('Step 1: Analyzing jewelry...');
     await supabase.from('processing_jobs').update({ progress: 15 }).eq('id', jobId);
 
-    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
     const analysisPrompt = `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
 
 Return JSON:
@@ -1659,29 +1656,16 @@ NOTE: If analyzing a WATCH, pay special attention to:
 
 ONLY valid JSON.`;
 
-    const analysisCompletion = await openai.chat.completions.create({
-      model: ANALYSIS_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: analysisPrompt },
-            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
-          ],
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 2048,
-      response_format: { type: 'json_object' },
-    });
-
     let analysisResult: any = { type: 'jewelry', design_elements: { style: 'classic' } };
 
     try {
-      const content = analysisCompletion.choices[0]?.message?.content || '{}';
-      analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
-    } catch {
-      console.error('Failed to parse analysis');
+      const analysisContent = await callGeminiAnalysis({
+        prompt: analysisPrompt,
+        imageBase64: base64Image,
+      });
+      analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, '').trim());
+    } catch (err) {
+      console.error('Failed to parse analysis:', err);
     }
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));

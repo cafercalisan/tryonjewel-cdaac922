@@ -21,7 +21,7 @@ if (missing.length > 0) {
   console.error('Server will start but API calls requiring these keys will fail.');
 }
 
-const OPTIONAL_ENV = ['OPENAI_API_KEY', 'GOOGLE_ANALYSIS_API_KEY'];
+const OPTIONAL_ENV = ['GOOGLE_ANALYSIS_API_KEY'];
 const missingOptional = OPTIONAL_ENV.filter(k => !process.env[k]);
 if (missingOptional.length > 0) {
   console.warn(`⚠️  Missing optional env variables: ${missingOptional.join(', ')}`);
@@ -65,7 +65,6 @@ app.get('/api/health', (_req, res) => {
       SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       GOOGLE_API_KEY: !!process.env.GOOGLE_API_KEY,
-      OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
     },
   });
 });

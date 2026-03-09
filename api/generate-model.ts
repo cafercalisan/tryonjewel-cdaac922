@@ -335,7 +335,7 @@ export default async function handler(req: Request, res: Response) {
       throw new Error('GOOGLE_API_KEY not configured');
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
