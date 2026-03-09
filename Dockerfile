@@ -30,7 +30,4 @@ RUN chmod +x /start.sh
 
 EXPOSE 80
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
-  CMD wget -qO- http://localhost:3001/api/health || exit 1
-
 CMD ["/start.sh"]
