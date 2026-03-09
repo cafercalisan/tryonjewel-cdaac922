@@ -1,7 +1,7 @@
-import type { VercelRequest } from '@vercel/node';
+import type { Request } from 'express';
 import { getAuthClient } from './supabase.js';
 
-export async function authenticateUser(req: VercelRequest): Promise<{ userId: string } | { error: string; status: number }> {
+export async function authenticateUser(req: Request): Promise<{ userId: string } | { error: string; status: number }> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { error: 'Unauthorized', status: 401 };

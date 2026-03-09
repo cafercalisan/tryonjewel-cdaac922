@@ -1,17 +1,13 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { waitUntil } from '@vercel/functions';
+import type { Request, Response } from 'express';
+import OpenAI from 'openai';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 
-export const config = {
-  maxDuration: 300,
-};
-
-const GOOGLE_ANALYSIS_API_KEY = process.env.GOOGLE_ANALYSIS_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
-const ANALYSIS_MODEL = 'models/gemini-2.5-flash';
+const ANALYSIS_MODEL = 'gpt-4.1';
 const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'; // Nano Banana 2: Flash hızında, 3-pro kalitesinde
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
@@ -529,6 +525,67 @@ EDITORIAL ENERGY DIRECTIVE (MANDATORY FOR ALL MODEL SHOTS)
 - Eyes have DEPTH — thinking about something specific, not staring at lens.
 - Overall impression: "This person has somewhere important to be after this photo."
 ═══════════════════════════════════════════════════════════════`;
+
+// ═══════════════════════════════════════════════════
+// GPT-4.1 SCENE PROMPT ENHANCER
+// ═══════════════════════════════════════════════════
+
+async function enhanceScenePrompt(
+  templatePrompt: string,
+  analysisResult: any,
+  sceneType: string,
+): Promise<string> {
+  try {
+    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+    const completion = await openai.chat.completions.create({
+      model: ANALYSIS_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a world-class luxury jewelry photography art director. Your task is to enhance and optimize an image generation prompt for a jewelry piece.
+
+RULES:
+- Keep ALL existing product identity, fidelity constraints, and technical specs EXACTLY as they are
+- NEVER modify product description, stone counts, prong counts, metal details, or any identity card content
+- ONLY enhance: scene description, lighting details, mood, creative direction, color grading, and composition guidance
+- Add specific, vivid sensory details that make the scene feel cinematic and real
+- Add lighting nuances based on the jewelry's metal type and stone characteristics
+- Suggest specific color harmonies between the jewelry and the scene/background
+- Keep the output as a single enhanced prompt text — same format, just richer and more detailed
+- Output ONLY the enhanced prompt, nothing else — no explanations, no markdown headers
+- Keep it under 2000 words`
+        },
+        {
+          role: 'user',
+          content: `Scene type: ${sceneType}
+
+Jewelry analysis summary:
+- Type: ${analysisResult.type || 'jewelry'}
+- Metal: ${analysisResult.metal?.type || 'unknown'} ${analysisResult.metal?.finish || ''} ${analysisResult.metal?.karat || ''}
+- Stones: ${JSON.stringify(analysisResult.stones?.map((s: any) => `${s.count}x ${s.type} ${s.cut}`) || ['none'])}
+- Style: ${analysisResult.design_elements?.style || 'classic'}
+- Visual fingerprint: ${analysisResult.visual_fingerprint || 'N/A'}
+
+Original prompt to enhance:
+${templatePrompt}`
+        }
+      ],
+      temperature: 0.4,
+      max_tokens: 3000,
+    });
+
+    const enhanced = completion.choices[0]?.message?.content;
+    if (enhanced && enhanced.length > 100) {
+      console.log(`GPT-4.1 enhanced ${sceneType} prompt (${enhanced.length} chars)`);
+      return enhanced;
+    }
+    return templatePrompt;
+  } catch (err) {
+    console.error(`GPT-4.1 prompt enhancement failed for ${sceneType}:`, err);
+    return templatePrompt;
+  }
+}
 
 // ═══════════════════════════════════════════════════
 // PRODUCT IDENTITY CARD (CROSS-IMAGE CONSISTENCY)
@@ -1263,16 +1320,9 @@ interface StyleReferenceAnalysis {
 
 async function analyzeStyleReference(styleBase64: string): Promise<StyleReferenceAnalysis | null> {
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                text: `You are an expert photography and art director. Analyze this style reference image with extreme precision for the purpose of recreating its visual style in a new jewelry photograph.
+    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+    const stylePrompt = `You are an expert photography and art director. Analyze this style reference image with extreme precision for the purpose of recreating its visual style in a new jewelry photograph.
 
 Return JSON:
 {
@@ -1314,23 +1364,25 @@ Return JSON:
   }
 }
 
-ONLY valid JSON.`
-              },
-              { inline_data: { mime_type: 'image/jpeg', data: styleBase64 } }
-            ]
-          }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
-        }),
-      }
-    );
+ONLY valid JSON.`;
 
-    if (!response.ok) {
-      console.error('Style reference analysis API error:', response.status);
-      return null;
-    }
+    const completion = await openai.chat.completions.create({
+      model: ANALYSIS_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: stylePrompt },
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${styleBase64}` } },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 2048,
+      response_format: { type: 'json_object' },
+    });
 
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    const content = completion.choices[0]?.message?.content || '{}';
     const result = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
     console.log('Style reference analysis:', JSON.stringify(result, null, 2));
     return result as StyleReferenceAnalysis;
@@ -1478,14 +1530,9 @@ async function processGeneration(params: {
     console.log('Step 1: Analyzing jewelry...');
     await supabase.from('processing_jobs').update({ progress: 15 }).eq('id', jobId);
 
-    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${ANALYSIS_MODEL}:generateContent?key=${GOOGLE_ANALYSIS_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            {
-              text: `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
+    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+    const analysisPrompt = `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
 
 Return JSON:
 {
@@ -1590,25 +1637,31 @@ NOTE: If analyzing a WATCH, pay special attention to:
 - Crown and pusher designs
 - Visible mechanical movement details
 
-ONLY valid JSON.`
-            },
-            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
-      }),
+ONLY valid JSON.`;
+
+    const analysisCompletion = await openai.chat.completions.create({
+      model: ANALYSIS_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: analysisPrompt },
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 2048,
+      response_format: { type: 'json_object' },
     });
 
     let analysisResult: any = { type: 'jewelry', design_elements: { style: 'classic' } };
 
-    if (analysisResponse.ok) {
-      try {
-        const analysisData = await analysisResponse.json();
-        const content = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
-      } catch {
-        console.error('Failed to parse analysis');
-      }
+    try {
+      const content = analysisCompletion.choices[0]?.message?.content || '{}';
+      analysisResult = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
+    } catch {
+      console.error('Failed to parse analysis');
     }
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));
@@ -1895,14 +1948,17 @@ Ultra high resolution output.`.trim();
       if (hasStyleReference && styleReferenceBase64) {
         // Style reference takes priority
         singlePrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+        singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'style_transfer');
         singleImages = [styleReferenceBase64, ...base64Images];
       } else if (paramCustomPrompt) {
         // Custom text prompt
         singlePrompt = buildCustomPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard, paramCustomPrompt);
+        singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'custom');
         singleImages = base64Images;
       } else {
         // Fallback to editorial
         singlePrompt = buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard);
+        singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'editorial');
         singleImages = base64Images;
       }
 
@@ -1924,7 +1980,8 @@ Ultra high resolution output.`.trim();
       console.log('Standalone style reference generation mode...');
 
       const identityCard = buildProductIdentityCard(analysisResult);
-      const styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+      let styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+      styleTransferPrompt = await enhanceScenePrompt(styleTransferPrompt, analysisResult, 'style_transfer');
 
       await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
       const styleTransferImages = [styleReferenceBase64, ...base64Images];
@@ -2021,7 +2078,8 @@ Ultra high resolution output.`.trim();
         }).eq('id', jobId);
 
         const stepIdentityCard = buildIdentityCardForStep(i, filteredSteps.length);
-        const prompt = ms.buildPrompt(stepIdentityCard);
+        const basePrompt = ms.buildPrompt(stepIdentityCard);
+        const prompt = await enhanceScenePrompt(basePrompt, analysisResult, ms.key);
         const images = (ms as any).getImages ? (ms as any).getImages() : base64Images;
         const temperature = (ms as any).startTemperature ?? 0.12;
         const url = await generateSingleImage(images, prompt, userId, imageRecordId, i + 1, supabase, jobId, aspectRatio, temperature);
@@ -2114,7 +2172,7 @@ Ultra high resolution output.`.trim();
 // ═══════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request, res: Response) {
   // CORS
   Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
 
@@ -2280,8 +2338,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
 
-    // Return immediately, process in background via waitUntil
-    waitUntil(processGeneration({
+    // Return immediately, process in background (fire-and-forget on long-running server)
+    processGeneration({
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -2297,7 +2355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isAdminUser,
       selectedScenes: validatedSelectedScenes,
       customPrompt: validatedCustomPrompt,
-    }));
+    }).catch(err => console.error('Background generation error:', err));
 
     return sendCorsResponse(res, 200, {
       success: true,

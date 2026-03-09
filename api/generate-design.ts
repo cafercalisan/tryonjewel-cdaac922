@@ -1,15 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 
-export const config = {
-  maxDuration: 300,
-};
-
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request, res: Response) {
   Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
 
   if (req.method === 'OPTIONS') {

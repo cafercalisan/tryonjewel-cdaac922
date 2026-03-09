@@ -1,4 +1,4 @@
-import type { VercelResponse } from '@vercel/node';
+import type { Response } from 'express';
 
 export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -6,14 +6,14 @@ export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-export function handleCors(res: VercelResponse): VercelResponse | null {
+export function handleCors(res: Response): Response | null {
   Object.entries(corsHeaders).forEach(([key, value]) => {
     res.setHeader(key, value);
   });
   return null;
 }
 
-export function sendCorsResponse(res: VercelResponse, status: number, body: any): void {
+export function sendCorsResponse(res: Response, status: number, body: any): void {
   Object.entries(corsHeaders).forEach(([key, value]) => {
     res.setHeader(key, value);
   });

@@ -1,12 +1,8 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 import { authenticateUser } from './_lib/auth.js';
 import { GoogleGenAI } from '@google/genai';
-
-export const config = {
-  maxDuration: 300,
-};
 
 const ANIMATION_CORE = `IMAGE-TO-VIDEO ANIMATION — Animate the provided image.
 
@@ -82,7 +78,7 @@ ATMOSPHERE: Intimate, reverent, documentary. Like a craftsman examining their ow
 TECHNICAL: 24fps, macro depth of field, focus plane may shift gently, natural color.`,
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request, res: Response) {
   Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
 
   if (req.method === 'OPTIONS') {

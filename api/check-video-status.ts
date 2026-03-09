@@ -1,11 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
 import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
 import { authenticateUser } from './_lib/auth.js';
-
-export const config = {
-  maxDuration: 60,
-};
 
 const VIDEO_CREDIT_COST = 200;
 
@@ -16,7 +12,7 @@ async function refundCredits(supabase: any, userId: string, amount: number): Pro
   else console.log('Credits refunded successfully');
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request, res: Response) {
   Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
 
   if (req.method === 'OPTIONS') {
