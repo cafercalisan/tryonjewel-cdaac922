@@ -535,8 +535,16 @@ async function enhanceScenePrompt(
   analysisResult: any,
   sceneType: string,
 ): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    console.warn('OPENAI_API_KEY not set, skipping prompt enhancement');
+    return templatePrompt;
+  }
+
   try {
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const completion = await openai.chat.completions.create({
       model: ANALYSIS_MODEL,
@@ -573,7 +581,9 @@ ${templatePrompt}`
       ],
       temperature: 0.4,
       max_tokens: 3000,
-    });
+    }, { signal: controller.signal });
+
+    clearTimeout(timeout);
 
     const enhanced = completion.choices[0]?.message?.content;
     if (enhanced && enhanced.length > 100) {
@@ -581,8 +591,12 @@ ${templatePrompt}`
       return enhanced;
     }
     return templatePrompt;
-  } catch (err) {
-    console.error(`GPT-4.1 prompt enhancement failed for ${sceneType}:`, err);
+  } catch (err: any) {
+    if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+      console.warn(`GPT-4.1 prompt enhancement timed out for ${sceneType} (8s), using template`);
+    } else {
+      console.error(`GPT-4.1 prompt enhancement failed for ${sceneType}:`, err?.message || err);
+    }
     return templatePrompt;
   }
 }
@@ -1225,8 +1239,14 @@ async function generateSingleImage(
       if (!genResponse.ok) {
         const errText = await genResponse.text();
         console.error(`Generation ${index} API error (${genResponse.status}) attempt ${attempt + 1}:`, errText);
-        if (attempt < 2) continue;
-        return null;
+        // Log detail to job on final attempt
+        if (attempt >= 2) {
+          await supabase.from('processing_jobs').update({
+            error_message: `Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}`,
+          }).eq('id', jobId).catch(() => {});
+          return null;
+        }
+        continue;
       }
 
       const genData = await genResponse.json();

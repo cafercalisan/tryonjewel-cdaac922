@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 RUN npm run build:server
@@ -17,8 +17,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy API server build and dependencies
 COPY --from=builder /app/dist-server ./dist-server
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/http.d/default.conf
@@ -28,5 +29,8 @@ COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost/api/health || exit 1
 
 CMD ["/start.sh"]
