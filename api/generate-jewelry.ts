@@ -8,7 +8,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const ANALYSIS_MODEL = 'gpt-4.1';
-const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'; // Nano Banana 2: Flash hızında, 3-pro kalitesinde
+const IMAGE_GEN_MODEL = 'gemini-3.1-flash-lite-preview';
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
