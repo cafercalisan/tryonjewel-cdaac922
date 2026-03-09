@@ -9,8 +9,8 @@ RUN npm run build:server
 FROM node:20-alpine
 WORKDIR /app
 
-# Install nginx
-RUN apk add --no-cache nginx
+# Install nginx and create run directory
+RUN apk add --no-cache nginx && mkdir -p /run/nginx
 
 # Copy frontend build
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -30,7 +30,7 @@ RUN chmod +x /start.sh
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
   CMD wget -qO- http://localhost/api/health || exit 1
 
 CMD ["/start.sh"]

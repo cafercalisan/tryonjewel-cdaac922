@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Ensure nginx run directory exists (Alpine requirement)
+mkdir -p /run/nginx
+
 MAX_RESTARTS=5
 RESTART_DELAY=2
 restart_count=0
@@ -10,9 +13,17 @@ start_node() {
   return $?
 }
 
-# Start nginx in background
+# Start nginx and verify it started
 nginx -g "daemon off;" &
 NGINX_PID=$!
+sleep 1
+
+if ! kill -0 $NGINX_PID 2>/dev/null; then
+  echo "ERROR: nginx failed to start!"
+  nginx -t 2>&1
+  exit 1
+fi
+echo "nginx started (PID $NGINX_PID)"
 
 # Node.js restart loop
 while [ $restart_count -lt $MAX_RESTARTS ]; do
