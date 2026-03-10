@@ -1277,9 +1277,11 @@ async function generateSingleImage(
         console.error(`Generation ${index} API error (${genResponse.status}) attempt ${attempt + 1}:`, errText);
         // Log detail to job on final attempt
         if (attempt >= 2) {
-          await supabase.from('processing_jobs').update({
-            error_message: `Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}`,
-          }).eq('id', jobId).catch(() => {});
+          try {
+            await supabase.from('processing_jobs').update({
+              error_message: `Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}`,
+            }).eq('id', jobId);
+          } catch (_) {}
           return null;
         }
         continue;
