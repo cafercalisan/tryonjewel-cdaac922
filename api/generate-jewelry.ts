@@ -29,26 +29,45 @@ async function callGeminiAnalysis(opts: {
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
+
+  const requestBody: any = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      temperature: opts.temperature ?? 0.1,
+      maxOutputTokens: opts.maxTokens ?? 2048,
+    },
+  };
+
+  console.log(`Gemini analysis request to ${ANALYSIS_MODEL}...`);
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
-      generationConfig: {
-        temperature: opts.temperature ?? 0.1,
-        maxOutputTokens: opts.maxTokens ?? 2048,
-        responseMimeType: 'application/json',
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`Gemini analysis error ${response.status}:`, errText.substring(0, 500));
     throw new Error(`Gemini analysis API error ${response.status}: ${errText.substring(0, 500)}`);
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+  // Check for blocked content or empty response
+  const candidate = data.candidates?.[0];
+  if (!candidate) {
+    console.error('Gemini analysis: no candidates returned', JSON.stringify(data).substring(0, 500));
+    throw new Error('Gemini analysis returned no candidates');
+  }
+
+  if (candidate.finishReason === 'SAFETY') {
+    console.error('Gemini analysis: blocked by safety filter');
+    throw new Error('Gemini analysis blocked by safety filter');
+  }
+
+  const text = candidate.content?.parts?.[0]?.text || '{}';
+  console.log(`Gemini analysis response: ${text.length} chars`);
   return text;
 }
 
@@ -1663,9 +1682,14 @@ ONLY valid JSON.`;
         prompt: analysisPrompt,
         imageBase64: base64Image,
       });
+      console.log('Raw analysis content (first 500 chars):', analysisContent.substring(0, 500));
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, '').trim());
-    } catch (err) {
-      console.error('Failed to parse analysis:', err);
+    } catch (err: any) {
+      console.error('Jewelry analysis failed:', err?.message || err);
+      await supabase.from('processing_jobs').update({
+        error_message: `Analiz hatası: ${err?.message?.substring(0, 200) || 'parse error'}`,
+      }).eq('id', jobId);
+      // Continue with default analysis - don't fail completely
     }
 
     console.log('Analysis result:', JSON.stringify(analysisResult, null, 2));
