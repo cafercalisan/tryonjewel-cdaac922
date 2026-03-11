@@ -445,21 +445,14 @@ export default function Gallery() {
                       className={`group relative aspect-[4/5] rounded-xl overflow-hidden bg-muted shadow-luxury cursor-pointer transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                       onClick={() => openDetail(image, index)}
                     >
-                      {getImageUrls(image)?.[0] ? (() => {
-                        const urls = getImageUrls(image);
-                        const thumbs = getThumbUrls(image);
-                        // Prefer e-commerce image (index 1) as grid thumbnail
-                        const preferredIdx = urls.length > 1 ? 1 : 0;
-                        return (
+                      {getImageUrls(image)?.[0] ? (
                         <ProgressiveImage
-                          src={urls[preferredIdx]}
-                          thumbnailSrc={thumbs?.[preferredIdx]}
+                          src={getImageUrls(image)[getImageUrls(image).length > 1 ? 1 : 0]}
+                          thumbnailSrc={getThumbUrls(image)?.[getImageUrls(image).length > 1 ? 1 : 0]}
                           alt="Generated jewelry"
                           className="w-full h-full object-cover"
                           containerClassName="w-full h-full"
                         />
-                        );
-                      })()
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
                           <ImageIcon className="h-8 w-8 text-muted-foreground" />
