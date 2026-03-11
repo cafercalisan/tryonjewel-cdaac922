@@ -6,6 +6,7 @@ import generateDesign from './api/generate-design.js';
 import generateModel from './api/generate-model.js';
 import adminSetCredits from './api/admin-set-credits.js';
 import checkVideoStatus from './api/check-video-status.js';
+import analyzeBrand from './api/analyze-brand.js';
 
 // ── Env validation ──
 const REQUIRED_ENV = [
@@ -65,6 +66,7 @@ app.get('/api/health', (_req, res) => {
       SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       GOOGLE_API_KEY: !!process.env.GOOGLE_API_KEY,
+      GOOGLE_ANALYSIS_API_KEY: !!process.env.GOOGLE_ANALYSIS_API_KEY,
     },
   });
 });
@@ -76,6 +78,7 @@ app.all('/api/generate-design', generateDesign);
 app.all('/api/generate-model', generateModel);
 app.all('/api/admin-set-credits', adminSetCredits);
 app.all('/api/check-video-status', checkVideoStatus);
+app.all('/api/analyze-brand', analyzeBrand);
 
 // ── Global error handler ──
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -96,7 +99,29 @@ process.on('uncaughtException', (err) => {
   setTimeout(() => process.exit(1), 1000);
 });
 
+// ── Startup API key validation ──
+async function validateGeminiKey() {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.error('❌ GOOGLE_API_KEY not set — Gemini calls will fail');
+    return;
+  }
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      console.log('✅ Gemini API key validated successfully');
+    } else {
+      const text = await res.text();
+      console.error(`❌ Gemini API key validation failed (${res.status}): ${text.substring(0, 200)}`);
+    }
+  } catch (err: any) {
+    console.error('❌ Gemini API key validation error:', err?.message || err);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`✅ API server running on port ${PORT}`);
   console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  validateGeminiKey();
 });

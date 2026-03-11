@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
-import { User, LogOut, Menu, X, Shield } from 'lucide-react';
+import { User, LogOut, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import mooreLogo from '@/assets/moore-logo.png';
 import {
@@ -19,7 +19,6 @@ export function Header() {
   const { data: profile } = useProfile();
   const { data: isAdmin } = useIsAdmin();
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -59,8 +58,9 @@ export function Header() {
             {[
               { to: '/panel', label: 'Panel' },
               { to: '/olustur', label: 'Oluştur' },
+              { to: '/studyo', label: 'Stüdyo' },
               { to: '/gorsellerim', label: 'Görsellerim' },
-              { to: '/modellerim', label: 'Modellerim' },
+              { to: '/markam', label: 'Markam' },
               { to: '/videolarim', label: 'Videolarım' },
             ].map(link => (
               <Link
@@ -160,80 +160,87 @@ export function Header() {
           </nav>
         )}
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden p-2.5"
-          style={{ color: 'rgba(255,255,255,0.9)' }}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div
-          className="md:hidden animate-fade-in"
-          style={{
-            background: 'rgba(0, 0, 0, 0.85)',
-            borderTop: '1px solid rgba(255,255,255,0.08)',
-            backdropFilter: 'saturate(180%) blur(20px)',
-          }}
-        >
-          <nav className="container py-4 flex flex-col gap-2">
-            {user ? (
-              <>
-                {[
-                  { to: '/panel', label: 'Panel' },
-                  { to: '/olustur', label: 'Oluştur' },
-                  { to: '/gorsellerim', label: 'Görsellerim' },
-                  { to: '/modellerim', label: 'Modellerim' },
-                  { to: '/videolarim', label: 'Videolarım' },
-                  { to: '/hesap', label: 'Hesap Ayarları' },
-                ].map(link => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className="py-3 text-sm font-medium"
-                    style={{ color: 'rgba(255,255,255,0.85)' }}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-                <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Kalan Kredi</span>
-                    <span className="font-medium text-white">{profile?.credits ?? 0}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-white/5"
-                    onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Çıkış Yap
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/giris"
-                  className="py-2 text-sm font-medium"
+        {/* Mobile: Credits + User Avatar (bottom nav handles navigation) */}
+        {user ? (
+          <div className="md:hidden flex items-center gap-3">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}
+            >
+              <span>{profile?.credits ?? 0}</span>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Kredi</span>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-white/10 h-8 w-8"
                   style={{ color: 'rgba(255,255,255,0.85)' }}
-                  onClick={() => setMobileMenuOpen(false)}
                 >
-                  Giriş Yap
-                </Link>
-                <Link to="/kayit" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-white text-black hover:bg-white/90">Ücretsiz Başla</Button>
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      )}
+                  <User className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48"
+                style={{
+                  background: 'rgba(30,30,30,0.95)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  backdropFilter: 'blur(20px)',
+                }}
+              >
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium text-white">{profile?.first_name} {profile?.last_name}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{profile?.email}</p>
+                </div>
+                <DropdownMenuSeparator style={{ background: 'rgba(255,255,255,0.08)' }} />
+                <DropdownMenuItem
+                  onClick={() => navigate('/hesap')}
+                  className="text-white/80 hover:!text-white focus:!text-white focus:!bg-white/10"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  Hesap Ayarları
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <DropdownMenuItem
+                      onClick={() => navigate('/admin')}
+                      className="text-white/80 hover:!text-white focus:!text-white focus:!bg-white/10"
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin Paneli
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator style={{ background: 'rgba(255,255,255,0.08)' }} />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="text-white/80 hover:!text-white focus:!text-white focus:!bg-white/10"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Çıkış Yap
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : (
+          <div className="md:hidden flex items-center gap-2">
+            <Link to="/giris">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover:bg-white/10"
+                style={{ color: 'rgba(255,255,255,0.85)' }}
+              >
+                Giriş Yap
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </header>
   );
 }

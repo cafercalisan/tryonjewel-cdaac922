@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { GenerationProvider } from "@/contexts/GenerationContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Landing from "./pages/Landing";
@@ -21,6 +22,8 @@ import Videos from "./pages/Videos";
 import Scenes from "./pages/Scenes";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import Studio from "./pages/Studio";
+import Brand from "./pages/Brand";
 import PremiumHeroDemo from "./pages/PremiumHeroDemo";
 import NotFound from "./pages/NotFound";
 
@@ -29,31 +32,35 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/ornekler" element={<Examples />} />
-            <Route path="/giris" element={<Login />} />
-            <Route path="/kayit" element={<Signup />} />
-            <Route path="/sahneler" element={<Scenes />} />
-            <Route path="/demo/premium-hero" element={<PremiumHeroDemo />} />
-            <Route path="/panel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/olustur" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
-            <Route path="/sonuclar" element={<ProtectedRoute><Results /></ProtectedRoute>} />
-            <Route path="/tasarim-sonuc" element={<ProtectedRoute><DesignResults /></ProtectedRoute>} />
-            <Route path="/tasarim-olustur" element={<ProtectedRoute><CreateDesign /></ProtectedRoute>} />
-            <Route path="/gorsellerim" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-            <Route path="/modellerim" element={<ProtectedRoute><ModelGallery /></ProtectedRoute>} />
-            <Route path="/videolarim" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
-            <Route path="/hesap" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <GenerationProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/ornekler" element={<Examples />} />
+              <Route path="/giris" element={<Login />} />
+              <Route path="/kayit" element={<Signup />} />
+              <Route path="/sahneler" element={<Scenes />} />
+              <Route path="/demo/premium-hero" element={<PremiumHeroDemo />} />
+              <Route path="/panel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/olustur" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
+              <Route path="/sonuclar" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+              <Route path="/tasarim-sonuc" element={<ProtectedRoute><DesignResults /></ProtectedRoute>} />
+              <Route path="/tasarim-olustur" element={<ProtectedRoute><CreateDesign /></ProtectedRoute>} />
+              <Route path="/gorsellerim" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+              <Route path="/modellerim" element={<ProtectedRoute><ModelGallery /></ProtectedRoute>} />
+              <Route path="/videolarim" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
+              <Route path="/studyo" element={<ProtectedRoute><Studio /></ProtectedRoute>} />
+              <Route path="/markam" element={<ProtectedRoute><Brand /></ProtectedRoute>} />
+              <Route path="/hesap" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </GenerationProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

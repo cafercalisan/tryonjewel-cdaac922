@@ -25,6 +25,7 @@ import { productTypes } from "@/components/generate/ProductTypeSelector";
 import { metalColors } from "@/components/generate/MetalColorSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
 import { invokeApi } from "@/lib/api";
+import { useGenerationContext } from "@/contexts/GenerationContext";
 import { UploadArea } from "@/components/generate/UploadArea";
 import { PackageSelector } from "@/components/generate/PackageSelector";
 import { SceneSelector } from "@/components/generate/SceneSelector";
@@ -69,6 +70,7 @@ export default function Generate() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
+  const { startTracking } = useGenerationContext();
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
@@ -340,21 +342,24 @@ export default function Generate() {
     return !!selectedSceneId;
   }, [uploadedImages.length, user, profile, creditsNeeded, selectedProductType, selectedSceneId, isAdminUser, hasStyleReference, isRetouchMode, isSingleMode, packageType, selectedMasterScenes, customPromptText]);
 
-  // Retry wrapper for transient errors
+  // Retry wrapper for transient errors (including 409 auto-retry)
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
     let lastError: any = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const { data, error } = await invokeApi("generate-jewelry", { body });
 
-      const errMsg = String(error?.message || data?.error || '');
       const isTransient = error?.status === 502 || error?.status === 503 || error?.status === 429;
+      const isConflict = error?.status === 409;
 
-      if (isTransient && attempt < maxRetries - 1) {
-        const baseMs = 800 * Math.pow(2, attempt);
+      if ((isTransient || isConflict) && attempt < maxRetries - 1) {
+        const baseMs = isConflict ? 2000 : 800 * Math.pow(2, attempt);
         const jitter = Math.floor(Math.random() * 300);
         const waitMs = baseMs + jitter;
-        console.log(`Transient error, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
-        toast.info(`Sunucu yoğun, ${Math.ceil(waitMs / 1000)}sn sonra tekrar denenecek... (${attempt + 1}/${maxRetries})`);
+        console.log(`${isConflict ? '409 conflict' : 'Transient error'}, retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
+        toast.info(isConflict
+          ? 'Devam eden üretim iptal ediliyor, tekrar deneniyor...'
+          : `Sunucu yoğun, ${Math.ceil(waitMs / 1000)}sn sonra tekrar denenecek... (${attempt + 1}/${maxRetries})`
+        );
         await new Promise(r => setTimeout(r, waitMs));
         lastError = error;
         continue;
@@ -436,12 +441,30 @@ export default function Generate() {
         throw new Error(data?.errorMessage || data?.error || 'Görsel oluşturulamadı');
       }
 
-      // Start polling for job completion
+      // Start polling for job completion (local + global context)
       startPolling(data.jobId, data.imageId);
+      startTracking(data.jobId, data.imageId, selectedMasterScenes);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generation error:", error);
-      toast.error(error instanceof Error ? error.message : "Görsel oluşturulurken bir hata oluştu.");
+      const status = error?.status;
+      const code = error?.code;
+      const msg = error?.message || error?.error || '';
+
+      let userMessage: string;
+      if (code === 'ACTIVE_JOB_EXISTS' || status === 409) {
+        userMessage = 'Önceki üretim devam ediyor. Lütfen biraz bekleyip tekrar deneyin.';
+      } else if (status === 402 || msg.includes('kredi') || msg.includes('Yetersiz')) {
+        userMessage = msg || 'Yetersiz kredi. Lütfen kredi satın alın.';
+      } else if (status === 502 || status === 503) {
+        userMessage = 'Sunucu geçici olarak kullanılamıyor. Lütfen tekrar deneyin.';
+      } else if (msg) {
+        userMessage = msg;
+      } else {
+        userMessage = 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.';
+      }
+
+      toast.error(userMessage);
       setIsGenerating(false);
       setGenerationStep("idle");
     }

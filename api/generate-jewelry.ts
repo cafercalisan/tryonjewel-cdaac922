@@ -78,7 +78,7 @@ const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 // ═══════════════════════════════════════════════════
 interface EditorialScene {
   name: string;
-  category: 'outdoor' | 'campaign' | 'fashion' | 'architectural' | 'surface';
+  category: 'outdoor' | 'campaign' | 'fashion' | 'architectural' | 'surface' | 'texture' | 'creative' | 'architectural_statement' | 'cinematic';
   prompt: string;
 }
 
@@ -142,6 +142,54 @@ const EDITORIAL_SCENE_POOL: EditorialScene[] = [
     prompt: 'Placed on rich black velvet fabric with deep texture folds, creating luxurious depth. Soft overhead lighting reveals velvet fiber texture. Dark, moody atmosphere with subtle warm highlights on the jewelry.' },
   { name: 'Reflective Black Glass', category: 'surface',
     prompt: 'Displayed on polished black glass surface creating mirror-like reflections of the jewelry. Dramatic rim lighting. Ultra-modern, sleek, high-tech luxury presentation.' },
+
+  // ── Lüks Doku / Texture (5) ──
+  { name: 'Silk Cascade', category: 'texture' as any,
+    prompt: 'Jewelry resting on cascading folds of cream silk fabric, the fabric draping in soft organic waves. Soft diffused overhead light creates delicate shadow-light interplay along the silk curves. Warm champagne and ivory tonal palette. The silk texture is tactile and inviting, creating a bed of luxury. Intimate, sensual, haute couture still life. Shallow depth of field keeps jewelry razor-sharp while silk edges dissolve into creamy bokeh.' },
+  { name: 'Raw Marble Quarry', category: 'texture' as any,
+    prompt: 'Jewelry placed on a raw Calacatta marble block, natural gold veins running through white stone. The marble surface is unpolished on one edge, polished on the placement area. Hard natural daylight from above creates stark shadows. Industrial luxury aesthetic — raw meets refined. The gold veins in the marble echo and complement the jewelry metal. Museum-quality mineral specimen presentation.' },
+  { name: 'Liquid Gold Pour', category: 'texture' as any,
+    prompt: 'Surreal campaign image: jewelry appears to float on a surface of liquid molten gold. The metallic liquid creates rippling reflections and warm golden light from below. Ultra-luxury, avant-garde advertising aesthetic. The background transitions from liquid gold to deep black. Dramatic rim lighting separates the jewelry from the molten surface. Hyper-real yet dreamlike, high-fashion surrealism.' },
+  { name: 'Crushed Velvet Midnight', category: 'texture' as any,
+    prompt: 'Deep midnight navy-purple crushed velvet fabric beneath the jewelry, the crushed texture creating rich directional light patterns. A single focused spotlight illuminates only the jewelry while the velvet texture falls into dramatic bokeh. Rich, sumptuous, deeply saturated. The velvet fibers catch light at different angles creating a dimensional tapestry of dark luxury. Intimate boudoir campaign aesthetic.' },
+  { name: 'Petrified Wood Ancient', category: 'texture' as any,
+    prompt: 'Jewelry displayed on a cross-section of petrified wood, revealing millions of years of mineralized tree rings in amber, brown, and crystalline patterns. Natural museum lighting from above. The ancient organic texture creates a powerful contrast with the precision-crafted modern jewelry. Natural history museum meets luxury campaign. Earthy, primal, timeless. Warm amber undertones throughout.' },
+
+  // ── Yaratıcı Konsept / Creative (5) ──
+  { name: 'Underwater Pearl Garden', category: 'creative' as any,
+    prompt: 'Ethereal underwater atmosphere surrounding the jewelry. Tiny air bubbles float upward through blue-green water. Scattered sea shells, natural pearls, and smooth ocean pebbles on a sandy bed below. Caustic light patterns dance across the scene from a surface above. Cool blue-green color palette with warm highlights where light hits the jewelry. Dreamlike, poetic, otherworldly luxury. The jewelry appears weightless, suspended in liquid beauty.' },
+  { name: 'Frozen in Crystal', category: 'creative' as any,
+    prompt: 'Jewelry encased in or resting upon crystal-clear ice formations. Arctic blue-white color palette with prismatic light refractions creating rainbow spectra. Frost crystals frame the edges. Cold studio lighting with sharp highlights. The ice surface is cracked and faceted like a giant gemstone. Ultra-clean, pure, winter luxury campaign. Breath-visible cold atmosphere. Sharp contrasts between warm jewelry metal and cold ice environment.' },
+  { name: 'Volcanic Obsidian', category: 'creative' as any,
+    prompt: 'Jewelry placed on glossy black obsidian volcanic glass surface. In the far background, subtle orange-red volcanic glow creates dramatic warm accent light. The obsidian surface has natural conchoidal fracture patterns creating geometric reflections. Extreme contrast between the deep black surface and brilliantly lit jewelry. Primordial luxury — ancient earth power meets refined craftsmanship. Moody, powerful, elemental.' },
+  { name: 'Midnight Orchid', category: 'creative' as any,
+    prompt: 'Jewelry nestled among dark, almost-black orchid petals. Deep purple-to-black gradients in the botanical elements. Macro-level detail on the orchid textures. A single soft light source from above-left creates intimate, mysterious illumination. Dark botanical luxury — where nature meets haute joaillerie. Moody, romantic, gothic elegance. Shallow depth of field blurs distant petals into dark velvet bokeh.' },
+  { name: 'Mercury Mirror', category: 'creative' as any,
+    prompt: 'Jewelry on an antique mercury mirror surface creating surreal, slightly distorted silvery-chromatic reflections. The mercury glass has characteristic dark spots and clouding at edges. Cool silver-grey color palette with iridescent highlights. Science-fiction meets haute couture aesthetic. The reflection is imperfect, artistic, haunting. Soft diffused overhead light creates an otherworldly metallic glow. Avant-garde luxury editorial.' },
+
+  // ── Mimari Statement / Architectural Statement (5) ──
+  { name: 'Brutalist Concrete Gallery', category: 'architectural_statement' as any,
+    prompt: 'Jewelry displayed on raw exposed concrete in a brutalist gallery space. Board-formed concrete texture visible on walls. A single dramatic spotlight from above creates a precise circle of light on the jewelry, leaving surrounding concrete in deep shadow. Contemporary art museum aesthetic — the jewelry as sculptural art object. Minimal, austere, powerful. Cool grey palette with warm light only on the piece.' },
+  { name: 'Japanese Zen Garden', category: 'architectural_statement' as any,
+    prompt: 'Jewelry placed on a smooth river stone within a miniature Japanese zen garden. Raked white sand with precise parallel lines surrounds the stone. Minimalist composition with asymmetric balance. Soft, even natural light suggesting an overcast sky. Meditative calm, wabi-sabi aesthetic. Muted earth tones — white, grey, subtle green. The simplicity of the setting amplifies the complexity of the jewelry.' },
+  { name: 'Art Nouveau Greenhouse', category: 'architectural_statement' as any,
+    prompt: 'Jewelry placed on a wrought-iron shelf inside an Art Nouveau glass conservatory. Ornate iron scrollwork frames visible. Tropical leaves cast dappled green-filtered shadows. Warm humid atmosphere with slight lens condensation effect at edges. Natural greenhouse light — bright but diffused through glass panels. Verdant, organic, romantic architectural luxury. The ironwork echoes jewelry craftsmanship.' },
+  { name: 'Underground Wine Cellar', category: 'architectural_statement' as any,
+    prompt: 'Jewelry displayed on aged oak wine barrel surface in a stone-walled wine cellar. Rough-hewn limestone walls with centuries of patina. Warm amber candlelight from multiple points creates rich, dimensional illumination. Oak barrel staves and iron hoops visible. Vintage, heritage, old-world sophistication. Deep warm amber and burgundy color palette. The scent of aged wood and wine implied through visual warmth.' },
+  { name: 'Floating Glass Platform', category: 'architectural_statement' as any,
+    prompt: 'Jewelry on a perfectly clear glass platform that appears to float in mid-air. Below the glass, a dramatic cloudscape or sky gradient is visible, creating a surreal floating-above-clouds illusion. Ultra-modern architectural concept. Clean, precise lighting from multiple angles eliminates shadows on the glass. The jewelry appears suspended in space between earth and sky. Minimalist, futuristic, architectural marvel.' },
+
+  // ── Sinematik Atmosfer / Cinematic (5) ──
+  { name: 'Film Noir Detective Desk', category: 'cinematic' as any,
+    prompt: 'Film noir atmosphere: jewelry on a dark wooden desk in a 1940s detective office. Hard light strips from venetian blinds create dramatic parallel shadow lines across the scene. Cigarette smoke haze in the air catches the light beams. Near-monochromatic palette — deep blacks, bright whites, minimal warm sepia. Mysterious, atmospheric, storytelling luxury. The jewelry glints in one precise stripe of window light.' },
+  { name: 'Baroque Opera Box', category: 'cinematic' as any,
+    prompt: 'Jewelry placed on the gilded velvet railing of a baroque opera box seat. Rich red velvet upholstery and ornate gold-leaf carved decorations surround the scene. Warm theatrical stage lighting creates a dramatic golden glow from below-left. The opera house interior is visible in soft bokeh beyond. Theatrical, opulent, grandiose. Deep reds and golds dominate. The jewelry belongs to royalty attending opening night.' },
+  { name: 'Cyberpunk Neon Alley', category: 'cinematic' as any,
+    prompt: 'Jewelry on a rain-wet dark surface in a futuristic neon-lit alleyway. Blue, purple, and hot pink neon signs reflect off the wet ground creating colorful light streaks. Atmospheric rain mist catches the neon glow. The jewelry is lit by a precise white spotlight contrasting with the colored neon environment. Blade Runner aesthetic meets luxury advertising. Future-noir, tech-luxury, urban edge.' },
+  { name: 'Old Hollywood Vanity', category: 'cinematic' as any,
+    prompt: 'Jewelry placed on a classic Old Hollywood vanity table. Makeup mirror with exposed warm bulbs creates soft, flattering light. Satin fabric draped nearby. Powder compact and vintage perfume bottles in soft focus background. Golden age glamour — 1950s starlet dressing room. Warm, intimate, nostalgic. Soft-focus glow effect at edges. The jewelry awaits its red carpet moment.' },
+  { name: 'Eclipse Horizon', category: 'cinematic' as any,
+    prompt: 'Cosmic-scale backdrop: jewelry in the foreground with a total solar eclipse visible on the horizon behind. The corona of the eclipse creates a dramatic golden rim-light halo effect that illuminates the jewelry from behind. Deep space-dark sky with the brilliant ring of coronal light. Awe-inspiring, cosmic, once-in-a-lifetime moment. The jewelry is lit by the eclipse corona — nature\'s most dramatic lighting. Ultra-dramatic, mythic scale.' },
 ];
 
 // ═══════════════════════════════════════════════════
@@ -153,6 +201,10 @@ const COLOR_GRADE_MODIFIERS: Record<string, string> = {
   fashion: 'COLOR GRADE: Moody editorial desaturation. Cool shadows, warm highlights. Muted except jewelry (full saturation). REFERENCE: Vogue Italia, Steven Meisel.',
   architectural: 'COLOR GRADE: Warm amber with cool shadow accents. Rich mid-tones. Subtle vignette. REFERENCE: Architectural Digest meets luxury campaign.',
   surface: 'COLOR GRADE: Deep dramatic. Rich blacks with warm undertone. Jewelry brightest element. High contrast, smooth transitions. REFERENCE: Patek Philippe campaign.',
+  texture: 'COLOR GRADE: Rich material emphasis, tactile quality in lighting. Warm mid-tones with deep shadows revealing fabric/surface texture. Jewelry maintains full brilliance against textured backgrounds. REFERENCE: Celine campaign material study.',
+  creative: 'COLOR GRADE: Surreal color grading, heightened saturation on jewelry while environment stays dreamlike. Chromatic contrasts between warm jewelry and cool/fantastical surroundings. REFERENCE: Tim Walker meets luxury campaign.',
+  architectural_statement: 'COLOR GRADE: Geometric light patterns, structural shadows define the space. Precise architectural lighting with warm accents on jewelry. Clean lines, controlled palette. REFERENCE: Tadao Ando concrete meets Bulgari campaign.',
+  cinematic: 'COLOR GRADE: Film-grade color science, anamorphic lens feel with subtle halation on highlights. Rich shadows, cinematic contrast ratios. Warm practicals, cool ambient. REFERENCE: Roger Deakins meets luxury brand film.',
 };
 
 const LIGHTING_ANGLES = [
@@ -1890,6 +1942,29 @@ FORBIDDEN:
 - ❌ No additional jewelry pieces
 - ❌ No artificial CGI gemstones`.trim();
 
+    // ═══════════════════════════════════════════════════
+    // BRAND DNA (if user has brand profile)
+    // ═══════════════════════════════════════════════════
+    let brandDnaBlock = '';
+    try {
+      const { data: brandProfile } = await supabase
+        .from('brand_profiles')
+        .select('brand_dna_prompt, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (brandProfile?.brand_dna_prompt) {
+        brandDnaBlock = `\n\n${brandProfile.brand_dna_prompt}\n`;
+        console.log('Brand DNA applied for user:', userId);
+      }
+    } catch {
+      // No brand profile or table doesn't exist — silently continue
+    }
+
+    // Append brand DNA to fidelity block so all prompt builders include it
+    const fidelityBlockWithBrand = brandDnaBlock ? `${fidelityBlock}\n${brandDnaBlock}` : fidelityBlock;
+
     const generatedUrls: string[] = [];
 
     // ═══════════════════════════════════════════════════
@@ -1977,17 +2052,17 @@ Ultra high resolution output.`.trim();
 
       if (hasStyleReference && styleReferenceBase64) {
         // Style reference takes priority
-        singlePrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+        singlePrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard);
         singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'style_transfer');
         singleImages = [styleReferenceBase64, ...base64Images];
       } else if (paramCustomPrompt) {
         // Custom text prompt
-        singlePrompt = buildCustomPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard, paramCustomPrompt);
+        singlePrompt = buildCustomPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard, paramCustomPrompt);
         singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'custom');
         singleImages = base64Images;
       } else {
         // Fallback to editorial
-        singlePrompt = buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard);
+        singlePrompt = buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard);
         singlePrompt = await enhanceScenePrompt(singlePrompt, analysisResult, 'editorial');
         singleImages = base64Images;
       }
@@ -2010,7 +2085,7 @@ Ultra high resolution output.`.trim();
       console.log('Standalone style reference generation mode...');
 
       const identityCard = buildProductIdentityCard(analysisResult);
-      let styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlock, productExtractionBlock, identityCard);
+      let styleTransferPrompt = buildStyleTransferPrompt(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard);
       styleTransferPrompt = await enhanceScenePrompt(styleTransferPrompt, analysisResult, 'style_transfer');
 
       await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
@@ -2050,9 +2125,9 @@ Ultra high resolution output.`.trim();
         { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
           buildPrompt: (ic: string) => {
             if (hasStyleReference && styleReferenceBase64) {
-              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlock, productExtractionBlock, ic);
+              return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlockWithBrand, productExtractionBlock, ic);
             }
-            return buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, ic);
+            return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
           },
           getImages: (): string[] => {
             if (hasStyleReference && styleReferenceBase64) {
@@ -2063,19 +2138,19 @@ Ultra high resolution output.`.trim();
           startTemperature: 0.12,
         },
         { key: 'ecommerce', step: 'generating_ecommerce', label: 'E-Commerce',
-          buildPrompt: (ic: string) => buildEcommercePrompt(analysisResult, fidelityBlock, productExtractionBlock, ic),
+          buildPrompt: (ic: string) => buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
           startTemperature: 0.10 },
         { key: 'model', step: 'generating_model', label: 'Model',
-          buildPrompt: (ic: string) => buildModelPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: (ic: string) => buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'macro', step: 'generating_macro', label: 'Macro Detail',
-          buildPrompt: (ic: string) => buildMacroPrompt(analysisResult, fidelityBlock, productExtractionBlock, ic),
+          buildPrompt: (ic: string) => buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
           startTemperature: 0.12 },
         { key: 'model_closeup', step: 'generating_model_closeup', label: 'Model Close-Up',
-          buildPrompt: (ic: string) => buildModelCloseUpPrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: (ic: string) => buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'model_lifestyle', step: 'generating_model_lifestyle', label: 'Model Lifestyle',
-          buildPrompt: (ic: string) => buildModelLifestylePrompt(analysisResult, fidelityBlock, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: (ic: string) => buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
       ];
 
@@ -2265,13 +2340,13 @@ export default async function handler(req: Request, res: Response) {
 
     const supabase = getServiceClient();
 
-    // Auto-clean stuck jobs older than 3 minutes
+    // Auto-clean stuck jobs older than 2 minutes
     const { data: stuckJobs } = await supabase
       .from('processing_jobs')
       .select('id, image_record_id')
       .eq('user_id', userId)
       .in('status', ['pending', 'generating'])
-      .lt('updated_at', new Date(Date.now() - 3 * 60 * 1000).toISOString());
+      .lt('updated_at', new Date(Date.now() - 2 * 60 * 1000).toISOString());
 
     if (stuckJobs && stuckJobs.length > 0) {
       const stuckJobIds = stuckJobs.map(j => j.id);
@@ -2291,15 +2366,29 @@ export default async function handler(req: Request, res: Response) {
       console.log(`Auto-cleaned ${stuckJobs.length} stuck jobs`);
     }
 
-    // Check for active jobs
-    const { count: activeJobs } = await supabase
+    // Cancel any previous active jobs (prevents 409 on consecutive generations)
+    const { data: activeJobsList } = await supabase
       .from('processing_jobs')
-      .select('*', { count: 'exact', head: true })
+      .select('id, image_record_id')
       .eq('user_id', userId)
       .in('status', ['pending', 'generating']);
 
-    if (activeJobs && activeJobs > 0) {
-      return sendCorsResponse(res, 409, { error: 'Zaten devam eden bir üretim var. Lütfen bekleyin.', code: 'ACTIVE_JOB_EXISTS' });
+    if (activeJobsList && activeJobsList.length > 0) {
+      const activeJobIds = activeJobsList.map(j => j.id);
+      const activeImageIds = activeJobsList.map(j => j.image_record_id).filter(Boolean);
+
+      await supabase
+        .from('processing_jobs')
+        .update({ status: 'cancelled', error_message: 'Yeni üretim başlatıldı' })
+        .in('id', activeJobIds);
+
+      if (activeImageIds.length > 0) {
+        await supabase
+          .from('images')
+          .update({ status: 'failed', error_message: 'Yeni üretim başlatıldı' })
+          .in('id', activeImageIds);
+      }
+      console.log(`Auto-cancelled ${activeJobsList.length} previous active jobs for new generation`);
     }
 
     // Check admin status

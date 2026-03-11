@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { Header } from './Header';
 import { Footer } from './Footer';
+import { BottomNav } from './BottomNav';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -8,6 +10,8 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, showFooter = true }: AppLayoutProps) {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Luxury gradient background */}
@@ -23,10 +27,11 @@ export function AppLayout({ children, showFooter = true }: AppLayoutProps) {
         />
       </div>
       <Header />
-      <main className="flex-1">
+      <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
       {showFooter && <Footer />}
+      {user && <BottomNav />}
     </div>
   );
 }
