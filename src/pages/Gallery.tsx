@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -39,9 +39,7 @@ export default function Gallery() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxKey, setLightboxKey] = useState(0);
   const [lightboxScale, setLightboxScale] = useState(1);
-  const [signedUrls, setSignedUrls] = useState<Record<string, string[]>>({});
-  const [signedOriginalUrls, setSignedOriginalUrls] = useState<Record<string, string>>({});
-  const [thumbUrls, setThumbUrls] = useState<Record<string, string[]>>({});
+  // Derived URL maps — no state, no flicker on re-render
   const [showComparison, setShowComparison] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [editingName, setEditingName] = useState(false);
@@ -61,11 +59,15 @@ export default function Gallery() {
       return data as ImageRecord[];
     },
     enabled: !!user,
+    staleTime: 60_000,
   });
 
   // Convert stored URLs to public URLs + thumbnail URLs (synchronous, zero API calls)
-  useEffect(() => {
-    if (!images || images.length === 0) return;
+  // useMemo instead of useState+useEffect — no state update, no flicker
+  const { signedUrls, signedOriginalUrls, thumbUrls } = useMemo(() => {
+    if (!images || images.length === 0) {
+      return { signedUrls: {} as Record<string, string[]>, signedOriginalUrls: {} as Record<string, string>, thumbUrls: {} as Record<string, string[]> };
+    }
 
     const urlMap: Record<string, string[]> = {};
     const originalUrlMap: Record<string, string> = {};
@@ -86,9 +88,7 @@ export default function Gallery() {
       }
     }
 
-    setSignedUrls(urlMap);
-    setSignedOriginalUrls(originalUrlMap);
-    setThumbUrls(thumbMap);
+    return { signedUrls: urlMap, signedOriginalUrls: originalUrlMap, thumbUrls: thumbMap };
   }, [images]);
 
   // Lock body scroll when mobile detail is open

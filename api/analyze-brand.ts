@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
-import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
+import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';
@@ -30,7 +30,7 @@ async function callGeminiForBrand(prompt: string): Promise<string> {
 }
 
 export default async function handler(req: Request, res: Response) {
-  Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
+  handleCors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
@@ -53,6 +53,14 @@ export default async function handler(req: Request, res: Response) {
 
     if (!brandName || typeof brandName !== 'string') {
       return sendCorsResponse(res, 400, { error: 'Brand name is required' });
+    }
+
+    // Input length validation
+    if (brandName.length > 100) {
+      return sendCorsResponse(res, 400, { error: 'Brand name too long (max 100 chars)' });
+    }
+    if (moodDescription && typeof moodDescription === 'string' && moodDescription.length > 500) {
+      return sendCorsResponse(res, 400, { error: 'Mood description too long (max 500 chars)' });
     }
 
     // Build the analysis prompt

@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { VideoGenerateButton } from '@/components/video/VideoGenerateButton';
+import { ProgressiveImage } from '@/components/ui/progressive-image';
+import { getThumbnailUrl } from '@/lib/getSignedImageUrl';
 
 const SCENE_LABEL_MAP: Record<string, { label: string; desc: string; Icon: typeof Camera; fileName: string }> = {
   editorial: { label: 'Editorial', desc: 'Yaratici Sahne', Icon: Camera, fileName: 'editorial' },
@@ -234,10 +236,13 @@ export default function Results() {
               >
                 {selectedUrl && (
                   <>
-                    <img
+                    <ProgressiveImage
                       src={selectedUrl}
+                      thumbnailSrc={getThumbnailUrl(selectedUrl, 400, 500, 60) || undefined}
                       alt="Generated jewelry"
                       className="w-full h-full object-cover"
+                      containerClassName="w-full h-full"
+                      eager
                     />
                     <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <div className="bg-background/80 backdrop-blur-sm rounded-full p-3">
@@ -282,10 +287,12 @@ export default function Results() {
                         }`}
                         style={selectedIndex === index ? { '--tw-ring-color': 'hsl(38, 45%, 55%)' } as React.CSSProperties : undefined}
                       >
-                        <img
+                        <ProgressiveImage
                           src={url}
+                          thumbnailSrc={getThumbnailUrl(url, 200, 250, 50) || undefined}
                           alt={meta?.label || `Variation ${index + 1}`}
                           className="w-full h-full object-cover"
+                          containerClassName="w-full h-full"
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 backdrop-blur-[2px]">
                           <div className="flex items-center gap-1">

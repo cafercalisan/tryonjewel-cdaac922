@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Loader2, CheckCircle2, Clock, Plus, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { ProgressiveImage } from '@/components/ui/progressive-image';
+import { getThumbnailUrl } from '@/lib/getSignedImageUrl';
 
 export default function Studio() {
   const { user } = useAuth();
@@ -142,7 +144,13 @@ export default function Studio() {
                 {/* Thumbnail or placeholder */}
                 <div className="w-14 h-14 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {job.status === 'completed' && job.result_urls?.[0] ? (
-                    <img src={job.result_urls[0]} alt="" className="w-full h-full object-cover" />
+                    <ProgressiveImage
+                      src={job.result_urls[0]}
+                      thumbnailSrc={getThumbnailUrl(job.result_urls[0], 56, 56, 50) || undefined}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      containerClassName="w-full h-full"
+                    />
                   ) : (
                     <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
                   )}

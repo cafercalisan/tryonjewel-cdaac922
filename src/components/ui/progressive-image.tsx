@@ -8,6 +8,7 @@ interface ProgressiveImageProps {
   className?: string;
   containerClassName?: string;
   eager?: boolean;
+  aspectRatio?: string;
 }
 
 export function ProgressiveImage({
@@ -17,6 +18,7 @@ export function ProgressiveImage({
   className,
   containerClassName,
   eager = false,
+  aspectRatio,
 }: ProgressiveImageProps) {
   const [thumbLoaded, setThumbLoaded] = useState(false);
   const [fullLoaded, setFullLoaded] = useState(false);
@@ -50,7 +52,7 @@ export function ProgressiveImage({
   const activeSrc = thumbnailSrc || src;
 
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden', containerClassName)}>
+    <div ref={containerRef} className={cn('relative overflow-hidden', containerClassName)} style={aspectRatio ? { aspectRatio } : undefined}>
       {/* Shimmer skeleton — shown until something loads */}
       {!thumbLoaded && !fullLoaded && !error && (
         <div className="absolute inset-0 bg-muted animate-pulse">

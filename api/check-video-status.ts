@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
-import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
+import { handleCors, sendCorsResponse } from './_lib/cors.js';
 import { authenticateUser } from './_lib/auth.js';
 
 const VIDEO_CREDIT_COST = 200;
@@ -13,7 +13,7 @@ async function refundCredits(supabase: any, userId: string, amount: number): Pro
 }
 
 export default async function handler(req: Request, res: Response) {
-  Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
+  handleCors(res, req);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

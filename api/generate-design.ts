@@ -1,12 +1,12 @@
 import type { Request, Response } from 'express';
 import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
-import { corsHeaders, sendCorsResponse } from './_lib/cors.js';
+import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 export default async function handler(req: Request, res: Response) {
-  Object.entries(corsHeaders).forEach(([key, value]) => res.setHeader(key, value));
+  handleCors(res, req);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

@@ -57,6 +57,8 @@ export function BeforeAfterComparison({
         src={afterImage}
         alt={afterLabel}
         className="w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
         draggable={false}
       />
 
@@ -69,7 +71,9 @@ export function BeforeAfterComparison({
           src={beforeImage}
           alt={beforeLabel}
           className="w-full h-full object-cover"
-          style={{ 
+          loading="lazy"
+          decoding="async"
+          style={{
             width: containerRef.current?.offsetWidth || 'auto',
             maxWidth: 'none'
           }}
