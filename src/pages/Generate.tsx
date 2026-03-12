@@ -94,6 +94,13 @@ export default function Generate() {
   const [selectedMasterScenes, setSelectedMasterScenes] = useState<string[]>([]);
   // Custom prompt for single package
   const [customPromptText, setCustomPromptText] = useState('');
+
+  // V2 Engine state
+  const [useV2Engine, setUseV2Engine] = useState(false);
+  const [v2Aesthetic, setV2Aesthetic] = useState<string>('');
+  const [v2Lens, setV2Lens] = useState<string>('');
+  const [v2CameraAngle, setV2CameraAngle] = useState<string>('');
+  const [v2Lighting, setV2Lighting] = useState<string>('');
   
   const MAX_IMAGES = 4;
   
@@ -346,7 +353,8 @@ export default function Generate() {
   const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
     let lastError: any = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const { data, error } = await invokeApi("generate-jewelry", { body });
+      const endpoint = useV2Engine ? "generate-jewelry-v2" : "generate-jewelry";
+      const { data, error } = await invokeApi(endpoint, { body });
 
       const isTransient = error?.status === 502 || error?.status === 503 || error?.status === 429;
       const isConflict = error?.status === 409;
@@ -401,6 +409,14 @@ export default function Generate() {
         aspectRatio: selectedAspectRatio,
         modelId: selectedModelId || undefined,
       };
+
+      // V2 engine params
+      if (useV2Engine) {
+        if (v2Aesthetic) body.aesthetic = v2Aesthetic;
+        if (v2Lens) body.lens = v2Lens;
+        if (v2CameraAngle) body.cameraAngle = v2CameraAngle;
+        if (v2Lighting) body.lighting = v2Lighting;
+      }
 
       // Standard: pass selected scenes
       if (packageType === 'standard' && selectedMasterScenes.length > 0) {
@@ -773,6 +789,174 @@ export default function Generate() {
                       );
                     })}
                   </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* V2 Engine Toggle & Controls */}
+            <AnimatePresence>
+              {!isRetouchMode && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold flex items-center justify-center">
+                      <Sparkles className="h-3 w-3" />
+                    </div>
+                    <h2 className="text-sm font-semibold">V2 Motor</h2>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Beta</span>
+                  </div>
+
+                  {/* V2 Toggle */}
+                  <button
+                    onClick={() => setUseV2Engine(!useV2Engine)}
+                    className={`w-full p-3 rounded-xl border-2 transition-all mb-3 flex items-center justify-between ${
+                      useV2Engine
+                        ? 'border-gold gradient-gold-subtle shadow-sm'
+                        : 'border-border hover:border-gold/30 bg-card'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className={`h-4 w-4 ${useV2Engine ? 'text-[hsl(38,45%,55%)]' : 'text-muted-foreground'}`} />
+                      <div className="text-left">
+                        <p className="text-xs font-medium">{useV2Engine ? 'V2 Motor Aktif' : 'V2 Motoru Etkinlestir'}</p>
+                        <p className="text-[10px] text-muted-foreground">6-Blok JSON prompt, estetik stiller, lens & isik kontrolu</p>
+                      </div>
+                    </div>
+                    <div className={`w-10 h-5 rounded-full transition-all relative ${useV2Engine ? 'bg-[hsl(38,45%,55%)]' : 'bg-muted'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${useV2Engine ? 'left-5' : 'left-0.5'}`} />
+                    </div>
+                  </button>
+
+                  {/* V2 Controls (shown when V2 is active) */}
+                  <AnimatePresence>
+                    {useV2Engine && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-3"
+                      >
+                        {/* Aesthetic */}
+                        <div>
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Estetik Stil</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { key: '', label: 'Otomatik', desc: 'Rastgele sec' },
+                              { key: 'editorial_luxury', label: 'Editorial Luxury', desc: 'Sert isik, yuksek kontrast' },
+                              { key: 'romantic_soft', label: 'Romantic Soft', desc: 'Yumusak, pastel, ruya gibi' },
+                              { key: 'modern_minimal', label: 'Modern Minimal', desc: 'Temiz, sade, cagdas' },
+                              { key: 'bold_colorful', label: 'Bold & Colorful', desc: 'Canli, enerjik, cesur' },
+                              { key: 'vintage_retro', label: 'Vintage Retro', desc: 'Film tanecigi, nostaljik' },
+                              { key: 'futuristic', label: 'Futuristic', desc: 'Neon, metalik, gelecek' },
+                            ].map((a) => (
+                              <button
+                                key={a.key}
+                                onClick={() => setV2Aesthetic(a.key)}
+                                className={`p-2 rounded-lg border text-left transition-all ${
+                                  v2Aesthetic === a.key
+                                    ? 'border-gold bg-gold/10'
+                                    : 'border-border hover:border-gold/30'
+                                }`}
+                              >
+                                <p className="text-[11px] font-medium">{a.label}</p>
+                                <p className="text-[9px] text-muted-foreground">{a.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Lens */}
+                        <div>
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Lens</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { key: '', label: 'Otomatik', desc: 'Sahneye gore sec' },
+                              { key: '35mm', label: '35mm', desc: 'Genis sahne' },
+                              { key: '50mm', label: '50mm', desc: 'Dogal perspektif' },
+                              { key: '85mm', label: '85mm', desc: 'Portre & bokeh' },
+                              { key: '100mm_macro', label: '100mm Macro', desc: 'Ultra detay' },
+                            ].map((l) => (
+                              <button
+                                key={l.key}
+                                onClick={() => setV2Lens(l.key)}
+                                className={`p-2 rounded-lg border text-left transition-all ${
+                                  v2Lens === l.key
+                                    ? 'border-gold bg-gold/10'
+                                    : 'border-border hover:border-gold/30'
+                                }`}
+                              >
+                                <p className="text-[11px] font-medium">{l.label}</p>
+                                <p className="text-[9px] text-muted-foreground">{l.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Camera Angle */}
+                        <div>
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Kamera Acisi</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { key: '', label: 'Otomatik', desc: 'Sahneye gore sec' },
+                              { key: 'eye_level', label: 'Goz Hizasi', desc: 'Dogal, direkt' },
+                              { key: '45_degree', label: '45 Derece', desc: 'Klasik mucevher acisi' },
+                              { key: 'birds_eye', label: 'Kus Bakisi', desc: 'Usten flat-lay' },
+                              { key: 'low_angle', label: 'Alt Aci', desc: 'Dramatik, heybetli' },
+                              { key: 'pov', label: 'POV', desc: 'Birinci sahis' },
+                            ].map((c) => (
+                              <button
+                                key={c.key}
+                                onClick={() => setV2CameraAngle(c.key)}
+                                className={`p-2 rounded-lg border text-left transition-all ${
+                                  v2CameraAngle === c.key
+                                    ? 'border-gold bg-gold/10'
+                                    : 'border-border hover:border-gold/30'
+                                }`}
+                              >
+                                <p className="text-[11px] font-medium">{c.label}</p>
+                                <p className="text-[9px] text-muted-foreground">{c.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Lighting */}
+                        <div>
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Isiklandirma</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { key: '', label: 'Otomatik', desc: 'Sahneye gore sec' },
+                              { key: 'soft_box', label: 'Softbox', desc: 'Studyo, dengeli' },
+                              { key: 'rim_light', label: 'Rim Light', desc: 'Kenar parlama' },
+                              { key: 'golden_hour', label: 'Altin Saat', desc: 'Sicak, dogal' },
+                              { key: 'window_light', label: 'Pencere Isigi', desc: 'Yumusak, editorial' },
+                              { key: 'dramatic_shadow', label: 'Dramatik', desc: 'Chiaroscuro, film noir' },
+                              { key: 'butterfly', label: 'Butterfly', desc: 'Guzellik isigi' },
+                              { key: 'split', label: 'Split', desc: 'Yarim aydinlik' },
+                            ].map((lt) => (
+                              <button
+                                key={lt.key}
+                                onClick={() => setV2Lighting(lt.key)}
+                                className={`p-2 rounded-lg border text-left transition-all ${
+                                  v2Lighting === lt.key
+                                    ? 'border-gold bg-gold/10'
+                                    : 'border-border hover:border-gold/30'
+                                }`}
+                              >
+                                <p className="text-[11px] font-medium">{lt.label}</p>
+                                <p className="text-[9px] text-muted-foreground">{lt.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.section>
               )}
             </AnimatePresence>
