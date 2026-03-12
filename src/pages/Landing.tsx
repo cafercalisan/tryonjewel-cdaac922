@@ -139,15 +139,20 @@ export default function Landing() {
         className="relative min-h-screen flex items-center justify-center overflow-hidden"
         style={{ background: 'linear-gradient(180deg, #050505 0%, #0a0a0a 60%, #0e0e0e 100%)' }}
       >
-        {/* Animated mesh gradient shader background */}
+        {/* Background video with dark overlay */}
         <div className="absolute inset-0 pointer-events-none">
-          <MeshGradient
-            style={{ width: '100%', height: '100%' }}
-            speed={0.3}
-            colors={['#1a1408', '#2a1f0a', '#0a0a0a', '#1c1610', '#0d0b08', '#181208']}
-          />
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            poster=""
+          >
+            <source src="https://iblikaitbglswgfdksoh.supabase.co/storage/v1/object/public/buc/jewelry-video-90fe76c0-b271-485f-85d3-51edf75bddd1.mp4" type="video/mp4" />
+          </video>
           {/* Dark veil for content readability */}
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/60" />
         </div>
 
         {/* Content — scales down and fades on scroll */}
