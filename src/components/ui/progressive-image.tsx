@@ -14,19 +14,18 @@ interface ProgressiveImageProps {
 export function ProgressiveImage({
   src,
   alt,
-  thumbnailSrc,
+  thumbnailSrc: _thumbnailSrc, // MinIO has no transform pipeline — ignore thumbnail, load full directly
   className,
   containerClassName,
   eager = false,
   aspectRatio,
 }: ProgressiveImageProps) {
-  const [thumbLoaded, setThumbLoaded] = useState(false);
-  const [fullLoaded, setFullLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [isVisible, setIsVisible] = useState(eager);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // IntersectionObserver for lazy rendering
+  // IntersectionObserver for lazy rendering — load when 300px before viewport
   useEffect(() => {
     if (eager || isVisible) return;
     const el = containerRef.current;
@@ -39,22 +38,23 @@ export function ProgressiveImage({
           observer.disconnect();
         }
       },
-      { rootMargin: '200px' },
+      { rootMargin: '300px' },
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [eager, isVisible]);
 
-  const handleThumbLoad = useCallback(() => setThumbLoaded(true), []);
-  const handleFullLoad = useCallback(() => setFullLoaded(true), []);
+  const handleLoad = useCallback(() => setLoaded(true), []);
   const handleError = useCallback(() => setError(true), []);
 
-  const activeSrc = thumbnailSrc || src;
-
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden', containerClassName)} style={aspectRatio ? { aspectRatio } : undefined}>
-      {/* Shimmer skeleton — shown until something loads */}
-      {!thumbLoaded && !fullLoaded && !error && (
+    <div
+      ref={containerRef}
+      className={cn('relative overflow-hidden', containerClassName)}
+      style={aspectRatio ? { aspectRatio } : undefined}
+    >
+      {/* Shimmer skeleton */}
+      {!loaded && !error && (
         <div className="absolute inset-0 bg-muted animate-pulse">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent animate-[shimmer_1.5s_infinite]" />
         </div>
@@ -69,41 +69,20 @@ export function ProgressiveImage({
           </div>
         </div>
       ) : isVisible ? (
-        <>
-          {/* Thumbnail (small, fast) — shown first */}
-          {thumbnailSrc && !fullLoaded && (
-            <img
-              src={thumbnailSrc}
-              alt={alt}
-              loading={eager ? 'eager' : 'lazy'}
-              decoding="async"
-              onLoad={handleThumbLoad}
-              onError={handleError}
-              className={cn(
-                'transition-opacity duration-500 ease-out',
-                thumbLoaded ? 'opacity-100' : 'opacity-0',
-                className,
-              )}
-            />
+        <img
+          src={src}
+          alt={alt}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding={eager ? 'sync' : 'async'}
+          fetchPriority={eager ? 'high' : 'auto'}
+          onLoad={handleLoad}
+          onError={handleError}
+          className={cn(
+            'transition-opacity duration-500 ease-out',
+            loaded ? 'opacity-100' : 'opacity-0',
+            className,
           )}
-
-          {/* Full resolution — loads on top of thumbnail */}
-          <img
-            src={thumbnailSrc ? src : activeSrc}
-            alt={alt}
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-            onLoad={thumbnailSrc ? handleFullLoad : handleThumbLoad}
-            onError={handleError}
-            className={cn(
-              'transition-all duration-700 ease-out',
-              thumbnailSrc
-                ? (fullLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0')
-                : (thumbLoaded ? 'blur-0 opacity-100 scale-100' : 'blur-md opacity-0 scale-105'),
-              className,
-            )}
-          />
-        </>
+        />
       ) : null}
     </div>
   );

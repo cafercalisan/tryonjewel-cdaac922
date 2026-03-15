@@ -82,7 +82,6 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature,
-        imageConfig: { aspectRatio, imageSize: '4K' },
       },
     }),
   });

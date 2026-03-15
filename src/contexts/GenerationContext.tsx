@@ -99,16 +99,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
 
           if (data.status === 'completed') {
             stopPolling();
-            toast.success('Üretiminiz tamamlandı!', {
-              action: {
-                label: 'Sonuçları Gör',
-                onClick: () => {
-                  window.location.href = `/sonuclar?id=${imageId}`;
-                },
-              },
-            });
             setRecentCompletedJobs(prev => [updated, ...prev].slice(0, 10));
-            setTimeout(() => setActiveJob(null), 3000);
+            // Brief delay then clear — Generate.tsx handles the actual navigation
+            setTimeout(() => setActiveJob(null), 5000);
           } else if (data.status === 'failed' || data.status === 'cancelled') {
             stopPolling();
             if (data.status === 'failed') {

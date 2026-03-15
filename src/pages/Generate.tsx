@@ -125,7 +125,7 @@ export default function Generate() {
     };
   }, []);
 
-  const startPolling = useCallback((jobId: string, imageId: string) => {
+  const startPolling = useCallback((jobId: string, imageId: string, scenes: string[] = []) => {
     setPollingJobId(jobId);
     setPollingImageId(imageId);
 
@@ -166,7 +166,7 @@ export default function Generate() {
               setGenerationStep('idle');
               setPollingJobId(null);
               setPollingImageId(null);
-              const scenesParam = selectedMasterScenes.length > 0 ? `&scenes=${selectedMasterScenes.join(',')}` : '';
+              const scenesParam = scenes.length > 0 ? `&scenes=${scenes.join(',')}` : '';
               navigate(`/sonuclar?id=${imageId}${scenesParam}`);
             }, 1500);
           } else if (data.status === 'failed') {
@@ -450,7 +450,7 @@ export default function Generate() {
       }
 
       // Start polling for job completion (local + global context)
-      startPolling(data.jobId, data.imageId);
+      startPolling(data.jobId, data.imageId, selectedMasterScenes);
       startTracking(data.jobId, data.imageId, selectedMasterScenes);
 
     } catch (error: any) {
