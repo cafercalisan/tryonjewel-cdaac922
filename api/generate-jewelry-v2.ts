@@ -15,15 +15,25 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 async function callGeminiAnalysis(opts: {
   prompt: string;
   imageBase64?: string;
+  imageBase64s?: string[]; // multiple reference angles
   temperature?: number;
   maxTokens?: number;
 }): Promise<string> {
   const apiKey = GOOGLE_IMAGE_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_API_KEY not configured');
 
-  const parts: any[] = [{ text: opts.prompt }];
-  if (opts.imageBase64) {
-    parts.push({ inlineData: { mimeType: 'image/jpeg', data: opts.imageBase64 } });
+  const parts: any[] = [];
+  const images = opts.imageBase64s || (opts.imageBase64 ? [opts.imageBase64] : []);
+  if (images.length > 1) {
+    parts.push({ text: `Analyze this jewelry piece. The following ${images.length} images show the SAME piece from different angles — use ALL angles for a complete analysis.` });
+    for (let i = 0; i < images.length; i++) {
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: images[i] } });
+      parts.push({ text: `[Angle ${i + 1}/${images.length}]` });
+    }
+    parts.push({ text: opts.prompt });
+  } else {
+    parts.push({ text: opts.prompt });
+    if (images[0]) parts.push({ inlineData: { mimeType: 'image/jpeg', data: images[0] } });
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
@@ -70,10 +80,24 @@ async function callGeminiImageGeneration({
   aspectRatio?: string;
 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
-  const parts: any[] = [{ text: prompt }];
-  for (const b64 of base64Images) {
-    parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
+
+  // Build parts: label each reference image, then the generation prompt
+  const parts: any[] = [];
+
+  if (base64Images.length === 1) {
+    // Single reference: image first, then prompt
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Images[0] } });
+    parts.push({ text: `REFERENCE JEWELRY IMAGE (above): This is the exact jewelry piece to reproduce.\n\n${prompt}` });
+  } else {
+    // Multiple references: label each angle, then prompt
+    parts.push({ text: `REFERENCE JEWELRY IMAGES: The following ${base64Images.length} images show the SAME jewelry piece from different angles. Study ALL of them carefully to capture every detail — shape, metal color, stone cuts, engravings, and proportions.` });
+    for (let i = 0; i < base64Images.length; i++) {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Images[i] } });
+      parts.push({ text: `[Reference angle ${i + 1}/${base64Images.length}]` });
+    }
+    parts.push({ text: `\nUSING ALL ${base64Images.length} REFERENCE IMAGES ABOVE — reproduce this exact jewelry with perfect fidelity:\n\n${prompt}` });
   }
+
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1373,7 +1397,7 @@ ONLY valid JSON.`;
 
     let analysisResult: any = { type: 'jewelry', design_elements: { style: 'classic' } };
     try {
-      const analysisContent = await callGeminiAnalysis({ prompt: analysisPrompt, imageBase64: base64Image });
+      const analysisContent = await callGeminiAnalysis({ prompt: analysisPrompt, imageBase64s: base64Images });
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, '').trim());
     } catch (err: any) {
       console.error('V2 Jewelry analysis failed:', err?.message || err);

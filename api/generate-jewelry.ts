@@ -1269,9 +1269,17 @@ async function callGeminiImageGeneration({
 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
 
-  const parts: any[] = [{ text: prompt }];
-  for (const base64Image of base64Images) {
-    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Image } });
+  const parts: any[] = [];
+  if (base64Images.length === 1) {
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Images[0] } });
+    parts.push({ text: `REFERENCE JEWELRY IMAGE (above): This is the exact jewelry piece to reproduce.\n\n${prompt}` });
+  } else {
+    parts.push({ text: `REFERENCE JEWELRY IMAGES: The following ${base64Images.length} images show the SAME jewelry piece from different angles. Study ALL of them carefully to capture every detail.` });
+    for (let i = 0; i < base64Images.length; i++) {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Images[i] } });
+      parts.push({ text: `[Reference angle ${i + 1}/${base64Images.length}]` });
+    }
+    parts.push({ text: `\nUSING ALL ${base64Images.length} REFERENCE IMAGES ABOVE — reproduce this exact jewelry with perfect fidelity:\n\n${prompt}` });
   }
 
   return await fetch(url, {
@@ -1282,10 +1290,6 @@ async function callGeminiImageGeneration({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
         temperature,
-        imageConfig: {
-          aspectRatio,
-          imageSize: '4K',
-        },
       },
     }),
   });
