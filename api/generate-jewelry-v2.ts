@@ -870,7 +870,8 @@ function buildModelPromptV2(
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
   const persona = pickRandom(CHARACTER_PERSONAS);
-  const outfit = pickRandom(OUTFIT_POOL.filter(o => o.bestFor.includes(productType)) || OUTFIT_POOL);
+  const _outfitPool873 = OUTFIT_POOL.filter(o => o.bestFor.includes(productType));
+  const outfit = pickRandom(_outfitPool873.length > 0 ? _outfitPool873 : OUTFIT_POOL);
   const lens = selectLens('model', userLens);
   const angle = selectAngle(userAngle);
   const lighting = selectLighting('model', aesthetic.key, userLighting);
@@ -966,7 +967,8 @@ function buildModelCloseUpPromptV2(
   const config = PRODUCT_TYPE_MODEL_CONFIG[productType] || PRODUCT_TYPE_MODEL_CONFIG['genel'];
   const pose = pickRandom(config.poses);
   const persona = pickRandom(CHARACTER_PERSONAS);
-  const outfit = pickRandom(OUTFIT_POOL.filter(o => o.bestFor.includes(productType)) || OUTFIT_POOL);
+  const _outfitPool970 = OUTFIT_POOL.filter(o => o.bestFor.includes(productType));
+  const outfit = pickRandom(_outfitPool970.length > 0 ? _outfitPool970 : OUTFIT_POOL);
   const lighting = selectLighting('model_closeup', aesthetic.key, userLighting);
 
   console.log(`V2 Model Close-Up — Persona: ${persona.name}, Aesthetic: ${aesthetic.name}`);
@@ -1021,7 +1023,8 @@ function buildModelLifestylePromptV2(
   const gaze = pickRandom(CHARACTER_GAZE);
   const expression = pickRandom(CHARACTER_EXPRESSIONS);
   const persona = pickRandom(CHARACTER_PERSONAS);
-  const outfit = pickRandom(OUTFIT_POOL.filter(o => o.bestFor.includes(productType)) || OUTFIT_POOL);
+  const _outfitPool1026 = OUTFIT_POOL.filter(o => o.bestFor.includes(productType));
+  const outfit = pickRandom(_outfitPool1026.length > 0 ? _outfitPool1026 : OUTFIT_POOL);
   const lens = selectLens('model_lifestyle', userLens);
   const lighting = selectLighting('model_lifestyle', aesthetic.key, userLighting);
 
