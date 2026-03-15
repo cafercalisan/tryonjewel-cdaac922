@@ -8,20 +8,26 @@ export async function invokeApi(
   options: { body?: any; method?: string } = {}
 ): Promise<{ data: any; error: any }> {
   try {
-    const token = authClient.getAccessToken();
+    let token = authClient.getAccessToken();
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    const makeRequest = async (t: string | null) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (t) headers['Authorization'] = `Bearer ${t}`;
+      return fetch(`/api/${name}`, {
+        method: options.method || 'POST',
+        headers,
+        body: JSON.stringify(options.body || {}),
+      });
     };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
-    const response = await fetch(`/api/${name}`, {
-      method: options.method || 'POST',
-      headers,
-      body: JSON.stringify(options.body || {}),
-    });
+    let response = await makeRequest(token);
+
+    // Auto-refresh on 401 and retry once
+    if (response.status === 401) {
+      await authClient.refreshSession();
+      token = authClient.getAccessToken();
+      if (token) response = await makeRequest(token);
+    }
 
     const data = await response.json();
 
@@ -55,15 +61,25 @@ export async function fetchApi(
   query?: Record<string, string>
 ): Promise<{ data: any; error: any }> {
   try {
-    const token = authClient.getAccessToken();
+    let token = authClient.getAccessToken();
 
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    const makeRequest = async (t: string | null) => {
+      const headers: Record<string, string> = {};
+      if (t) headers['Authorization'] = `Bearer ${t}`;
+      const qs = query ? '?' + new URLSearchParams(query).toString() : '';
+      return fetch(`/api/${name}${qs}`, { headers });
+    };
+
+    let response = await makeRequest(token);
+
+    // Auto-refresh on 401 and retry once
+    if (response.status === 401) {
+      const refreshed = await authClient.refreshSession?.();
+      token = authClient.getAccessToken();
+      if (token) {
+        response = await makeRequest(token);
+      }
     }
-
-    const qs = query ? '?' + new URLSearchParams(query).toString() : '';
-    const response = await fetch(`/api/${name}${qs}`, { headers });
 
     const data = await response.json();
 

@@ -188,4 +188,6 @@ export const authClient = {
   getAccessToken(): string | null {
     return currentSession?.access_token || localStorage.getItem(TOKEN_KEY);
   },
+
+  refreshSession,
 };

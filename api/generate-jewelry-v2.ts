@@ -1651,9 +1651,10 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
       return;
     }
 
-    // Use pg array format for text[] column (not JSON.stringify)
+    // images.generated_image_urls is text[] — pass JS array directly (pg driver serialises it)
+    // processing_jobs.result_urls is jsonb — must pass a JSON string
     await query('UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3', ['completed', generatedUrls, imageRecordId]);
-    await query('UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4, completed_images = $5 WHERE id = $6', ['completed', 100, 'completed', generatedUrls, generatedUrls.length, jobId]);
+    await query('UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4::jsonb, completed_images = $5 WHERE id = $6', ['completed', 100, 'completed', JSON.stringify(generatedUrls), generatedUrls.length, jobId]);
 
     console.log('V2 Generation complete:', generatedUrls.length, 'images');
 
