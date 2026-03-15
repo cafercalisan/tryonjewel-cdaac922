@@ -112,6 +112,7 @@ app.all('/api/admin-data', adminData);
 // ── Data routes ──
 app.all('/api/scenes', scenes);
 app.all('/api/images', images);
+app.get('/api/processing-jobs/active', processingJobs);
 app.get('/api/processing-jobs/:id', processingJobs);
 app.all('/api/processing-jobs', processingJobs);
 app.all('/api/profile', profile);

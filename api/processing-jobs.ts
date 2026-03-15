@@ -19,6 +19,21 @@ export default async function handler(req: Request, res: Response) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
     }
 
+    // /active — return most recent job (in-progress or recently completed)
+    if (req.params?.id === 'active' || req.path?.endsWith('/active')) {
+      const job = await queryOne(
+        `SELECT * FROM processing_jobs
+         WHERE user_id = $1
+         AND (
+           status IN ('pending', 'generating')
+           OR (status = 'completed' AND updated_at > NOW() - INTERVAL '10 minutes')
+         )
+         ORDER BY created_at DESC LIMIT 1`,
+        [authResult.userId]
+      );
+      return sendCorsResponse(res, 200, { data: job || null });
+    }
+
     const jobId = req.params?.id || req.query?.id || req.body?.id;
     if (!jobId) {
       return sendCorsResponse(res, 400, { error: 'Job ID is required' });
