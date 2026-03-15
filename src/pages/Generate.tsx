@@ -191,7 +191,7 @@ export default function Generate() {
       }
     }, 2000);
 
-    // 5-minute timeout safety net (Vercel serverless has 300s max)
+    // 15-minute timeout — Pro model takes ~3-4min per image, 3 images = up to 12min
     pollingTimeoutRef.current = setTimeout(() => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       toast.error('Üretim zaman aşımına uğradı. Lütfen tekrar deneyin.');
@@ -199,7 +199,7 @@ export default function Generate() {
       setGenerationStep('idle');
       setPollingJobId(null);
       setPollingImageId(null);
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
   }, [navigate]);
 
   // Fetch selected model data for SummaryPanel display

@@ -101,6 +101,7 @@ async function callGeminiImageGeneration({
   return await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(4 * 60 * 1000), // 4 min per image max
     body: JSON.stringify({
       contents: [{ parts }],
       generationConfig: {
@@ -1771,10 +1772,10 @@ export default async function handler(req: Request, res: Response) {
 
     const validatedCustomPrompt = isSinglePackage && typeof customPrompt === 'string' ? customPrompt.trim().substring(0, 500) : undefined;
 
-    // Auto-clean stuck jobs (2 min)
+    // Auto-clean stuck jobs (15 min — Pro model can take up to 4min per image × 3 scenes)
     const stuckResult = await query<{id: string, image_record_id: string}>(
       'SELECT id, image_record_id FROM processing_jobs WHERE user_id = $1 AND status = ANY($2::text[]) AND updated_at < $3',
-      [userId, ['pending', 'generating'], new Date(Date.now() - 2 * 60 * 1000).toISOString()]
+      [userId, ['pending', 'generating'], new Date(Date.now() - 15 * 60 * 1000).toISOString()]
     );
     const stuckJobs = stuckResult.rows;
     if (stuckJobs && stuckJobs.length > 0) {
