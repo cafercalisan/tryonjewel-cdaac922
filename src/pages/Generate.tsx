@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi, invokeApi, uploadToStorage } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
@@ -132,13 +133,17 @@ export default function Generate() {
     // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
       try {
-        const { data: respData, error } = await fetchApi('processing-jobs', { id: jobId });
-        const data = respData?.data;
-
-        if (error) {
-          console.error('Polling error:', error);
+        // Force no-cache so we always get fresh job status (304 has no body)
+        const token = authClient.getAccessToken();
+        const headers: Record<string, string> = { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const rawResp = await fetch(`/api/processing-jobs?id=${jobId}`, { headers });
+        if (!rawResp.ok) {
+          console.error('Polling error:', rawResp.status);
           return;
         }
+        const respData = await rawResp.json();
+        const data = respData?.data;
 
         if (data) {
           setJobCurrentStep(data.current_step);

@@ -7,7 +7,7 @@ import { handleCors, sendCorsResponse } from './_lib/cors.js';
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';
-const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview';
+const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 
 // ── Gemini Text/Vision Analysis Helper ──
 async function callGeminiAnalysis(opts: {
