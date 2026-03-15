@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { invokeApi } from '@/lib/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,13 +54,12 @@ export default function Admin() {
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await invokeApi('admin-data', {
+        body: { table: 'profiles' },
+      });
 
       if (error) throw error;
-      return data as Profile[];
+      return (data?.data || []) as Profile[];
     },
     enabled: isAdmin === true,
   });
@@ -70,19 +68,19 @@ export default function Admin() {
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [usersRes, imagesRes, videosRes, creditsRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('images').select('id', { count: 'exact', head: true }),
-        supabase.from('videos').select('id', { count: 'exact', head: true }),
-        supabase.from('profiles').select('credits'),
+      const [usersRes, imagesRes, videosRes] = await Promise.all([
+        invokeApi('admin-data', { body: { table: 'profiles' } }),
+        invokeApi('admin-data', { body: { table: 'images' } }),
+        invokeApi('admin-data', { body: { table: 'videos' } }),
       ]);
 
-      const totalCredits = creditsRes.data?.reduce((sum, p) => sum + (p.credits || 0), 0) || 0;
+      const profiles = usersRes.data?.data || [];
+      const totalCredits = profiles.reduce((sum: number, p: any) => sum + (p.credits || 0), 0);
 
       return {
-        totalUsers: usersRes.count || 0,
-        totalImages: imagesRes.count || 0,
-        totalVideos: videosRes.count || 0,
+        totalUsers: profiles.length,
+        totalImages: (imagesRes.data?.data || []).length,
+        totalVideos: (videosRes.data?.data || []).length,
         totalCredits,
       };
     },

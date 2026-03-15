@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { authClient } from '@/lib/auth-client';
 import { invokeApi } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -22,7 +22,7 @@ export function useVideoStatusPolling(videos: Video[] | undefined, userId: strin
     isPollingRef.current.add(videoId);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await authClient.getSession();
       if (!session) {
         console.log('No session, stopping poll for', videoId);
         isPollingRef.current.delete(videoId);
@@ -53,7 +53,7 @@ export function useVideoStatusPolling(videos: Video[] | undefined, userId: strin
           isPollingRef.current.delete(videoId);
           checkVideoStatus(videoId);
         }, 8000);
-        
+
         pollingRef.current.set(videoId, timeoutId);
       } else {
         // Video completed or errored, stop polling

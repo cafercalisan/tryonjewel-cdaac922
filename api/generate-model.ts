@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
+import { queryOne } from './_lib/db.js';
+import { uploadFile, getSignedUrl } from './_lib/storage.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
@@ -300,8 +301,6 @@ export default async function handler(req: Request, res: Response) {
       }
     }
 
-    const supabase = getServiceClient();
-
     const modelPrompt = buildAdvancedPrompt({
       name: isPoseGeneration ? modelData.name : name,
       skinTone: isPoseGeneration ? modelData.skinTone : skinTone,
@@ -372,15 +371,11 @@ export default async function handler(req: Request, res: Response) {
     const fileExtension = mimeType.includes('png') ? 'png' : 'jpg';
     const filePath = `${userId}/models/${Date.now()}.${fileExtension}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('jewelry-images')
-      .upload(filePath, imageBuffer, { contentType: mimeType });
+    const { error: uploadError } = await uploadFile('jewelry-images', filePath, imageBuffer, mimeType);
 
     if (uploadError) throw new Error('Failed to upload image');
 
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('jewelry-images')
-      .createSignedUrl(filePath, 7 * 24 * 60 * 60);
+    const { data: signedUrlData, error: signedUrlError } = await getSignedUrl('jewelry-images', filePath, 7 * 24 * 60 * 60);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       throw new Error('Failed to generate image URL');
@@ -392,28 +387,23 @@ export default async function handler(req: Request, res: Response) {
       return sendCorsResponse(res, 200, { success: true, imageUrl });
     }
 
-    const { data: modelRecord, error: insertError } = await supabase
-      .from('user_models')
-      .insert({
-        user_id: userId, name,
-        skin_tone: skinTone, skin_undertone: skinUndertone || 'neutral',
-        ethnicity, hair_color: hairColor, hair_texture: hairTexture,
-        gender, age_range: ageRange, face_shape: faceShape,
-        eye_color: eyeColor, expression, hair_style: hairStyle,
-        preview_image_url: imageUrl,
-        makeup_style: makeupStyle || null,
-        eye_makeup: eyeMakeup || null,
-        lip_color: lipColor || null,
-        skin_finish: skinFinish || null,
-        editorial_reference: editorialReference || null,
-        jewelry_affinity: jewelryAffinity || null,
-        body_proportions: bodyProportions || null,
-        distinctive_features: distinctiveFeatures || {},
-      })
-      .select()
-      .single();
+    const modelRecord = await queryOne(
+      `INSERT INTO user_models (
+        user_id, name, skin_tone, skin_undertone, ethnicity, hair_color, hair_texture,
+        gender, age_range, face_shape, eye_color, expression, hair_style,
+        preview_image_url, makeup_style, eye_makeup, lip_color, skin_finish,
+        editorial_reference, jewelry_affinity, body_proportions, distinctive_features
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
+      [
+        userId, name, skinTone, skinUndertone || 'neutral', ethnicity, hairColor, hairTexture,
+        gender, ageRange, faceShape, eyeColor, expression, hairStyle,
+        imageUrl, makeupStyle || null, eyeMakeup || null, lipColor || null, skinFinish || null,
+        editorialReference || null, jewelryAffinity || null, bodyProportions || null,
+        JSON.stringify(distinctiveFeatures || {}),
+      ]
+    );
 
-    if (insertError) throw new Error('Failed to save model');
+    if (!modelRecord) throw new Error('Failed to save model');
 
     return sendCorsResponse(res, 200, { success: true, model: modelRecord });
 

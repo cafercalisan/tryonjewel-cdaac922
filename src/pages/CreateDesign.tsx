@@ -7,8 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Check, Instagram, Globe, Upload, Wand2, X, Loader2, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeApi } from '@/lib/api';
+import { fetchApi, invokeApi } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -27,15 +26,11 @@ export default function CreateDesign() {
   const { data: recentImages, isLoading } = useQuery({
     queryKey: ['all-images', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('images')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false });
+      const { data, error } = await fetchApi('images');
 
       if (error) throw error;
-      return data;
+      const allImages = data?.data || [];
+      return allImages.filter((img: any) => img.status === 'completed');
     },
     enabled: !!user,
   });

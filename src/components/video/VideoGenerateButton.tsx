@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Video, Loader2, Sparkles, RectangleVertical, RectangleHorizontal } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { invokeApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -72,25 +71,9 @@ export function VideoGenerateButton({
     setGenerationStatus('starting');
 
     try {
-      // Create video record first
-      const { data: videoRecord, error: insertError } = await supabase
-        .from('videos')
-        .insert({
-          user_id: user.id,
-          source_image_url: imageUrl,
-          status: 'pending',
-          aspect_ratio: selectedFormat
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        throw new Error('Video kaydı oluşturulamadı');
-      }
-
       setGenerationStatus('processing');
 
-      // Call edge function
+      // Call API to create video record and start generation
       const endImageUrl = multiFrameMode && endFrameIndex !== null && allImageUrls
         ? allImageUrls[endFrameIndex]
         : undefined;
@@ -99,7 +82,6 @@ export function VideoGenerateButton({
         body: {
           imageUrl,
           endImageUrl,
-          videoId: videoRecord.id,
           promptType: selectedStyle,
           videoFormat: selectedFormat,
         }

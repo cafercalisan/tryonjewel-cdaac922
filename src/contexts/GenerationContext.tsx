@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -74,16 +74,14 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
 
     pollingRef.current = setInterval(async () => {
       try {
-        const { data, error } = await supabase
-          .from('processing_jobs')
-          .select('status, result_urls, error_message, current_step, progress, completed_images, total_images')
-          .eq('id', jobId)
-          .single();
+        const { data: respData, error } = await fetchApi('processing-jobs', { id: jobId });
 
         if (error) {
           console.error('Global polling error:', error);
           return;
         }
+
+        const data = respData?.data;
 
         if (data) {
           const updated: ActiveJob = {
@@ -137,16 +135,11 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const checkActiveJobs = async () => {
-      const { data } = await supabase
-        .from('processing_jobs')
-        .select('id, image_record_id, status, current_step, progress, completed_images, total_images, result_urls')
-        .eq('user_id', user.id)
-        .in('status', ['pending', 'generating'])
-        .order('created_at', { ascending: false })
-        .limit(1);
+      const { data: respData } = await fetchApi('processing-jobs', { active: 'true' });
 
-      if (data && data.length > 0) {
-        const job = data[0];
+      const jobs = respData?.data;
+      if (jobs && Array.isArray(jobs) && jobs.length > 0) {
+        const job = jobs[0];
         startTracking(job.id, job.image_record_id, []);
       }
     };

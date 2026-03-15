@@ -17,14 +17,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchApi, invokeApi, uploadToStorage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { GeneratingPanel } from "@/components/generate/GeneratingPanel";
 import { productTypes } from "@/components/generate/ProductTypeSelector";
 import { metalColors } from "@/components/generate/MetalColorSelector";
 import { compressImage, formatFileSize } from "@/lib/compressImage";
-import { invokeApi } from "@/lib/api";
 import { useGenerationContext } from "@/contexts/GenerationContext";
 import { UploadArea } from "@/components/generate/UploadArea";
 import { PackageSelector } from "@/components/generate/PackageSelector";
@@ -133,11 +132,8 @@ export default function Generate() {
     // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
       try {
-        const { data, error } = await supabase
-          .from('processing_jobs')
-          .select('status, result_urls, error_message, current_step, progress, completed_images, total_images')
-          .eq('id', jobId)
-          .single();
+        const { data: respData, error } = await fetchApi('processing-jobs', { id: jobId });
+        const data = respData?.data;
 
         if (error) {
           console.error('Polling error:', error);
@@ -206,13 +202,9 @@ export default function Generate() {
     queryKey: ['selected-model', selectedModelId],
     queryFn: async () => {
       if (!selectedModelId) return null;
-      const { data, error } = await supabase
-        .from('user_models')
-        .select('*')
-        .eq('id', selectedModelId)
-        .single();
+      const { data, error } = await fetchApi('user-models', { id: selectedModelId });
       if (error) return null;
-      return data;
+      return data?.data || null;
     },
     enabled: !!selectedModelId,
   });
@@ -220,9 +212,9 @@ export default function Generate() {
   const { data: scenes } = useQuery({
     queryKey: ["scenes"],
     queryFn: async (): Promise<Scene[]> => {
-      const { data, error } = await supabase.from("scenes").select("*").order("sort_order");
+      const { data, error } = await fetchApi('scenes');
       if (error) throw error;
-      return data as Scene[];
+      return (data?.data || []) as Scene[];
     },
   });
 
@@ -231,9 +223,11 @@ export default function Generate() {
     queryKey: ['is-admin', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      const { data, error } = await invokeApi('admin-data', {
+        body: { table: 'user_roles', checkAdmin: true },
+      });
       if (error) return false;
-      return data === true;
+      return !!data?.isAdmin;
     },
     enabled: !!user,
     staleTime: 60_000,
@@ -394,7 +388,7 @@ export default function Generate() {
         const fileExt = img.file.name.split(".").pop();
         const filePath = `${user!.id}/originals/${timestamp}-${i}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage.from("jewelry-images").upload(filePath, img.file);
+        const { error: uploadError } = await uploadToStorage("jewelry-images", filePath, img.file);
         if (uploadError) throw uploadError;
         
         imagePaths.push(filePath);
@@ -435,9 +429,7 @@ export default function Generate() {
         const styleFileExt = styleReference.file.name.split(".").pop();
         const styleFilePath = `${user!.id}/style-references/${timestamp}.${styleFileExt}`;
 
-        const { error: styleUploadError } = await supabase.storage
-          .from("jewelry-images")
-          .upload(styleFilePath, styleReference.file);
+        const { error: styleUploadError } = await uploadToStorage("jewelry-images", styleFilePath, styleReference.file);
 
         if (styleUploadError) throw styleUploadError;
 

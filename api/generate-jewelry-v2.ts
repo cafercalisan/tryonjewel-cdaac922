@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
+import { query, queryOne } from './_lib/db.js';
+import { uploadFile, getSignedUrl, getInternalUrl } from './_lib/storage.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
@@ -57,14 +58,7 @@ async function callGeminiAnalysis(opts: {
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 8192;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
+  return Buffer.from(buffer).toString('base64');
 }
 
 async function callGeminiImageGeneration({
@@ -96,7 +90,7 @@ async function callGeminiImageGeneration({
 
 async function generateSingleImage(
   base64Images: string[], prompt: string, userId: string,
-  imageRecordId: string, index: number, supabase: any,
+  imageRecordId: string, index: number, _unused: any,
   jobId: string, aspectRatio: string = '3:4', startTemperature: number = 0.12,
 ): Promise<string | null> {
   const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1];
@@ -118,7 +112,7 @@ async function generateSingleImage(
         const errText = await genResponse.text();
         console.error(`Generation ${index} API error (${genResponse.status}) attempt ${attempt + 1}:`, errText);
         if (attempt >= 2) {
-          try { await supabase.from('processing_jobs').update({ error_message: `Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}` }).eq('id', jobId); } catch (_) {}
+          try { await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [`Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}`, jobId]); } catch (_) {}
           return null;
         }
         continue;
@@ -143,12 +137,10 @@ async function generateSingleImage(
       generatedImage = null;
 
       const filePath = `${userId}/generated/${imageRecordId}-${index}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from('jewelry-images').upload(filePath, imageBuffer, { contentType: 'image/png' });
+      const { error: uploadError } = await uploadFile('jewelry-images', filePath, imageBuffer, 'image/png');
 
       if (!uploadError) {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from('jewelry-images').createSignedUrl(filePath, 7 * 24 * 60 * 60);
+        const { data: signedUrlData, error: signedUrlError } = await getSignedUrl('jewelry-images', filePath, 7 * 24 * 60 * 60);
         if (!signedUrlError && signedUrlData?.signedUrl) {
           console.log(`Image ${index} uploaded successfully (attempt ${attempt + 1})`);
           return signedUrlData.signedUrl;
@@ -839,7 +831,7 @@ function buildEcommercePromptV2(
   userLens?: string, userAngle?: string,
 ): string {
   const lens = selectLens('ecommerce', userLens);
-  const angle = userAngle ? selectAngle(userAngle) : CAMERA_ANGLES.find(a => a.key === '45_degree')!;
+  const angle = userAngle ? selectAngle(userAngle) : (CAMERA_ANGLES.find(a => a.key === '45_degree') ?? CAMERA_ANGLES[0]);
 
   const sixBlock = buildSixBlockJSON({
     shot: `E-commerce product photography. Product fills 60-70% of frame. Clean commercial catalog shot.`,
@@ -1270,7 +1262,6 @@ async function processGeneration(params: {
   // V2 params
   aesthetic?: string; lens?: string; cameraAngle?: string; lighting?: string;
 }) {
-  const supabase = getServiceClient();
   const {
     userId, imageRecordId, jobId, imagePaths, validAdditionalPaths,
     sceneId, packageType, productType,
@@ -1289,68 +1280,74 @@ async function processGeneration(params: {
   console.log(`V2 Aesthetic: ${aesthetic.name} (${aesthetic.key})`);
 
   try {
-    await supabase.from('processing_jobs').update({
-      status: 'generating', current_step: 'downloading', progress: 2,
-    }).eq('id', jobId);
+    await query('UPDATE processing_jobs SET status = $1, current_step = $2, progress = $3 WHERE id = $4', ['generating', 'downloading', 2, jobId]);
 
-    // Get signed URLs for all images
+    // Get internal URLs for all images (server-side fetch)
     const allImagePaths = [imagePaths[0], ...validAdditionalPaths];
     const imageUrls: string[] = [];
     for (const path of allImagePaths) {
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('jewelry-images').createSignedUrl(path, 3600);
-      if (!signedUrlError && signedUrlData?.signedUrl) imageUrls.push(signedUrlData.signedUrl);
+      imageUrls.push(getInternalUrl('jewelry-images', path));
     }
     if (imageUrls.length === 0) throw new Error('Failed to access images');
 
-    await supabase.from('processing_jobs').update({ progress: 5, current_step: 'downloading' }).eq('id', jobId);
+    await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [5, 'downloading', jobId]);
 
     // Style reference
     const hasStyleReference = styleReferencePath && typeof styleReferencePath === 'string' && styleReferencePath.startsWith(`${userId}/style-references/`);
     let styleReferenceBase64: string | null = null;
     if (hasStyleReference) {
-      const { data: styleSignedData, error: styleSignedError } = await supabase.storage
-        .from('jewelry-images').createSignedUrl(styleReferencePath!, 3600);
-      if (!styleSignedError && styleSignedData?.signedUrl) {
-        try {
-          const styleResponse = await fetch(styleSignedData.signedUrl);
-          const styleBuffer = await styleResponse.arrayBuffer();
-          if (styleBuffer.byteLength <= MAX_IMAGE_SIZE) {
-            styleReferenceBase64 = arrayBufferToBase64(styleBuffer);
-          }
-        } catch (err) { console.error('Failed to fetch style reference:', err); }
-      }
+      try {
+        const styleUrl = getInternalUrl('jewelry-images', styleReferencePath!);
+        const styleResponse = await fetch(styleUrl);
+        const styleBuffer = await styleResponse.arrayBuffer();
+        if (styleBuffer.byteLength <= MAX_IMAGE_SIZE) {
+          styleReferenceBase64 = arrayBufferToBase64(styleBuffer);
+        }
+      } catch (err) { console.error('Failed to fetch style reference:', err); }
     }
 
     let styleAnalysis: StyleReferenceAnalysis | null = null;
     if (styleReferenceBase64) {
-      await supabase.from('processing_jobs').update({ current_step: 'analyzing_style', progress: 12 }).eq('id', jobId);
+      await query('UPDATE processing_jobs SET current_step = $1, progress = $2 WHERE id = $3', ['analyzing_style', 12, jobId]);
       styleAnalysis = await analyzeStyleReference(styleReferenceBase64);
     }
 
     // Scene from DB
     let scene: any = null;
     if (!hasStyleReference && sceneId && uuidRegex.test(sceneId)) {
-      const { data: sceneData } = await supabase.from('scenes').select('*').eq('id', sceneId).single();
-      scene = sceneData;
+      scene = await queryOne('SELECT * FROM scenes WHERE id = $1', [sceneId]);
     }
 
     // Fetch images to base64
-    await supabase.from('processing_jobs').update({ current_step: 'analyzing', progress: 10 }).eq('id', jobId);
+    await query('UPDATE processing_jobs SET current_step = $1, progress = $2 WHERE id = $3', ['analyzing', 10, jobId]);
     const base64Images: string[] = [];
+    let lastFetchError: string | null = null;
     for (const url of imageUrls) {
       try {
         const resp = await fetch(url);
+        if (!resp.ok) {
+          lastFetchError = `Image download failed: HTTP ${resp.status}`;
+          console.warn(lastFetchError);
+          continue;
+        }
         const buf = await resp.arrayBuffer();
-        if (buf.byteLength <= MAX_IMAGE_SIZE) base64Images.push(arrayBufferToBase64(buf));
-      } catch (err) { console.warn('Failed to fetch image:', err); }
+        if (buf.byteLength > MAX_IMAGE_SIZE) {
+          lastFetchError = `Image too large: ${(buf.byteLength / (1024 * 1024)).toFixed(2)}MB (max 1.5MB)`;
+          console.warn(lastFetchError);
+          continue;
+        }
+        base64Images.push(arrayBufferToBase64(buf));
+      } catch (err: any) {
+        lastFetchError = `Image fetch error: ${err?.message || 'network error'}`;
+        console.warn(lastFetchError);
+      }
     }
-    if (base64Images.length === 0) throw new Error('Image too large. Max 1.5MB.');
+    if (base64Images.length === 0) throw new Error(lastFetchError || 'No images could be loaded');
     const base64Image = base64Images[0];
 
     // ── ANALYZE JEWELRY ──
     console.log('V2 Step 1: Analyzing jewelry...');
-    await supabase.from('processing_jobs').update({ progress: 15 }).eq('id', jobId);
+    await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [15, jobId]);
 
     const analysisPrompt = `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
 
@@ -1378,12 +1375,17 @@ ONLY valid JSON.`;
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, '').trim());
     } catch (err: any) {
       console.error('V2 Jewelry analysis failed:', err?.message || err);
-      await supabase.from('processing_jobs').update({ error_message: `Analiz hatası: ${err?.message?.substring(0, 200) || 'parse error'}` }).eq('id', jobId);
+      await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', `Analiz hatası: ${err?.message?.substring(0, 200) || 'parse error'}`, 100, 'failed', jobId]);
+      await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', `Analiz hatası: ${err?.message?.substring(0, 200) || 'parse error'}`, imageRecordId]);
+      if (!isAdminUser) {
+        try { await queryOne('SELECT refund_credits($1, $2) as result', [userId, creditsNeeded]); } catch {}
+      }
+      throw new Error(`Jewelry analysis failed: ${err?.message || 'parse error'}`);
     }
 
     console.log('V2 Analysis result:', JSON.stringify(analysisResult, null, 2));
-    await supabase.from('images').update({ status: 'generating', analysis_data: analysisResult }).eq('id', imageRecordId);
-    await supabase.from('processing_jobs').update({ current_step: 'generating', progress: 25 }).eq('id', jobId);
+    await query('UPDATE images SET status = $1, analysis_data = $2 WHERE id = $3', ['generating', JSON.stringify(analysisResult), imageRecordId]);
+    await query('UPDATE processing_jobs SET current_step = $1, progress = $2 WHERE id = $3', ['generating', 25, jobId]);
 
     // ── BUILD FIDELITY BLOCK ──
     const metalColorOverrideMap: Record<string, { type: string; category: string }> = {
@@ -1483,9 +1485,9 @@ FORBIDDEN: ❌ Metal color change ❌ Text/watermarks ❌ Design alterations ❌
     // Brand DNA
     let brandDnaBlock = '';
     try {
-      const { data: brandProfile } = await supabase.from('brand_profiles')
-        .select('brand_dna_prompt, is_active')
-        .eq('user_id', userId).eq('is_active', true).single();
+      const brandProfile = await queryOne<{ brand_dna_prompt: string; is_active: boolean }>(
+        'SELECT brand_dna_prompt, is_active FROM brand_profiles WHERE user_id = $1 AND is_active = true LIMIT 1', [userId]
+      );
       if (brandProfile?.brand_dna_prompt) {
         brandDnaBlock = `\n\n${brandProfile.brand_dna_prompt}\n`;
         console.log('V2 Brand DNA applied');
@@ -1516,10 +1518,10 @@ STEP 8 — SHARPENING: Selective high-pass on edges. Avoid noise on smooth surfa
 
 OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolution.`.trim();
 
-      await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
-      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, supabase, jobId, aspectRatio);
+      await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [28, jobId]);
+      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, null, jobId, aspectRatio);
       if (retouchUrl) generatedUrls.push(retouchUrl);
-      await supabase.from('processing_jobs').update({ completed_images: generatedUrls.length, progress: 90 }).eq('id', jobId);
+      await query('UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3', [generatedUrls.length, 90, jobId]);
 
     } else if (packageType === 'single') {
       console.log('V2 Single Package...');
@@ -1541,10 +1543,10 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
         singleImages = base64Images;
       }
 
-      await supabase.from('processing_jobs').update({ progress: 28, current_step: 'generating', total_images: 1 }).eq('id', jobId);
-      const url = await generateSingleImage(singleImages, singlePrompt, userId, imageRecordId, 1, supabase, jobId, aspectRatio);
+      await query('UPDATE processing_jobs SET progress = $1, current_step = $2, total_images = $3 WHERE id = $4', [28, 'generating', 1, jobId]);
+      const url = await generateSingleImage(singleImages, singlePrompt, userId, imageRecordId, 1, null, jobId, aspectRatio);
       if (url) generatedUrls.push(url);
-      await supabase.from('processing_jobs').update({ completed_images: generatedUrls.length, progress: 90 }).eq('id', jobId);
+      await query('UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3', [generatedUrls.length, 90, jobId]);
 
     } else if (hasStyleReference && styleReferenceBase64 && packageType !== 'standard') {
       console.log('V2 Standalone style reference...');
@@ -1552,10 +1554,10 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
       let styleTransferPrompt = buildStyleTransferPromptV2(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard, aesthetic);
       styleTransferPrompt = await enhanceScenePromptV2(styleTransferPrompt, analysisResult, 'style_transfer');
 
-      await supabase.from('processing_jobs').update({ progress: 28 }).eq('id', jobId);
-      const url = await generateSingleImage([styleReferenceBase64, ...base64Images], styleTransferPrompt, userId, imageRecordId, 1, supabase, jobId, aspectRatio);
+      await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [28, jobId]);
+      const url = await generateSingleImage([styleReferenceBase64, ...base64Images], styleTransferPrompt, userId, imageRecordId, 1, null, jobId, aspectRatio);
       if (url) generatedUrls.push(url);
-      await supabase.from('processing_jobs').update({ completed_images: generatedUrls.length, progress: 90 }).eq('id', jobId);
+      await query('UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3', [generatedUrls.length, 90, jobId]);
 
     } else {
       // MASTER PAKET
@@ -1604,15 +1606,13 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
         },
       ];
 
-      const filteredSteps = paramSelectedScenes
+      const filteredSteps = paramSelectedScenes && paramSelectedScenes.length > 0
         ? masterSteps.filter(s => paramSelectedScenes.includes(s.key))
         : masterSteps;
 
       console.log(`V2 Generating ${filteredSteps.length} scenes: ${filteredSteps.map(s => s.key).join(', ')}`);
 
-      if (paramSelectedScenes) {
-        await supabase.from('processing_jobs').update({ total_images: filteredSteps.length }).eq('id', jobId);
-      }
+      await query('UPDATE processing_jobs SET total_images = $1 WHERE id = $2', [filteredSteps.length, jobId]);
 
       for (let i = 0; i < filteredSteps.length; i++) {
         const ms = filteredSteps[i];
@@ -1622,43 +1622,39 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
         const startProgress = Math.round(25 + (i * perStep));
         const endProgress = Math.round(25 + ((i + 1) * perStep));
 
-        await supabase.from('processing_jobs').update({ progress: startProgress, current_step: ms.step }).eq('id', jobId);
+        await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [startProgress, ms.step, jobId]);
 
         const stepIdentityCard = buildIdentityCardForStep(i, filteredSteps.length);
         const basePrompt = ms.buildPrompt(stepIdentityCard);
         const prompt = await enhanceScenePromptV2(basePrompt, analysisResult, ms.key);
         const images = (ms as any).getImages ? (ms as any).getImages() : base64Images;
         const temperature = ms.startTemperature ?? 0.12;
-        const url = await generateSingleImage(images, prompt, userId, imageRecordId, i + 1, supabase, jobId, aspectRatio, temperature);
+        const url = await generateSingleImage(images, prompt, userId, imageRecordId, i + 1, null, jobId, aspectRatio, temperature);
 
         if (url) generatedUrls.push(url);
 
-        await supabase.from('processing_jobs').update({
-          completed_images: generatedUrls.length,
-          current_step: i < filteredSteps.length - 1 ? filteredSteps[i + 1].step : 'saving',
-          progress: endProgress,
-        }).eq('id', jobId);
+        await query('UPDATE processing_jobs SET completed_images = $1, current_step = $2, progress = $3 WHERE id = $4', [generatedUrls.length, i < filteredSteps.length - 1 ? filteredSteps[i + 1].step : 'saving', endProgress, jobId]);
       }
     }
 
     // ── FINALIZE ──
-    await supabase.from('processing_jobs').update({ progress: 90, current_step: 'saving' }).eq('id', jobId);
+    await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [90, 'saving', jobId]);
 
     if (generatedUrls.length === 0) {
       if (!isAdminUser) {
-        const { error: refundError } = await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
-        if (!refundError) console.log(`Credits refunded: ${creditsNeeded}`);
+        try {
+          await queryOne('SELECT refund_credits($1, $2) as result', [userId, creditsNeeded]);
+          console.log(`Credits refunded: ${creditsNeeded}`);
+        } catch {}
       }
-      await supabase.from('images').update({ status: 'failed', error_message: 'Görsel oluşturulamadı' }).eq('id', imageRecordId);
-      await supabase.from('processing_jobs').update({ status: 'failed', error_message: 'Görsel oluşturulamadı', progress: 100, current_step: 'failed' }).eq('id', jobId);
+      await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', 'Görsel oluşturulamadı', imageRecordId]);
+      await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', 'Görsel oluşturulamadı', 100, 'failed', jobId]);
       return;
     }
 
-    await supabase.from('images').update({ status: 'completed', generated_image_urls: generatedUrls }).eq('id', imageRecordId);
-    await supabase.from('processing_jobs').update({
-      status: 'completed', progress: 100, current_step: 'completed',
-      result_urls: generatedUrls, completed_images: generatedUrls.length,
-    }).eq('id', jobId);
+    // Use pg array format for text[] column (not JSON.stringify)
+    await query('UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3', ['completed', generatedUrls, imageRecordId]);
+    await query('UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4, completed_images = $5 WHERE id = $6', ['completed', 100, 'completed', generatedUrls, generatedUrls.length, jobId]);
 
     console.log('V2 Generation complete:', generatedUrls.length, 'images');
 
@@ -1666,10 +1662,10 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
     console.error('V2 Processing error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     if (!isAdminUser) {
-      try { await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded }); } catch {}
+      try { await queryOne('SELECT refund_credits($1, $2) as result', [userId, creditsNeeded]); } catch {}
     }
-    await supabase.from('images').update({ status: 'failed', error_message: errorMessage }).eq('id', imageRecordId);
-    await supabase.from('processing_jobs').update({ status: 'failed', error_message: errorMessage, progress: 100, current_step: 'failed' }).eq('id', jobId);
+    await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', errorMessage, imageRecordId]);
+    await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', errorMessage, 100, 'failed', jobId]);
   }
 }
 
@@ -1748,55 +1744,58 @@ export default async function handler(req: Request, res: Response) {
 
     const validatedCustomPrompt = isSinglePackage && typeof customPrompt === 'string' ? customPrompt.trim().substring(0, 500) : undefined;
 
-    const supabase = getServiceClient();
-
     // Auto-clean stuck jobs (2 min)
-    const { data: stuckJobs } = await supabase.from('processing_jobs').select('id, image_record_id')
-      .eq('user_id', userId).in('status', ['pending', 'generating'])
-      .lt('updated_at', new Date(Date.now() - 2 * 60 * 1000).toISOString());
+    const stuckResult = await query<{id: string, image_record_id: string}>(
+      'SELECT id, image_record_id FROM processing_jobs WHERE user_id = $1 AND status = ANY($2::text[]) AND updated_at < $3',
+      [userId, ['pending', 'generating'], new Date(Date.now() - 2 * 60 * 1000).toISOString()]
+    );
+    const stuckJobs = stuckResult.rows;
     if (stuckJobs && stuckJobs.length > 0) {
-      await supabase.from('processing_jobs').update({ status: 'failed', error_message: 'Auto-cleaned: stuck job' }).in('id', stuckJobs.map(j => j.id));
+      await query('UPDATE processing_jobs SET status = $1, error_message = $2 WHERE id = ANY($3::uuid[])', ['failed', 'Auto-cleaned: stuck job', stuckJobs.map(j => j.id)]);
       const stuckImageIds = stuckJobs.map(j => j.image_record_id).filter(Boolean);
-      if (stuckImageIds.length > 0) await supabase.from('images').update({ status: 'failed', error_message: 'Auto-cleaned: timeout' }).in('id', stuckImageIds);
+      if (stuckImageIds.length > 0) await query('UPDATE images SET status = $1, error_message = $2 WHERE id = ANY($3::uuid[])', ['failed', 'Auto-cleaned: timeout', stuckImageIds]);
     }
 
     // Cancel previous active jobs
-    const { data: activeJobsList } = await supabase.from('processing_jobs').select('id, image_record_id')
-      .eq('user_id', userId).in('status', ['pending', 'generating']);
+    const activeResult = await query<{id: string, image_record_id: string}>(
+      'SELECT id, image_record_id FROM processing_jobs WHERE user_id = $1 AND status = ANY($2::text[])',
+      [userId, ['pending', 'generating']]
+    );
+    const activeJobsList = activeResult.rows;
     if (activeJobsList && activeJobsList.length > 0) {
-      await supabase.from('processing_jobs').update({ status: 'cancelled', error_message: 'Yeni üretim başlatıldı' }).in('id', activeJobsList.map(j => j.id));
+      await query('UPDATE processing_jobs SET status = $1, error_message = $2 WHERE id = ANY($3::uuid[])', ['cancelled', 'Yeni üretim başlatıldı', activeJobsList.map(j => j.id)]);
       const activeImageIds = activeJobsList.map(j => j.image_record_id).filter(Boolean);
-      if (activeImageIds.length > 0) await supabase.from('images').update({ status: 'failed', error_message: 'Yeni üretim başlatıldı' }).in('id', activeImageIds);
+      if (activeImageIds.length > 0) await query('UPDATE images SET status = $1, error_message = $2 WHERE id = ANY($3::uuid[])', ['failed', 'Yeni üretim başlatıldı', activeImageIds]);
     }
 
     // Admin check
-    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-    const isAdminUser = isAdmin === true;
+    const adminRow = await queryOne<{ result: boolean }>('SELECT has_role($1, $2) as result', [userId, 'admin']);
+    const isAdminUser = adminRow?.result === true;
     creditsNeeded = 10;
 
     if (!isAdminUser) {
-      const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits', { _user_id: userId, _amount: creditsNeeded });
-      if (deductError) return sendCorsResponse(res, 500, { error: 'Kredi kontrolü sırasında hata oluştu.' });
+      const deductRow = await queryOne<{ result: any }>('SELECT deduct_credits($1, $2) as result', [userId, creditsNeeded]);
+      const deductResult = deductRow?.result;
+      if (!deductRow) return sendCorsResponse(res, 500, { error: 'Kredi kontrolü sırasında hata oluştu.' });
       if (!deductResult?.success) return sendCorsResponse(res, 402, { error: `Yetersiz kredi. ${creditsNeeded} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` });
       console.log(`V2 Credits deducted: ${creditsNeeded}, remaining: ${deductResult.remaining_credits}`);
       creditsDeducted = true;
     }
 
     // Create records
-    const { data: imageRecord, error: insertError } = await supabase.from('images')
-      .insert({ user_id: userId, scene_id: sceneId || null, original_image_url: imagePath, status: 'analyzing' })
-      .select().single();
-    if (insertError) throw insertError;
+    const imageRecord = await queryOne(
+      'INSERT INTO images (user_id, scene_id, original_image_url, status) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, sceneId || null, imagePath, 'analyzing']
+    );
+    if (!imageRecord) throw new Error('Failed to create image record');
 
-    const totalImages = isSinglePackage || isRetouchPackage ? 1 : validatedSelectedScenes ? validatedSelectedScenes.length : 6;
+    const totalImages = isSinglePackage || isRetouchPackage ? 1 : (validatedSelectedScenes && validatedSelectedScenes.length > 0) ? validatedSelectedScenes.length : 6;
 
-    const { data: jobRecord, error: jobError } = await supabase.from('processing_jobs')
-      .insert({
-        user_id: userId, image_record_id: imageRecord.id,
-        status: 'pending', total_images: totalImages, completed_images: 0,
-        progress: 0, current_step: 'pending', credits_used: isAdminUser ? 0 : creditsNeeded,
-      }).select().single();
-    if (jobError) throw jobError;
+    const jobRecord = await queryOne(
+      'INSERT INTO processing_jobs (user_id, image_record_id, status, total_images, completed_images, progress, current_step, credits_used) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [userId, imageRecord.id, 'pending', totalImages, 0, 0, 'pending', isAdminUser ? 0 : creditsNeeded]
+    );
+    if (!jobRecord) throw new Error('Failed to create processing job');
 
     console.log(`V2 Job: ${jobRecord.id}, Image: ${imageRecord.id}`);
 
@@ -1811,7 +1810,19 @@ export default async function handler(req: Request, res: Response) {
       selectedScenes: validatedSelectedScenes, customPrompt: validatedCustomPrompt,
       aesthetic: validatedAesthetic, lens: validatedLens,
       cameraAngle: validatedAngle, lighting: validatedLighting,
-    }).catch(err => console.error('V2 Background generation error:', err));
+    }).catch(async (err) => {
+      console.error('V2 Background generation error:', err);
+      try {
+        const errorMsg = err instanceof Error ? err.message : 'Background generation failed';
+        await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', errorMsg, 100, 'failed', jobRecord.id]);
+        await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', errorMsg, imageRecord.id]);
+        if (!isAdminUser) {
+          try { await queryOne('SELECT refund_credits($1, $2) as result', [userId, creditsNeeded]); } catch {}
+        }
+      } catch (cleanupErr) {
+        console.error('V2 Failed to cleanup after background error:', cleanupErr);
+      }
+    });
 
     return sendCorsResponse(res, 200, {
       success: true,
@@ -1825,9 +1836,11 @@ export default async function handler(req: Request, res: Response) {
     console.error('V2 Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     if (creditsDeducted) {
-      const supabase = getServiceClient();
-      const { error: refundError } = await supabase.rpc('refund_credits', { _user_id: userId, _amount: creditsNeeded });
-      if (refundError) console.error('CRITICAL: Failed to refund credits:', refundError);
+      try {
+        await queryOne('SELECT refund_credits($1, $2) as result', [userId, creditsNeeded]);
+      } catch (refundErr) {
+        console.error('CRITICAL: Failed to refund credits:', refundErr);
+      }
     }
     return sendCorsResponse(res, 500, { error: errorMessage });
   }

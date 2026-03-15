@@ -6,8 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Plus, Image, Sparkles, ArrowRight, Check, Wand2, Share2, Coins, Instagram, Globe, Upload, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeApi } from '@/lib/api';
+import { fetchApi, invokeApi } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,16 +23,12 @@ export default function Dashboard() {
   const { data: recentImages } = useQuery({
     queryKey: ['recent-images', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('images')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(12);
+      const { data, error } = await fetchApi('images');
 
       if (error) throw error;
-      return data;
+      // Filter completed and limit to 12
+      const allImages = data?.data || [];
+      return allImages.filter((img: any) => img.status === 'completed').slice(0, 12);
     },
     enabled: !!user,
   });

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Download, Trash2, Eye, Image as ImageIcon, ZoomIn, X, ZoomOut, ChevronLeft, ChevronRight, ArrowLeftRight, Pencil, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi, invokeApi } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadImageAs4kJpeg } from '@/lib/downloadImage';
@@ -49,14 +49,10 @@ export default function Gallery() {
   const { data: images, isLoading } = useQuery({
     queryKey: ['images', user?.id],
     queryFn: async (): Promise<ImageRecord[]> => {
-      const { data, error } = await supabase
-        .from('images')
-        .select('id, original_image_url, generated_image_urls, status, created_at, name, scenes(name_tr)')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await fetchApi('images');
 
       if (error) throw error;
-      return data as ImageRecord[];
+      return (data?.data || []) as ImageRecord[];
     },
     enabled: !!user,
     staleTime: 60_000,
@@ -173,7 +169,7 @@ export default function Gallery() {
 
   const deleteMutation = useMutation({
     mutationFn: async (imageId: string) => {
-      const { error } = await supabase.from('images').delete().eq('id', imageId);
+      const { error } = await invokeApi('images', { body: { id: imageId }, method: 'DELETE' });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -188,7 +184,10 @@ export default function Gallery() {
 
   const renameMutation = useMutation({
     mutationFn: async ({ imageId, name }: { imageId: string; name: string }) => {
-      const { error } = await supabase.from('images').update({ name: name.trim() || null }).eq('id', imageId);
+      const { error } = await invokeApi('images', {
+        body: { id: imageId, action: 'rename', name: name.trim() || null },
+        method: 'PUT',
+      });
       if (error) throw error;
     },
     onSuccess: () => {

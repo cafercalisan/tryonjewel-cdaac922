@@ -1,5 +1,6 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
 COPY . .
@@ -9,8 +10,8 @@ RUN npm run build:server
 FROM node:20-alpine
 WORKDIR /app
 
-# Install nginx and create run directory
-RUN apk add --no-cache nginx && mkdir -p /run/nginx
+# Install nginx, bcrypt native deps, and create run directory
+RUN apk add --no-cache nginx python3 make g++ && mkdir -p /run/nginx
 
 # Copy frontend build
 COPY --from=builder /app/dist /usr/share/nginx/html

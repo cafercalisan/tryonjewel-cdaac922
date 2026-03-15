@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeApi } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
 export function useIsAdmin() {
@@ -9,20 +9,17 @@ export function useIsAdmin() {
     queryKey: ['isAdmin', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
+
+      const { data, error } = await invokeApi('admin-data', {
+        body: { table: 'user_roles', checkAdmin: true },
+      });
 
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
 
-      return !!data;
+      return !!data?.isAdmin;
     },
     enabled: !!user,
   });

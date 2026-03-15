@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
+import { query, queryOne } from './_lib/db.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 import { authenticateUser } from './_lib/auth.js';
 import { GoogleGenAI } from '@google/genai';
@@ -89,8 +89,6 @@ export default async function handler(req: Request, res: Response) {
     const GOOGLE_API_KEY = process.env.GOOGLE_VEO_API_KEY || process.env.GOOGLE_API_KEY;
     if (!GOOGLE_API_KEY) throw new Error('GOOGLE_VEO_API_KEY or GOOGLE_API_KEY is not configured');
 
-    const supabase = getServiceClient();
-
     const authResult = await authenticateUser(req);
     if ('error' in authResult) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
@@ -107,20 +105,20 @@ export default async function handler(req: Request, res: Response) {
 
     // Credit check
     const VIDEO_CREDIT_COST = 200;
-    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-    const isAdminUser = isAdmin === true;
+    const adminRow = await queryOne<{ result: boolean }>('SELECT has_role($1, $2) as result', [userId, 'admin']);
+    const isAdminUser = adminRow?.result === true;
 
     if (!isAdminUser) {
-      const { data: deductResult, error: deductError } = await supabase
-        .rpc('deduct_credits', { _user_id: userId, _amount: VIDEO_CREDIT_COST });
+      const deductRow = await queryOne<{ result: any }>('SELECT deduct_credits($1, $2) as result', [userId, VIDEO_CREDIT_COST]);
+      const deductResult = deductRow?.result;
 
-      if (deductError) {
-        await supabase.from('videos').update({ status: 'error', error_message: 'Kredi kontrolü sırasında hata oluştu' }).eq('id', videoId);
+      if (!deductRow) {
+        await query('UPDATE videos SET status = $1, error_message = $2 WHERE id = $3', ['error', 'Kredi kontrolü sırasında hata oluştu', videoId]);
         return sendCorsResponse(res, 500, { error: 'Kredi kontrolü sırasında hata oluştu' });
       }
 
       if (!deductResult?.success) {
-        await supabase.from('videos').update({ status: 'error', error_message: `Yetersiz kredi. ${VIDEO_CREDIT_COST} kredi gerekli.` }).eq('id', videoId);
+        await query('UPDATE videos SET status = $1, error_message = $2 WHERE id = $3', ['error', `Yetersiz kredi. ${VIDEO_CREDIT_COST} kredi gerekli.`, videoId]);
         return sendCorsResponse(res, 402, { error: `Yetersiz kredi. ${VIDEO_CREDIT_COST} kredi gerekli, mevcut: ${deductResult?.current_credits ?? 0}.` });
       }
     }
@@ -136,12 +134,12 @@ GLOBAL LOCKS:
 - NO post-processing effects: no sparkle, no glow, no flare, no bloom, no particles
 - The video should look like it was shot on a RED or ARRI cinema camera — clean, real, unprocessed`;
 
-    await supabase.from('videos').update({ status: 'generating', prompt: fullPrompt, error_message: 'Video API\'ye bağlanılıyor...' }).eq('id', videoId);
+    await query('UPDATE videos SET status = $1, prompt = $2, error_message = $3 WHERE id = $4', ['generating', fullPrompt, 'Video API\'ye bağlanılıyor...', videoId]);
 
     // Fetch source image
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
-      await supabase.from('videos').update({ status: 'error', error_message: 'Kaynak görsel yüklenemedi' }).eq('id', videoId);
+      await query('UPDATE videos SET status = $1, error_message = $2 WHERE id = $3', ['error', 'Kaynak görsel yüklenemedi', videoId]);
       throw new Error('Failed to fetch source image');
     }
 
@@ -154,7 +152,7 @@ GLOBAL LOCKS:
     const base64Image = btoa(binary);
     const mimeType = imageResponse.headers.get('content-type') || 'image/png';
 
-    await supabase.from('videos').update({ error_message: isMultiFrame ? 'Multi-frame video hazırlanıyor...' : 'Google Veo 3.1 API çağrılıyor...' }).eq('id', videoId);
+    await query('UPDATE videos SET error_message = $1 WHERE id = $2', [isMultiFrame ? 'Multi-frame video hazırlanıyor...' : 'Google Veo 3.1 API çağrılıyor...', videoId]);
 
     // Fetch end image for multi-frame mode
     let base64EndImage: string | undefined;
@@ -221,26 +219,23 @@ GLOBAL LOCKS:
 
       if (!veo2Response.ok) {
         const veo2ErrorText = await veo2Response.text();
-        await supabase.from('videos').update({
-          status: 'error',
-          error_message: `Video API hatası: ${(veo31ErrorText || '').substring(0, 100)}`,
-        }).eq('id', videoId);
+        await query('UPDATE videos SET status = $1, error_message = $2 WHERE id = $3', ['error', `Video API hatası: ${(veo31ErrorText || '').substring(0, 100)}`, videoId]);
         return sendCorsResponse(res, 400, { success: false, error: 'Video API error', veo31Error: veo31ErrorText, veo2Error: veo2ErrorText });
       }
 
       const veo2Data = await veo2Response.json();
       if (veo2Data.name) {
-        await supabase.from('videos').update({ status: 'processing', operation_id: veo2Data.name, error_message: 'Video oluşturuluyor (Veo 2.0)...' }).eq('id', videoId);
+        await query('UPDATE videos SET status = $1, operation_id = $2, error_message = $3 WHERE id = $4', ['processing', veo2Data.name, 'Video oluşturuluyor (Veo 2.0)...', videoId]);
         return sendCorsResponse(res, 200, { success: true, status: 'processing', operationId: veo2Data.name, videoId });
       }
     }
 
     if (veo31OperationName) {
-      await supabase.from('videos').update({ status: 'processing', operation_id: veo31OperationName, error_message: 'Video oluşturuluyor...' }).eq('id', videoId);
+      await query('UPDATE videos SET status = $1, operation_id = $2, error_message = $3 WHERE id = $4', ['processing', veo31OperationName, 'Video oluşturuluyor...', videoId]);
       return sendCorsResponse(res, 200, { success: true, status: 'processing', operationId: veo31OperationName, videoId });
     }
 
-    await supabase.from('videos').update({ status: 'error', error_message: 'Video başlatılamadı' }).eq('id', videoId);
+    await query('UPDATE videos SET status = $1, error_message = $2 WHERE id = $3', ['error', 'Video başlatılamadı', videoId]);
     return sendCorsResponse(res, 500, { success: false, error: 'No operation ID received' });
 
   } catch (error) {

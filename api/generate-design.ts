@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
+import { uploadFile, getSignedUrl } from './_lib/storage.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
@@ -209,21 +209,16 @@ OUTPUT REQUIREMENTS:
       return sendCorsResponse(res, 500, { error: 'No image generated' });
     }
 
-    const supabase = getServiceClient();
     const imageBuffer = Uint8Array.from(atob(generatedImage), (c) => c.charCodeAt(0));
     const fileName = `designs/${Date.now()}-${designType}-${designMode}.png`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('jewelry-images')
-      .upload(fileName, imageBuffer, { contentType: 'image/png' });
+    const { error: uploadError } = await uploadFile('jewelry-images', fileName, imageBuffer, 'image/png');
 
     if (uploadError) {
       return sendCorsResponse(res, 500, { error: 'Failed to save design' });
     }
 
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('jewelry-images')
-      .createSignedUrl(fileName, 7 * 24 * 60 * 60); // 7-day signed URL
+    const { data: signedUrlData, error: signedUrlError } = await getSignedUrl('jewelry-images', fileName, 7 * 24 * 60 * 60);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('Failed to create signed URL for design:', signedUrlError);

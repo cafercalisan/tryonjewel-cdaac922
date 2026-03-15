@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
+import { queryOne } from './_lib/db.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
@@ -52,33 +52,25 @@ export default async function handler(req: Request, res: Response) {
       return sendCorsResponse(res, 400, { error: 'Invalid credits' });
     }
 
-    const supabase = getServiceClient();
+    const roleRow = await queryOne<{ result: boolean }>('SELECT has_role($1, $2) as result', [callerUserId, 'admin']);
 
-    const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
-      _user_id: callerUserId,
-      _role: 'admin',
-    });
-
-    if (roleError) {
+    if (!roleRow) {
       return sendCorsResponse(res, 500, { error: 'Role check failed' });
     }
 
-    if (isAdmin !== true) {
+    if (roleRow.result !== true) {
       return sendCorsResponse(res, 403, { error: 'Forbidden' });
     }
 
-    const { data: result, error: updateError } = await supabase.rpc('admin_set_credits', {
-      _user_id: userId,
-      _credits: credits,
-    });
+    const updateRow = await queryOne<{ result: any }>('SELECT admin_set_credits($1, $2) as result', [userId, credits]);
 
-    if (updateError) {
+    if (!updateRow) {
       return sendCorsResponse(res, 500, { error: 'Update failed' });
     }
 
     console.log(`Admin ${callerUserId} set credits for user ${userId} to ${credits}`);
 
-    return sendCorsResponse(res, 200, { success: true, ...result });
+    return sendCorsResponse(res, 200, { success: true, ...updateRow.result });
 
   } catch (e) {
     console.error('admin-set-credits error:', e);

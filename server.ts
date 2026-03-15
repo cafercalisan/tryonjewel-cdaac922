@@ -1,6 +1,7 @@
 import express from 'express';
 
 import generateJewelry from './api/generate-jewelry.js';
+import generateJewelryV2 from './api/generate-jewelry-v2.js';
 import generateVideo from './api/generate-video.js';
 import generateDesign from './api/generate-design.js';
 import generateModel from './api/generate-model.js';
@@ -8,24 +9,43 @@ import adminSetCredits from './api/admin-set-credits.js';
 import checkVideoStatus from './api/check-video-status.js';
 import analyzeBrand from './api/analyze-brand.js';
 
+// Auth endpoints
+import authSignup from './api/auth-signup.js';
+import authLogin from './api/auth-login.js';
+import authRefresh from './api/auth-refresh.js';
+import authMe from './api/auth-me.js';
+
+// Data endpoints
+import scenes from './api/scenes.js';
+import images from './api/images.js';
+import processingJobs from './api/processing-jobs.js';
+import profile from './api/profile.js';
+import videos from './api/videos.js';
+import userModels from './api/user-models.js';
+import brandProfiles from './api/brand-profiles.js';
+import adminData from './api/admin-data.js';
+
+// Storage endpoints
+import upload from './api/upload.js';
+import signedUrl from './api/signed-url.js';
+
 // ── Env validation ──
 const REQUIRED_ENV = [
-  'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'DATABASE_URL',
+  'JWT_SECRET',
   'GOOGLE_API_KEY',
 ];
 
 const missing = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missing.length > 0) {
-  console.error(`❌ Missing required env variables: ${missing.join(', ')}`);
-  console.error('Server will start but API calls requiring these keys will fail.');
+  console.error(`Missing required env variables: ${missing.join(', ')}`);
+  console.error('Server will start but some API calls will fail.');
 }
 
-const OPTIONAL_ENV = ['GOOGLE_ANALYSIS_API_KEY'];
+const OPTIONAL_ENV = ['GOOGLE_ANALYSIS_API_KEY', 'MINIO_ENDPOINT', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY', 'JWT_REFRESH_SECRET'];
 const missingOptional = OPTIONAL_ENV.filter(k => !process.env[k]);
 if (missingOptional.length > 0) {
-  console.warn(`⚠️  Missing optional env variables: ${missingOptional.join(', ')}`);
+  console.warn(`Missing optional env variables: ${missingOptional.join(', ')}`);
 }
 
 // ── Express app ──
@@ -36,7 +56,7 @@ const PORT = process.env.API_PORT || 3001;
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -62,23 +82,83 @@ app.get('/api/health', (_req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     env: {
-      SUPABASE_URL: !!process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      DATABASE_URL: !!process.env.DATABASE_URL,
+      JWT_SECRET: !!process.env.JWT_SECRET,
       GOOGLE_API_KEY: !!process.env.GOOGLE_API_KEY,
-      GOOGLE_ANALYSIS_API_KEY: !!process.env.GOOGLE_ANALYSIS_API_KEY,
+      MINIO_ENDPOINT: !!process.env.MINIO_ENDPOINT,
     },
   });
 });
 
-// ── API routes ──
+// ── Auth routes ──
+app.all('/api/auth/signup', authSignup);
+app.all('/api/auth/login', authLogin);
+app.all('/api/auth/refresh', authRefresh);
+app.all('/api/auth/me', authMe);
+
+// ── Generation routes ──
 app.all('/api/generate-jewelry', generateJewelry);
+app.all('/api/generate-jewelry-v2', generateJewelryV2);
 app.all('/api/generate-video', generateVideo);
 app.all('/api/generate-design', generateDesign);
 app.all('/api/generate-model', generateModel);
-app.all('/api/admin-set-credits', adminSetCredits);
 app.all('/api/check-video-status', checkVideoStatus);
 app.all('/api/analyze-brand', analyzeBrand);
+
+// ── Admin routes ──
+app.all('/api/admin-set-credits', adminSetCredits);
+app.all('/api/admin-data', adminData);
+
+// ── Data routes ──
+app.all('/api/scenes', scenes);
+app.all('/api/images', images);
+app.get('/api/processing-jobs/:id', processingJobs);
+app.all('/api/processing-jobs', processingJobs);
+app.all('/api/profile', profile);
+app.all('/api/videos', videos);
+app.all('/api/user-models', userModels);
+app.all('/api/brand-profiles', brandProfiles);
+
+// ── Storage routes ──
+app.all('/api/upload', upload);
+app.all('/api/signed-url', signedUrl);
+
+// ── MinIO storage proxy — proxies signed URLs so browser can access them ──
+app.get('/storage/{*path}', async (req, res) => {
+  try {
+    const minioEndpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000';
+    // Forward the full path including query string
+    const targetPath = '/' + (req.params.path || req.params[0] || '');
+    const queryString = req.originalUrl.split('?')[1] || '';
+    const targetUrl = `${minioEndpoint}${targetPath}${queryString ? '?' + queryString : ''}`;
+
+    // Extract MinIO host from endpoint for the Host header.
+    // S3 signed URLs include host in the signature — must match exactly.
+    const minioUrl = new URL(minioEndpoint);
+    const minioHost = minioUrl.host;
+
+    const upstream = await fetch(targetUrl, {
+      headers: { 'Host': minioHost },
+    });
+    if (!upstream.ok) {
+      return res.status(upstream.status).end();
+    }
+
+    // Forward content-type and cache headers
+    const ct = upstream.headers.get('content-type');
+    if (ct) res.setHeader('Content-Type', ct);
+    const cl = upstream.headers.get('content-length');
+    if (cl) res.setHeader('Content-Length', cl);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    // Stream the response
+    const arrayBuffer = await upstream.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err: any) {
+    console.error('Storage proxy error:', err?.message);
+    res.status(502).json({ error: 'Storage proxy error' });
+  }
+});
 
 // ── Global error handler ──
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -95,7 +175,6 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
-  // Give time for logs to flush, then exit (start.sh will restart)
   setTimeout(() => process.exit(1), 1000);
 });
 
@@ -103,25 +182,25 @@ process.on('uncaughtException', (err) => {
 async function validateGeminiKey() {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    console.error('❌ GOOGLE_API_KEY not set — Gemini calls will fail');
+    console.error('GOOGLE_API_KEY not set — Gemini calls will fail');
     return;
   }
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const res = await fetch(url);
     if (res.ok) {
-      console.log('✅ Gemini API key validated successfully');
+      console.log('Gemini API key validated successfully');
     } else {
       const text = await res.text();
-      console.error(`❌ Gemini API key validation failed (${res.status}): ${text.substring(0, 200)}`);
+      console.error(`Gemini API key validation failed (${res.status}): ${text.substring(0, 200)}`);
     }
   } catch (err: any) {
-    console.error('❌ Gemini API key validation error:', err?.message || err);
+    console.error('Gemini API key validation error:', err?.message || err);
   }
 }
 
 app.listen(PORT, () => {
-  console.log(`✅ API server running on port ${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  console.log(`API server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
   validateGeminiKey();
 });

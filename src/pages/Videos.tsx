@@ -2,7 +2,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Video, Download, Trash2, Loader2, RefreshCw, Play, X, RotateCcw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi, invokeApi } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -33,15 +33,11 @@ export default function Videos() {
     queryKey: ['videos', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('videos')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+
+      const { data, error } = await fetchApi('videos');
 
       if (error) throw error;
-      return data as VideoRecord[];
+      return (data?.data || []) as VideoRecord[];
     },
     enabled: !!user,
     refetchInterval: (query) => {
@@ -59,10 +55,7 @@ export default function Videos() {
 
   const deleteMutation = useMutation({
     mutationFn: async (videoId: string) => {
-      const { error } = await supabase
-        .from('videos')
-        .delete()
-        .eq('id', videoId);
+      const { error } = await invokeApi('videos', { body: { id: videoId }, method: 'DELETE' });
       if (error) throw error;
     },
     onSuccess: () => {

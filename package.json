@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=dist-server/server.js --external:@supabase/supabase-js --external:@google/genai --external:express --packages=external",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=dist-server/server.js --external:@google/genai --external:express --packages=external",
     "start:server": "node dist-server/server.js"
   },
   "dependencies": {
@@ -43,7 +43,11 @@
     "@radix-ui/react-toggle": "^1.1.9",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
-    "@supabase/supabase-js": "^2.95.3",
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
+    "bcrypt": "^5.1.1",
+    "jose": "^5.9.6",
+    "pg": "^8.13.1",
     "@tanstack/react-query": "^5.83.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -72,7 +76,9 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
+    "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.6",
+    "@types/pg": "^8.11.10",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",

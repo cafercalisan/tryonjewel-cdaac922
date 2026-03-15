@@ -1,7 +1,7 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useGenerationContext } from '@/contexts/GenerationContext';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Sparkles, Loader2, CheckCircle2, Clock, Plus, Image as ImageIcon, AlertCircle } from 'lucide-react';
@@ -17,14 +17,9 @@ export default function Studio() {
   const { data: recentJobs = [] } = useQuery({
     queryKey: ['recent-jobs', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('processing_jobs')
-        .select('id, status, current_step, progress, completed_images, total_images, result_urls, error_message, created_at, image_record_id')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const { data, error } = await fetchApi('processing-jobs');
       if (error) throw error;
-      return data;
+      return data?.data || [];
     },
     enabled: !!user,
     refetchInterval: activeJob ? 3000 : 30000,

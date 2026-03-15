@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ArrowRight, ImageIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi } from '@/lib/api';
 
 interface Scene {
   id: string;
@@ -25,13 +25,10 @@ export default function Scenes() {
   const { data: scenes, isLoading } = useQuery({
     queryKey: ['scenes'],
     queryFn: async (): Promise<Scene[]> => {
-      const { data, error } = await supabase
-        .from('scenes')
-        .select('*')
-        .order('sort_order');
-      
+      const { data, error } = await fetchApi('scenes');
+
       if (error) throw error;
-      return data;
+      return (data?.data || []) as Scene[];
     },
   });
 

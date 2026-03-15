@@ -3,7 +3,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, ArrowLeft, Check, Loader2, ZoomIn, ZoomOut, X, Maximize2, Camera, ShoppingBag, User, Focus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchApi } from '@/lib/api';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { downloadOriginalImage } from '@/lib/downloadImage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -48,14 +48,10 @@ export default function Results() {
     queryFn: async () => {
       if (!imageId) return null;
 
-      const { data, error } = await supabase
-        .from('images')
-        .select('*, scenes(*)')
-        .eq('id', imageId)
-        .single();
+      const { data, error } = await fetchApi('images', { id: imageId });
 
       if (error) throw error;
-      return data;
+      return data?.data || null;
     },
     enabled: !!imageId,
     refetchInterval: (query) => {

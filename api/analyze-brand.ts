@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import { getServiceClient } from './_lib/supabase.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
 

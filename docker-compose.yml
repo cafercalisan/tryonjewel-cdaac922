@@ -1,0 +1,77 @@
+services:
+  minio:
+    image: minio/minio
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    restart: always
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ACCESS_KEY:-minioadmin} $${MINIO_SECRET_KEY:-minioadmin};
+      mc mb local/jewelry-images --ignore-existing;
+      echo 'MinIO buckets initialized';
+      "
+
+  app:
+    build: .
+    ports:
+      - "3080:80"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://app:${DB_PASSWORD}@host.docker.internal:5432/tryonjewel
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-/storage}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GOOGLE_ANALYSIS_API_KEY: ${GOOGLE_ANALYSIS_API_KEY:-}
+      GOOGLE_VEO_API_KEY: ${GOOGLE_VEO_API_KEY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      API_PORT: 3001
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.tryonjewel-gzip.compress=true
+      - traefik.http.middlewares.tryonjewel-redirect-https.redirectscheme.scheme=https
+      - traefik.http.routers.tryonjewel-http.entryPoints=http
+      - traefik.http.routers.tryonjewel-http.middlewares=tryonjewel-redirect-https
+      - traefik.http.routers.tryonjewel-http.rule=Host(`mooreateiler.com`)
+      - traefik.http.routers.tryonjewel-http.service=tryonjewel
+      - traefik.http.routers.tryonjewel-https.entryPoints=https
+      - traefik.http.routers.tryonjewel-https.middlewares=tryonjewel-gzip
+      - traefik.http.routers.tryonjewel-https.rule=Host(`mooreateiler.com`)
+      - traefik.http.routers.tryonjewel-https.service=tryonjewel
+      - traefik.http.routers.tryonjewel-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.tryonjewel-https.tls=true
+      - traefik.http.services.tryonjewel.loadbalancer.server.port=80
+
+networks:
+  coolify:
+    external: true
+    name: coolify

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { invokeApi } from "@/lib/api";
+import { fetchApi, invokeApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -89,15 +88,11 @@ export default function ModelGallery() {
     queryKey: ['user-models', user?.id],
     queryFn: async (): Promise<UserModel[]> => {
       if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('user_models')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
+
+      const { data, error } = await fetchApi('user-models');
+
       if (error) throw error;
-      return data as UserModel[];
+      return (data?.data || []) as UserModel[];
     },
     enabled: !!user,
   });
@@ -186,10 +181,7 @@ export default function ModelGallery() {
     if (!deleteModelId) return;
 
     try {
-      const { error } = await supabase
-        .from('user_models')
-        .delete()
-        .eq('id', deleteModelId);
+      const { error } = await invokeApi('user-models', { body: { id: deleteModelId }, method: 'DELETE' });
 
       if (error) throw error;
 

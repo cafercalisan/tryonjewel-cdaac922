@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeApi } from '@/lib/api';
+import { invokeApi, fetchApi, uploadToStorage, getStorageSignedUrl } from '@/lib/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -94,13 +93,10 @@ export default function Brand() {
   const { data: existingProfile, isLoading } = useQuery({
     queryKey: ['brand-profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('brand_profiles')
-        .select('*')
-        .eq('user_id', user!.id)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data as BrandProfile | null;
+      const { data, error } = await fetchApi('brand-profiles');
+      if (error) throw error;
+      const profiles = data?.data || [];
+      return profiles.length > 0 ? (profiles[0] as BrandProfile) : null;
     },
     enabled: !!user,
     onSuccess: (profile) => {
@@ -171,10 +167,10 @@ export default function Brand() {
       if (logoFile) {
         const ext = logoFile.name.split('.').pop();
         const path = `${user.id}/brand/logo-${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from('jewelry-images').upload(path, logoFile);
+        const { error: uploadErr } = await uploadToStorage('jewelry-images', path, logoFile);
         if (!uploadErr) {
-          const { data: signedData } = await supabase.storage.from('jewelry-images').createSignedUrl(path, 365 * 24 * 3600);
-          logoUrl = signedData?.signedUrl || null;
+          const { signedUrl } = await getStorageSignedUrl('jewelry-images', path, 365 * 24 * 3600);
+          logoUrl = signedUrl || null;
         }
       }
 
@@ -183,10 +179,10 @@ export default function Brand() {
       for (const ref of refFiles) {
         const ext = ref.file.name.split('.').pop();
         const path = `${user.id}/brand/ref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from('jewelry-images').upload(path, ref.file);
+        const { error: uploadErr } = await uploadToStorage('jewelry-images', path, ref.file);
         if (!uploadErr) {
-          const { data: signedData } = await supabase.storage.from('jewelry-images').createSignedUrl(path, 365 * 24 * 3600);
-          if (signedData?.signedUrl) refUrls.push(signedData.signedUrl);
+          const { signedUrl } = await getStorageSignedUrl('jewelry-images', path, 365 * 24 * 3600);
+          if (signedUrl) refUrls.push(signedUrl);
         }
       }
 
@@ -233,9 +229,9 @@ export default function Brand() {
       };
 
       if (existingProfile) {
-        await supabase.from('brand_profiles').update(profileData).eq('id', existingProfile.id);
+        await invokeApi('brand-profiles', { body: { id: existingProfile.id, ...profileData }, method: 'PUT' });
       } else {
-        await supabase.from('brand_profiles').insert(profileData);
+        await invokeApi('brand-profiles', { body: profileData });
       }
 
       queryClient.invalidateQueries({ queryKey: ['brand-profile'] });
