@@ -133,11 +133,11 @@ export default function Generate() {
     // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
       try {
-        // Force no-cache so we always get fresh job status (304 has no body)
+        // Force cache bust with timestamp so we always get fresh job status
         const token = authClient.getAccessToken();
         const headers: Record<string, string> = { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const rawResp = await fetch(`/api/processing-jobs?id=${jobId}`, { headers });
+        const rawResp = await fetch(`/api/processing-jobs?id=${jobId}&_t=${Date.now()}`, { headers });
         if (!rawResp.ok) {
           console.error('Polling error:', rawResp.status);
           return;

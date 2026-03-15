@@ -7,6 +7,12 @@ export default async function handler(req: Request, res: Response) {
   handleCors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // Disable caching — polling must always get fresh data, never a 304
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.removeHeader('ETag');
+  res.removeHeader('Last-Modified');
+
   try {
     const authResult = await authenticateUser(req);
     if ('error' in authResult) {
