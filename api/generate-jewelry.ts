@@ -13,20 +13,25 @@ const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 async function callGeminiAnalysis(opts: {
   prompt: string;
   imageBase64?: string;
+  imageBase64s?: string[]; // multiple reference angles
   temperature?: number;
   maxTokens?: number;
 }): Promise<string> {
   const apiKey = GOOGLE_IMAGE_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_API_KEY not configured');
 
-  const parts: any[] = [{ text: opts.prompt }];
-  if (opts.imageBase64) {
-    parts.push({
-      inlineData: {
-        mimeType: 'image/jpeg',
-        data: opts.imageBase64,
-      },
-    });
+  const parts: any[] = [];
+  const images = opts.imageBase64s || (opts.imageBase64 ? [opts.imageBase64] : []);
+  if (images.length > 1) {
+    parts.push({ text: `Analyze this jewelry piece. The following ${images.length} images show the SAME piece from different angles — use ALL angles for a complete analysis.` });
+    for (let i = 0; i < images.length; i++) {
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: images[i] } });
+      parts.push({ text: `[Angle ${i + 1}/${images.length}]` });
+    }
+    parts.push({ text: opts.prompt });
+  } else {
+    parts.push({ text: opts.prompt });
+    if (images[0]) parts.push({ inlineData: { mimeType: 'image/jpeg', data: images[0] } });
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
@@ -1590,8 +1595,6 @@ async function processGeneration(params: {
       throw new Error('Image too large. Max 1.5MB.');
     }
 
-    const base64Image = base64Images[0];
-
     // ═══════════════════════════════════════════════════
     // ANALYZE JEWELRY
     // ═══════════════════════════════════════════════════
@@ -1710,7 +1713,7 @@ ONLY valid JSON.`;
     try {
       const analysisContent = await callGeminiAnalysis({
         prompt: analysisPrompt,
-        imageBase64: base64Image,
+        imageBase64s: base64Images,
       });
       console.log('Raw analysis content (first 500 chars):', analysisContent.substring(0, 500));
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, '').trim());
