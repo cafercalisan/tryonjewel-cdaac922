@@ -2352,8 +2352,8 @@ export default async function handler(req: Request, res: Response) {
 
     console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
 
-    // Return immediately, process in background (fire-and-forget on long-running server)
-    processGeneration({
+    // Try n8n webhook first, fallback to inline processGeneration
+    const n8nPayload = {
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -2369,7 +2369,28 @@ export default async function handler(req: Request, res: Response) {
       isAdminUser,
       selectedScenes: validatedSelectedScenes,
       customPrompt: validatedCustomPrompt,
-    }).catch(err => console.error('Background generation error:', err));
+    };
+
+    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://10.0.1.8:5678/webhook/generate-jewelry';
+    const N8N_SECRET = process.env.N8N_WEBHOOK_SECRET || 'n8n-tryonjewel-secret-2026';
+    const USE_N8N = process.env.USE_N8N === 'true';
+
+    if (USE_N8N) {
+      // n8n orchestration mode
+      fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': N8N_SECRET },
+        body: JSON.stringify(n8nPayload),
+        signal: AbortSignal.timeout(10000),
+      }).catch(async (err) => {
+        console.error('n8n webhook failed, falling back to inline:', err?.message);
+        // Fallback: run inline
+        processGeneration(n8nPayload).catch(e => console.error('Fallback generation error:', e));
+      });
+    } else {
+      // Legacy inline mode (default)
+      processGeneration(n8nPayload).catch(err => console.error('Background generation error:', err));
+    }
 
     return sendCorsResponse(res, 200, {
       success: true,
