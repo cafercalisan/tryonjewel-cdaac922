@@ -219,7 +219,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "=http://10.0.1.1:9000/jewelry-images/{{ $json.uploadPath }}",
+        "url": "=http://minio:9000/jewelry-images/{{ $json.uploadPath }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

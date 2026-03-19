@@ -29,6 +29,67 @@ services:
       echo 'MinIO buckets initialized';
       "
 
+  # ── n8n Workflow Engine ──
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+      - N8N_EDITOR_BASE_URL=https://${N8N_HOST:-localhost}/
+      - WEBHOOK_URL=${N8N_WEBHOOK_BASE_URL:-https://mooreateiler.com/n8n-webhook/}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-me-in-production-32chars!!}
+      - N8N_SECURE_COOKIE=true
+      - GENERIC_TIMEZONE=Europe/Istanbul
+      - TZ=Europe/Istanbul
+      - N8N_LOG_LEVEL=info
+      - N8N_METRICS=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./n8n-workflows:/home/node/workflows:ro
+    networks:
+      - default
+      - coolify
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.tryonjewel-n8n-http.entryPoints=http
+      - traefik.http.routers.tryonjewel-n8n-http.rule=Host(`n8n.mooreateiler.com`)
+      - traefik.http.routers.tryonjewel-n8n-http.middlewares=tryonjewel-n8n-redirect-https
+      - traefik.http.middlewares.tryonjewel-n8n-redirect-https.redirectscheme.scheme=https
+      - traefik.http.routers.tryonjewel-n8n-https.entryPoints=https
+      - traefik.http.routers.tryonjewel-n8n-https.rule=Host(`n8n.mooreateiler.com`)
+      - traefik.http.routers.tryonjewel-n8n-https.tls=true
+      - traefik.http.routers.tryonjewel-n8n-https.tls.certresolver=letsencrypt
+      - traefik.http.services.tryonjewel-n8n.loadbalancer.server.port=5678
+
+  # ── n8n Workflow Import (one-shot init) ──
+  n8n-init:
+    image: docker.n8n.io/n8nio/n8n:latest
+    depends_on:
+      n8n:
+        condition: service_healthy
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./n8n-workflows:/home/node/workflows:ro
+      - ./scripts/n8n-import.sh:/home/node/import.sh:ro
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-me-in-production-32chars!!}
+    entrypoint: ["sh", "/home/node/import.sh"]
+    networks:
+      - default
+
   app:
     build: .
     ports:
@@ -49,6 +110,9 @@ services:
       GOOGLE_VEO_API_KEY: ${GOOGLE_VEO_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       API_PORT: 3001
+      USE_N8N: ${USE_N8N:-false}
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/generate-jewelry
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-n8n-tryonjewel-secret-2026}
     restart: always
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -2371,7 +2371,7 @@ export default async function handler(req: Request, res: Response) {
       customPrompt: validatedCustomPrompt,
     };
 
-    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://10.0.1.8:5678/webhook/generate-jewelry';
+    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://n8n:5678/webhook/generate-jewelry';
     const N8N_SECRET = process.env.N8N_WEBHOOK_SECRET || 'n8n-tryonjewel-secret-2026';
     const USE_N8N = process.env.USE_N8N === 'true';
 
