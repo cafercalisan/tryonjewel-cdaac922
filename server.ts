@@ -29,6 +29,9 @@ import adminData from './api/admin-data.js';
 import upload from './api/upload.js';
 import signedUrl from './api/signed-url.js';
 
+// n8n integration
+import n8nTrigger from './api/n8n-trigger.js';
+
 // ── Env validation ──
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -123,6 +126,9 @@ app.all('/api/brand-profiles', brandProfiles);
 // ── Storage routes ──
 app.all('/api/upload', upload);
 app.all('/api/signed-url', signedUrl);
+
+// ── n8n internal routes ──
+app.post('/api/n8n/trigger', n8nTrigger);
 
 // ── MinIO storage proxy — proxies signed URLs so browser can access them ──
 app.get('/storage/{*path}', async (req, res) => {

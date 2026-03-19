@@ -2396,3 +2396,111 @@ export default async function handler(req: Request, res: Response) {
     return sendCorsResponse(res, 500, { error: errorMessage });
   }
 }
+
+// ═══════════════════════════════════════════════════
+// N8N INTEGRATION: Per-scene generation export
+// ═══════════════════════════════════════════════════
+export async function generateSceneForN8N(params: {
+  base64Images: string[];
+  sceneType: string;
+  analysisResult: any;
+  userId: string;
+  imageRecordId: string;
+  jobId: string;
+  aspectRatio: string;
+  productType: string | null;
+  metalColorOverride: string | null;
+  customPrompt: string | null;
+  brandDna: string | null;
+}): Promise<{ success: boolean; url?: string; error?: string }> {
+  const {
+    base64Images, sceneType, analysisResult, userId, imageRecordId, jobId,
+    aspectRatio, productType, metalColorOverride, customPrompt, brandDna,
+  } = params;
+
+  if (!GOOGLE_IMAGE_API_KEY) return { success: false, error: 'GOOGLE_API_KEY not configured' };
+
+  // Build fidelity block (same logic as processGeneration)
+  const metalColorOverrideMap: Record<string, { type: string; category: string }> = {
+    'yellow_gold': { type: 'gold', category: 'YELLOW GOLD' },
+    'white_gold': { type: 'white_gold', category: 'WHITE GOLD' },
+    'rose_gold': { type: 'rose_gold', category: 'ROSE GOLD' },
+    'platinum': { type: 'platinum', category: 'PLATINUM' },
+    'silver': { type: 'silver', category: 'SILVER' },
+  };
+
+  const userMetalOverride = metalColorOverride ? metalColorOverrideMap[metalColorOverride] : null;
+  const metalType = userMetalOverride?.type || analysisResult.metal?.type || 'gold';
+  const metalFinish = analysisResult.metal?.finish || 'polished';
+  const metalKarat = analysisResult.metal?.karat || '18k';
+  const metalColorHex = analysisResult.metal?.color_hex || '';
+  let metalColorCategory = userMetalOverride?.category || 'YELLOW GOLD';
+  if (!userMetalOverride) {
+    if (metalType === 'white_gold' || metalType === 'platinum' || metalType === 'silver') metalColorCategory = 'WHITE/SILVER METAL';
+    else if (metalType === 'rose_gold') metalColorCategory = 'ROSE GOLD';
+    else if (metalType === 'gold') metalColorCategory = 'YELLOW GOLD';
+  }
+
+  const metalDesc = `${metalFinish} ${metalType.replace('_', ' ')} (${metalKarat})`;
+  const stoneDesc = analysisResult.stones?.length > 0
+    ? analysisResult.stones.map((s: any) => `${s.count || 1} ${s.color || ''} ${s.type || 'gemstone'}(s) in ${s.cut || 'round'} cut`).join(', ')
+    : '';
+
+  const fidelityBlock = `JEWELRY: ${analysisResult.type || 'jewelry'}, Metal: ${metalDesc} (${metalColorCategory}), Stones: ${stoneDesc || 'none'}
+Visual fingerprint: ${analysisResult.visual_fingerprint || 'N/A'}
+CRITICAL: Preserve EXACT metal color (${metalColorCategory}), EXACT stone count, EXACT proportions. No alterations.`;
+
+  const productExtractionBlock = 'Extract ONLY the jewelry from reference. Ignore hands/background. Place isolated product into scene.';
+
+  const identityCard = buildProductIdentityCard(analysisResult, 0, 1);
+
+  let fidelityBlockWithBrand = fidelityBlock;
+  if (brandDna) fidelityBlockWithBrand += `\n\nBRAND DNA:\n${brandDna}`;
+
+  // Build prompt based on scene type
+  let prompt = '';
+  try {
+    switch (sceneType) {
+      case 'editorial':
+        prompt = buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard);
+        break;
+      case 'ecommerce':
+        prompt = buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard);
+        break;
+      case 'model':
+        prompt = buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard, productType || 'genel');
+        break;
+      case 'macro':
+        prompt = buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard);
+        break;
+      case 'model_closeup':
+        prompt = buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard, productType || 'genel');
+        break;
+      case 'model_lifestyle':
+        prompt = buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard, productType || 'genel');
+        break;
+      case 'custom':
+        prompt = buildCustomPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard, customPrompt || '');
+        break;
+      default:
+        prompt = buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, identityCard);
+    }
+  } catch (err: any) {
+    console.error(`Prompt build error for ${sceneType}:`, err?.message);
+    return { success: false, error: `Prompt build failed: ${err?.message}` };
+  }
+
+  // Enhance prompt
+  try {
+    prompt = await enhanceScenePrompt(prompt, analysisResult, sceneType);
+  } catch { /* use unenhanced prompt */ }
+
+  // Generate image
+  const sceneIndex = ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'].indexOf(sceneType);
+  const url = await generateSingleImage(base64Images, prompt, userId, imageRecordId, sceneIndex >= 0 ? sceneIndex + 1 : 1, null, jobId, aspectRatio);
+
+  if (url) {
+    return { success: true, url };
+  }
+  return { success: false, error: `Generation failed for scene: ${sceneType}` };
+}
