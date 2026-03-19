@@ -136,10 +136,14 @@ export default function Generate() {
         if (!job) return;
         if (job.status === 'completed' && job.image_record_id) {
           navigate(`/sonuclar?id=${job.image_record_id}`);
-        } else if (job.status === 'generating' || job.status === 'pending') {
-          setIsGenerating(true);
-          setGenerationStep('generating');
-          startPolling(job.id, job.image_record_id, []);
+        } else if ((job.status === 'generating' || job.status === 'pending') && job.id) {
+          // Only resume if job is recent (within last 15 min)
+          const jobAge = Date.now() - new Date(job.updated_at || job.created_at).getTime();
+          if (jobAge < 15 * 60 * 1000) {
+            setIsGenerating(true);
+            setGenerationStep('generating');
+            startPolling(job.id, job.image_record_id, []);
+          }
         }
       } catch { /* ignore */ }
     };
@@ -161,10 +165,30 @@ export default function Generate() {
         const rawResp = await fetch(`/api/processing-jobs?id=${jobId}&_t=${Date.now()}`, { headers });
         if (!rawResp.ok) {
           console.error('Polling error:', rawResp.status);
+          if (rawResp.status === 404) {
+            // Job deleted or not found - stop polling
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+            setIsGenerating(false);
+            setGenerationStep('idle');
+            setPollingJobId(null);
+            setPollingImageId(null);
+          }
           return;
         }
         const respData = await rawResp.json();
         const data = respData?.data;
+
+        if (!data) {
+          // Job not found - stop polling and reset state
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+          setIsGenerating(false);
+          setGenerationStep('idle');
+          setPollingJobId(null);
+          setPollingImageId(null);
+          return;
+        }
 
         if (data) {
           setJobCurrentStep(data.current_step);
