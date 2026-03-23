@@ -100,13 +100,11 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
           if (data.status === 'completed') {
             stopPolling();
             setRecentCompletedJobs(prev => [updated, ...prev].slice(0, 10));
-            // Brief delay then clear — Generate.tsx handles the actual navigation
-            setTimeout(() => setActiveJob(null), 5000);
+            // Generate.tsx handles navigation and toast — just clear after brief delay
+            setTimeout(() => setActiveJob(null), 3000);
           } else if (data.status === 'failed' || data.status === 'cancelled') {
             stopPolling();
-            if (data.status === 'failed') {
-              toast.error(data.error_message || 'Üretim sırasında bir hata oluştu.');
-            }
+            // Generate.tsx handles error toast — no duplicate
             setActiveJob(null);
           }
         }
@@ -120,7 +118,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
       stopPolling();
       toast.error('Üretim zaman aşımına uğradı.');
       setActiveJob(null);
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
   }, [stopPolling]);
 
   // Check for active jobs on mount (resume tracking if user refreshes)

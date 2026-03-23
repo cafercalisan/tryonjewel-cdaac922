@@ -70,7 +70,7 @@ export default function Generate() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
-  const { startTracking } = useGenerationContext();
+  const { startTracking, stopTracking } = useGenerationContext();
   const [searchParams] = useSearchParams();
   const preselectedSceneId = searchParams.get("scene");
 
@@ -206,29 +206,33 @@ export default function Generate() {
           }
 
           if (data.status === 'completed') {
-            // Stop polling
+            // Stop all polling immediately
             if (pollingRef.current) clearInterval(pollingRef.current);
             if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
-            
+            stopTracking();
+
+            // Reset state BEFORE navigate
+            setIsGenerating(false);
+            setGenerationStep('idle');
+            setPollingJobId(null);
+            setPollingImageId(null);
+
             toast.success("Görseliniz başarıyla oluşturuldu!");
-            setTimeout(() => {
-              setIsGenerating(false);
-              setGenerationStep('idle');
-              setPollingJobId(null);
-              setPollingImageId(null);
-              const scenesParam = scenes.length > 0 ? `&scenes=${scenes.join(',')}` : '';
-              navigate(`/sonuclar?id=${imageId}${scenesParam}`);
-            }, 1500);
+            const scenesParam = scenes.length > 0 ? `&scenes=${scenes.join(',')}` : '';
+            navigate(`/sonuclar?id=${imageId}${scenesParam}`);
+            return;
           } else if (data.status === 'failed') {
-            // Stop polling
+            // Stop all polling immediately
             if (pollingRef.current) clearInterval(pollingRef.current);
             if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
-            
+            stopTracking();
+
             toast.error(data.error_message || 'Görsel oluşturulurken bir hata oluştu.');
             setIsGenerating(false);
             setGenerationStep('idle');
             setPollingJobId(null);
             setPollingImageId(null);
+            return;
           }
         }
       } catch (err) {
@@ -245,7 +249,7 @@ export default function Generate() {
       setPollingJobId(null);
       setPollingImageId(null);
     }, 15 * 60 * 1000);
-  }, [navigate]);
+  }, [navigate, stopTracking]);
 
   // Fetch selected model data for SummaryPanel display
   const { data: selectedModelData } = useQuery({
