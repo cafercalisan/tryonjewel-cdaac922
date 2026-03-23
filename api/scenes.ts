@@ -13,9 +13,19 @@ export default async function handler(req: Request, res: Response) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
     }
 
-    const { rows } = await query(
-      'SELECT * FROM scenes ORDER BY sort_order ASC, created_at ASC'
-    );
+    const { category, product_type } = req.query as Record<string, string>;
+    let sql = 'SELECT * FROM scenes WHERE 1=1';
+    const params: any[] = [];
+    if (category) {
+      params.push(category);
+      sql += ` AND category = $${params.length}`;
+    }
+    if (product_type) {
+      params.push(product_type);
+      sql += ` AND (product_type_category = $${params.length} OR product_type_category = 'genel')`;
+    }
+    sql += ' ORDER BY sort_order ASC, created_at ASC';
+    const { rows } = await query(sql, params);
 
     return sendCorsResponse(res, 200, { data: rows });
   } catch (err) {

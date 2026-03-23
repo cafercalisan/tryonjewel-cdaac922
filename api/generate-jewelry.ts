@@ -80,7 +80,38 @@ async function callGeminiAnalysis(opts: {
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
 
 // ═══════════════════════════════════════════════════
-// EDITORIAL SCENE POOL (27 scenes, 5 categories)
+// DB SCENE LOADER
+// ═══════════════════════════════════════════════════
+
+interface DBScene {
+  name: string;
+  prompt: string;
+  sub_category: string;
+}
+
+async function getMatchingScenesFromDB(
+  category: string,
+  productType: string,
+  limit: number = 1
+): Promise<DBScene[]> {
+  const result = await query(
+    `SELECT name, prompt, sub_category FROM scenes
+     WHERE category = $1 AND (product_type_category = $2 OR product_type_category = 'genel')
+     ORDER BY RANDOM() LIMIT $3`,
+    [category, productType, limit]
+  );
+  if (result.rows.length === 0) {
+    const fallback = await query(
+      `SELECT name, prompt, sub_category FROM scenes WHERE category = $1 ORDER BY RANDOM() LIMIT $2`,
+      [category, limit]
+    );
+    return fallback.rows;
+  }
+  return result.rows;
+}
+
+// ═══════════════════════════════════════════════════
+// EDITORIAL SCENE POOL (legacy - kept as fallback)
 // ═══════════════════════════════════════════════════
 interface EditorialScene {
   name: string;
@@ -749,12 +780,20 @@ function buildEditorialPrompt(
   fidelityBlock: string,
   productExtractionBlock: string,
   identityCard: string,
+  dbScene?: DBScene,
 ): string {
-  // Category-based selection: each category gets equal chance
-  const categories = [...new Set(EDITORIAL_SCENE_POOL.map(s => s.category))];
-  const chosenCategory = pickRandom(categories);
-  const scenesInCategory = EDITORIAL_SCENE_POOL.filter(s => s.category === chosenCategory);
-  const scene = pickRandom(scenesInCategory);
+  let scene: { name: string; prompt: string; category: string };
+
+  if (dbScene) {
+    scene = { name: dbScene.name, prompt: dbScene.prompt, category: dbScene.sub_category };
+  } else {
+    // Fallback to hardcoded pool
+    const categories = [...new Set(EDITORIAL_SCENE_POOL.map(s => s.category))];
+    const chosenCategory = pickRandom(categories);
+    const scenesInCategory = EDITORIAL_SCENE_POOL.filter(s => s.category === chosenCategory);
+    scene = pickRandom(scenesInCategory);
+  }
+
   const lighting = pickRandom(LIGHTING_ANGLES);
   const camera = pickRandom(CAMERA_PERSPECTIVES);
 
@@ -782,6 +821,7 @@ CREATIVE DIRECTION:
 - Shallow depth of field with soft bokeh background
 - The jewelry is the clear focal point — scene complements, never distracts
 - Authentic color grading — warm, natural, not over-processed
+- ABSOLUTELY NO HANDS, NO MODELS, NO HUMAN ELEMENTS — product only
 
 TECHNICAL:
 - 4:5 portrait aspect ratio
@@ -1565,6 +1605,11 @@ async function processGeneration(params: {
       console.log('Analyzing style reference...');
       await query('UPDATE processing_jobs SET current_step = $1, progress = $2 WHERE id = $3', ['analyzing_style', 12, jobId]);
       styleAnalysis = await analyzeStyleReference(styleReferenceBase64);
+      if (styleAnalysis) {
+        await query('UPDATE images SET style_analysis_data = $1 WHERE id = $2',
+          [JSON.stringify(styleAnalysis), imageRecordId]);
+        console.log('Style analysis saved to DB');
+      }
     }
 
     // Get scene if needed
@@ -2080,11 +2125,12 @@ Ultra high resolution output.`.trim();
 
       const masterSteps = [
         { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
-          buildPrompt: (ic: string) => {
+          buildPrompt: async (ic: string) => {
             if (hasStyleReference && styleReferenceBase64) {
               return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlockWithBrand, productExtractionBlock, ic);
             }
-            return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+            const dbScenes = await getMatchingScenesFromDB('editorial', resolvedProductType);
+            return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
           },
           getImages: (): string[] => {
             if (hasStyleReference && styleReferenceBase64) {
@@ -2095,19 +2141,31 @@ Ultra high resolution output.`.trim();
           startTemperature: 0.12,
         },
         { key: 'ecommerce', step: 'generating_ecommerce', label: 'E-Commerce',
-          buildPrompt: (ic: string) => buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
+          buildPrompt: async (ic: string) => {
+            const dbScenes = await getMatchingScenesFromDB('ecommerce', resolvedProductType);
+            if (dbScenes[0]) {
+              return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
+            }
+            return buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+          },
           startTemperature: 0.10 },
         { key: 'model', step: 'generating_model', label: 'Model',
-          buildPrompt: (ic: string) => buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic: string) => buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'macro', step: 'generating_macro', label: 'Macro Detail',
-          buildPrompt: (ic: string) => buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
+          buildPrompt: async (ic: string) => {
+            const dbScenes = await getMatchingScenesFromDB('macro', resolvedProductType);
+            if (dbScenes[0]) {
+              return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
+            }
+            return buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+          },
           startTemperature: 0.12 },
         { key: 'model_closeup', step: 'generating_model_closeup', label: 'Model Close-Up',
-          buildPrompt: (ic: string) => buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic: string) => buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
         { key: 'model_lifestyle', step: 'generating_model_lifestyle', label: 'Model Lifestyle',
-          buildPrompt: (ic: string) => buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic: string) => buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12 },
       ];
 
@@ -2135,7 +2193,7 @@ Ultra high resolution output.`.trim();
         await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [startProgress, ms.step, jobId]);
 
         const stepIdentityCard = buildIdentityCardForStep(i, filteredSteps.length);
-        const basePrompt = ms.buildPrompt(stepIdentityCard);
+        const basePrompt = await ms.buildPrompt(stepIdentityCard);
         const prompt = await enhanceScenePrompt(basePrompt, analysisResult, ms.key);
         const images = (ms as any).getImages ? (ms as any).getImages() : base64Images;
         const temperature = (ms as any).startTemperature ?? 0.12;

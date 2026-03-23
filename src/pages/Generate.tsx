@@ -260,9 +260,13 @@ export default function Generate() {
   });
 
   const { data: scenes } = useQuery({
-    queryKey: ["scenes"],
+    queryKey: ["scenes", selectedProductType],
     queryFn: async (): Promise<Scene[]> => {
-      const { data, error } = await fetchApi('scenes');
+      const params: Record<string, string> = {};
+      if (selectedProductType && selectedProductType !== 'genel') {
+        params.product_type = selectedProductType;
+      }
+      const { data, error } = await fetchApi('scenes', params);
       if (error) throw error;
       return (data?.data || []) as Scene[];
     },

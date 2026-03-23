@@ -28,38 +28,53 @@ const FEATURED_CATEGORIES = [
   {
     key: 'editorial',
     label: '📸 Editorial',
-    description: 'Lüks katalog çekimi',
-    filterCategory: 'urun',
+    description: 'Sade şık ürün sergileme',
+    filterCategory: 'editorial',
   },
   {
     key: 'ecommerce',
     label: '🛒 E-Ticaret',
     description: 'Temiz ürün görseli',
-    filterCategory: 'urun',
+    filterCategory: 'ecommerce',
   },
   {
     key: 'model',
     label: '👤 Model',
     description: 'Manken çekimi',
-    filterCategory: 'manken',
+    filterCategory: 'model',
   },
 ];
 
 const categoryConfig: Record<string, { label: string; icon: React.ComponentType<any>; description: string }> = {
-  'urun': { 
-    label: 'Ürün', 
-    icon: Camera, 
-    description: 'Profesyonel stüdyo ortamında ürün çekimi' 
+  'editorial': {
+    label: 'Editorial',
+    icon: Sparkles,
+    description: 'Sade ve şık ürün sergileme — lüks katalog estetiği'
   },
-  'doga': { 
-    label: 'Doğa', 
-    icon: Palmtree, 
-    description: 'Doğal ortamlarda editorial mücevher çekimi' 
+  'ecommerce': {
+    label: 'E-Ticaret',
+    icon: Camera,
+    description: 'Profesyonel stüdyo ürün fotoğrafı'
   },
-  'manken': { 
-    label: 'Manken', 
-    icon: User, 
-    description: 'Model ile editorial mücevher çekimi' 
+  'model': {
+    label: 'Model',
+    icon: User,
+    description: 'Manken üzerinde mücevher çekimi'
+  },
+  'macro': {
+    label: 'Macro',
+    icon: ImageIcon,
+    description: 'Yakın çekim detay fotoğrafı'
+  },
+  'closeup': {
+    label: 'Yakın Çekim',
+    icon: Star,
+    description: 'Model üzerinde yakın çekim'
+  },
+  'lifestyle': {
+    label: 'Yaşam Tarzı',
+    icon: Palmtree,
+    description: 'Doğal lüks ortamlarda yaşam anı'
   },
 };
 
@@ -122,7 +137,7 @@ export function SceneSelector({ scenes, selectedSceneId, onSelect }: SceneSelect
 
       {/* Category Tabs */}
       <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="w-full grid grid-cols-3 h-auto p-1 bg-muted/50">
+        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 h-auto p-1 bg-muted/50">
           {availableCategories.map((cat) => {
             const config = categoryConfig[cat];
             if (!config) return null;
