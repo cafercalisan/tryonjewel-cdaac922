@@ -16,6 +16,17 @@ export default async function handler(req: Request, res: Response) {
     const { userId } = authResult;
 
     if (req.method === 'GET') {
+      const imageId = req.query?.id as string | undefined;
+      if (imageId) {
+        const image = await queryOne(
+          'SELECT * FROM images WHERE id = $1 AND user_id = $2',
+          [imageId, userId]
+        );
+        if (!image) {
+          return sendCorsResponse(res, 404, { error: 'Image not found' });
+        }
+        return sendCorsResponse(res, 200, { data: image });
+      }
       const { rows } = await query(
         'SELECT * FROM images WHERE user_id = $1 ORDER BY created_at DESC',
         [userId]
