@@ -2169,9 +2169,11 @@ Ultra high resolution output.`.trim();
           startTemperature: 0.12 },
       ];
 
-      // Filter steps if selectedScenes is provided (Master 3-scene selection)
+      // Filter and ORDER steps by user's selection order (1-2-3)
       const filteredSteps = paramSelectedScenes
-        ? masterSteps.filter(s => paramSelectedScenes.includes(s.key))
+        ? paramSelectedScenes
+            .map(key => masterSteps.find(s => s.key === key))
+            .filter((s): s is typeof masterSteps[0] => s !== undefined)
         : masterSteps;
 
       console.log(`Generating ${filteredSteps.length} scenes: ${filteredSteps.map(s => s.key).join(', ')}`);
