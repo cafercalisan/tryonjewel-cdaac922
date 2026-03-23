@@ -26,7 +26,7 @@ export default async function handler(req: Request, res: Response) {
          WHERE user_id = $1
          AND (
            status IN ('pending', 'generating')
-           OR (status = 'completed' AND updated_at > NOW() - INTERVAL '10 minutes')
+           OR (status = 'completed' AND updated_at > NOW() - INTERVAL '30 minutes')
          )
          ORDER BY created_at DESC LIMIT 1`,
         [authResult.userId]

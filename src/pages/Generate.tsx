@@ -137,9 +137,9 @@ export default function Generate() {
         if (job.status === 'completed' && job.image_record_id) {
           navigate(`/sonuclar?id=${job.image_record_id}`);
         } else if ((job.status === 'generating' || job.status === 'pending') && job.id) {
-          // Only resume if job is recent (within last 15 min)
+          // Only resume if job is recent (within last 30 min)
           const jobAge = Date.now() - new Date(job.updated_at || job.created_at).getTime();
-          if (jobAge < 15 * 60 * 1000) {
+          if (jobAge < 30 * 60 * 1000) {
             setIsGenerating(true);
             setGenerationStep('generating');
             startPolling(job.id, job.image_record_id, []);
@@ -240,15 +240,11 @@ export default function Generate() {
       }
     }, 2000);
 
-    // 15-minute timeout — Pro model takes ~3-4min per image, 3 images = up to 12min
+    // 25-minute timeout — warn but keep polling (backend may still be working)
     pollingTimeoutRef.current = setTimeout(() => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      toast.error('Üretim zaman aşımına uğradı. Lütfen tekrar deneyin.');
-      setIsGenerating(false);
-      setGenerationStep('idle');
-      setPollingJobId(null);
-      setPollingImageId(null);
-    }, 15 * 60 * 1000);
+      toast.warning('Üretim beklenenden uzun sürüyor. Lütfen bekleyin...');
+      // Do NOT stop polling — backend may still complete
+    }, 25 * 60 * 1000);
   }, [navigate, stopTracking]);
 
   // Fetch selected model data for SummaryPanel display

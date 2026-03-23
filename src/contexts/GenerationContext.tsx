@@ -114,11 +114,10 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     }, 2000);
 
     // 5-minute timeout safety
+    // 25-minute warning — do NOT stop polling, backend may still complete
     pollingTimeoutRef.current = setTimeout(() => {
-      stopPolling();
-      toast.error('Üretim zaman aşımına uğradı.');
-      setActiveJob(null);
-    }, 15 * 60 * 1000);
+      // Just warn, don't stop — Generate.tsx handles the same
+    }, 25 * 60 * 1000);
   }, [stopPolling]);
 
   // Check for active jobs on mount (resume tracking if user refreshes)
