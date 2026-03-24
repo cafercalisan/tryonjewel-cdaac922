@@ -125,13 +125,21 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const checkActiveJobs = async () => {
-      const { data: respData } = await fetchApi('processing-jobs', { active: 'true' });
-
-      const jobs = respData?.data;
-      if (jobs && Array.isArray(jobs) && jobs.length > 0) {
-        const job = jobs[0];
-        startTracking(job.id, job.image_record_id, []);
-      }
+      try {
+        const token = (await import('@/lib/auth-client')).authClient.getAccessToken();
+        if (!token) return;
+        const resp = await fetch(`/api/processing-jobs/active?_t=${Date.now()}`, {
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' },
+        });
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const job = json?.data;
+        if (!job) return;
+        // Only resume tracking for in-progress jobs, NOT completed ones
+        if ((job.status === 'generating' || job.status === 'pending') && job.id) {
+          startTracking(job.id, job.image_record_id, []);
+        }
+      } catch { /* ignore */ }
     };
 
     checkActiveJobs();
