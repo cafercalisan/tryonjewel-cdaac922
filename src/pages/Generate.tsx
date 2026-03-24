@@ -134,9 +134,7 @@ export default function Generate() {
         const json = await resp.json();
         const job = json?.data;
         if (!job) return;
-        if (job.status === 'completed' && job.image_record_id) {
-          navigate(`/sonuclar?id=${job.image_record_id}`);
-        } else if ((job.status === 'generating' || job.status === 'pending') && job.id) {
+        if ((job.status === 'generating' || job.status === 'pending') && job.id) {
           // Only resume if job is recent (within last 30 min)
           const jobAge = Date.now() - new Date(job.updated_at || job.created_at).getTime();
           if (jobAge < 30 * 60 * 1000) {
