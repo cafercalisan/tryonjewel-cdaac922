@@ -19,11 +19,29 @@ export default async function handler(req: Request, res: Response) {
       const imageId = req.query?.id as string | undefined;
       if (imageId) {
         const image = await queryOne(
-          'SELECT * FROM images WHERE id = $1 AND user_id = $2',
+          `SELECT i.*, pj.result_urls as job_result_urls, pj.status as job_status
+           FROM images i
+           LEFT JOIN processing_jobs pj ON pj.image_record_id = i.id
+           WHERE i.id = $1 AND i.user_id = $2`,
           [imageId, userId]
         );
         if (!image) {
           return sendCorsResponse(res, 404, { error: 'Image not found' });
+        }
+        // Fallback: if generated_image_urls is empty but job has result_urls
+        if ((!image.generated_image_urls || image.generated_image_urls.length === 0) && image.job_result_urls) {
+          try {
+            const urls = typeof image.job_result_urls === 'string'
+              ? JSON.parse(image.job_result_urls)
+              : image.job_result_urls;
+            if (Array.isArray(urls) && urls.length > 0) {
+              image.generated_image_urls = urls;
+              // Also fix the status if job is completed
+              if (image.job_status === 'completed') {
+                image.status = 'completed';
+              }
+            }
+          } catch { /* ignore parse error */ }
         }
         return sendCorsResponse(res, 200, { data: image });
       }

@@ -2234,8 +2234,22 @@ Ultra high resolution output.`.trim();
     }
 
     // Partial success: at least 1 image generated
-    // Use pg array format for text[] column (not JSON.stringify)
-    await query('UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3', ['completed', generatedUrls, imageRecordId]);
+    // Build explicit PostgreSQL array literal for text[] column
+    const pgArrayLiteral = `{${generatedUrls.map(u => `"${u}"`).join(',')}}`;
+    console.log('Saving generated URLs to images table:', pgArrayLiteral);
+
+    try {
+      await query('UPDATE images SET status = $1, generated_image_urls = $2::text[] WHERE id = $3', ['completed', pgArrayLiteral, imageRecordId]);
+      console.log('Images table updated successfully');
+    } catch (imgUpdateErr) {
+      console.error('CRITICAL: Failed to update images table:', imgUpdateErr);
+      // Last resort fallback - try with individual URL
+      try {
+        await query('UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3', ['completed', generatedUrls, imageRecordId]);
+      } catch (fallbackErr) {
+        console.error('CRITICAL: Fallback also failed:', fallbackErr);
+      }
+    }
 
     await query('UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4, completed_images = $5 WHERE id = $6', ['completed', 100, 'completed', JSON.stringify(generatedUrls), generatedUrls.length, jobId]);
 

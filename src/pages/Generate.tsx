@@ -385,8 +385,8 @@ export default function Generate() {
       if (!profile || profile.credits < creditsNeeded) return false;
     }
 
-    // Standard (Master) package: needs 3 scenes selected
-    if (packageType === 'standard') return selectedMasterScenes.length === 3;
+    // Standard package: needs at least 1 scene selected
+    if (packageType === 'standard') return selectedMasterScenes.length >= 1;
 
     // Single package: needs style reference or custom prompt
     if (isSingleMode) return hasStyleReference || customPromptText.trim().length > 0;
@@ -848,7 +848,7 @@ export default function Generate() {
                     </div>
                     <h2 className="text-sm font-semibold">Sahne Secin</h2>
                     <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {selectedMasterScenes.length}/3
+                      {selectedMasterScenes.length > 0 ? `${selectedMasterScenes.length} secildi` : 'Bir sahne secin'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -868,7 +868,7 @@ export default function Generate() {
                     ].map((scene) => {
                       const isSelected = selectedMasterScenes.includes(scene.key);
                       const selectionIndex = selectedMasterScenes.indexOf(scene.key);
-                      const isDisabled = !isSelected && selectedMasterScenes.length >= 3;
+                      const isDisabled = false; // Tekli seçim — disable yok
 
                       return (
                         <motion.button
@@ -876,8 +876,9 @@ export default function Generate() {
                           onClick={() => {
                             if (isSelected) {
                               setSelectedMasterScenes(prev => prev.filter(k => k !== scene.key));
-                            } else if (selectedMasterScenes.length < 3) {
-                              setSelectedMasterScenes(prev => [...prev, scene.key]);
+                            } else {
+                              // Radio-style: tek sahne seç
+                              setSelectedMasterScenes([scene.key]);
                             }
                           }}
                           whileHover={!isDisabled ? { scale: 1.02 } : undefined}
