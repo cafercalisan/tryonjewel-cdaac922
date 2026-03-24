@@ -116,6 +116,7 @@ app.all('/api/admin-data', adminData);
 app.all('/api/scenes', scenes);
 app.all('/api/images', images);
 app.get('/api/processing-jobs/active', processingJobs);
+app.post('/api/processing-jobs/cancel', processingJobs);
 app.get('/api/processing-jobs/:id', processingJobs);
 app.all('/api/processing-jobs', processingJobs);
 app.all('/api/profile', profile);

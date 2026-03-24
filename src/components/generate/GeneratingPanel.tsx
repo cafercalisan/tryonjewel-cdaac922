@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User, Focus } from 'lucide-react';
+import { Lightbulb, Loader2, CheckCircle2, Camera, ShoppingBag, User, Focus, XCircle } from 'lucide-react';
 import { getRandomFacts } from '@/lib/jewelryFacts';
 
 interface GeneratingPanelProps {
@@ -12,6 +12,8 @@ interface GeneratingPanelProps {
   completedImages?: number;
   totalImages?: number;
   selectedScenes?: string[];
+  onCancel?: () => void;
+  isCancelling?: boolean;
 }
 
 const SCENE_CONFIG: Record<string, { label: string; desc: string; Icon: typeof Camera; gradient: string }> = {
@@ -41,6 +43,8 @@ export function GeneratingPanel({
   completedImages = 0,
   totalImages = 3,
   selectedScenes = [],
+  onCancel,
+  isCancelling = false,
 }: GeneratingPanelProps) {
   const [facts, setFacts] = useState<string[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -327,6 +331,22 @@ export function GeneratingPanel({
             </motion.p>
           </AnimatePresence>
         </div>
+
+        {/* Cancel button */}
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            disabled={isCancelling}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border hover:border-destructive/50 hover:bg-destructive/5 text-muted-foreground hover:text-destructive transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCancelling ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            {isCancelling ? 'İptal ediliyor...' : 'Üretimi İptal Et'}
+          </button>
+        )}
       </div>
     </motion.div>
   );

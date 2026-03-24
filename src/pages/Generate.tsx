@@ -108,8 +108,13 @@ export default function Generate() {
   const [jobProgress, setJobProgress] = useState(0);
   const [completedImages, setCompletedImages] = useState(0);
   const [totalImages, setTotalImages] = useState(3);
+  const [isCancelling, setIsCancelling] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stale detection: track last progress change time
+  const lastProgressRef = useRef<{ progress: number; step: string | null; time: number }>({
+    progress: 0, step: null, time: Date.now()
+  });
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -119,8 +124,7 @@ export default function Generate() {
     };
   }, []);
 
-  // On mount: check if there's an in-progress job and resume polling,
-  // or a recently completed job and navigate to results
+  // On mount: check if there's an in-progress job and resume polling
   useEffect(() => {
     if (!user) return;
     const resume = async () => {
@@ -135,12 +139,21 @@ export default function Generate() {
         const job = json?.data;
         if (!job) return;
         if ((job.status === 'generating' || job.status === 'pending') && job.id) {
-          // Only resume if job is recent (within last 30 min)
+          // Only resume if job is recent (within last 10 min)
           const jobAge = Date.now() - new Date(job.updated_at || job.created_at).getTime();
-          if (jobAge < 30 * 60 * 1000) {
+          if (jobAge < 10 * 60 * 1000) {
             setIsGenerating(true);
             setGenerationStep('generating');
+            lastProgressRef.current = { progress: job.progress || 0, step: job.current_step, time: Date.now() };
             startPolling(job.id, job.image_record_id, []);
+          } else {
+            // Job is stale — auto-cancel it so user can start fresh
+            console.log('Stale active job detected, auto-cancelling:', job.id);
+            await fetch('/api/processing-jobs/cancel', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId: job.id }),
+            });
           }
         }
       } catch { /* ignore */ }
@@ -152,6 +165,7 @@ export default function Generate() {
   const startPolling = useCallback((jobId: string, imageId: string, scenes: string[] = []) => {
     setPollingJobId(jobId);
     setPollingImageId(imageId);
+    lastProgressRef.current = { progress: 0, step: null, time: Date.now() };
 
     // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
@@ -194,6 +208,12 @@ export default function Generate() {
           setCompletedImages(data.completed_images || 0);
           setTotalImages(data.total_images || 3);
 
+          // Stale detection: track if progress or step actually changed
+          const prev = lastProgressRef.current;
+          if (data.progress !== prev.progress || data.current_step !== prev.step) {
+            lastProgressRef.current = { progress: data.progress || 0, step: data.current_step, time: Date.now() };
+          }
+
           // Map current_step to generationStep for UI
           if (data.current_step === 'analyzing' || data.current_step === 'downloading' || data.current_step === 'analyzing_style') {
             setGenerationStep('analyzing');
@@ -219,13 +239,15 @@ export default function Generate() {
             const scenesParam = scenes.length > 0 ? `&scenes=${scenes.join(',')}` : '';
             navigate(`/sonuclar?id=${imageId}${scenesParam}`);
             return;
-          } else if (data.status === 'failed') {
+          } else if (data.status === 'failed' || data.status === 'cancelled') {
             // Stop all polling immediately
             if (pollingRef.current) clearInterval(pollingRef.current);
             if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
             stopTracking();
 
-            toast.error(data.error_message || 'Görsel oluşturulurken bir hata oluştu.');
+            if (data.status === 'failed') {
+              toast.error(data.error_message || 'Görsel oluşturulurken bir hata oluştu.');
+            }
             setIsGenerating(false);
             setGenerationStep('idle');
             setPollingJobId(null);
@@ -424,6 +446,49 @@ export default function Generate() {
     return { data: null, error: lastError };
   };
 
+  const handleCancel = async () => {
+    if (!pollingJobId) {
+      // No active job ID — just reset UI state
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+      stopTracking();
+      setIsGenerating(false);
+      setGenerationStep('idle');
+      setPollingJobId(null);
+      setPollingImageId(null);
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const token = authClient.getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch('/api/processing-jobs/cancel', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ jobId: pollingJobId }),
+      });
+
+      // Stop polling
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+      stopTracking();
+
+      toast.info('Üretim iptal edildi.');
+    } catch (err) {
+      console.error('Cancel error:', err);
+      toast.error('İptal sırasında hata oluştu.');
+    } finally {
+      setIsGenerating(false);
+      setGenerationStep('idle');
+      setPollingJobId(null);
+      setPollingImageId(null);
+      setIsCancelling(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
@@ -537,6 +602,8 @@ export default function Generate() {
             completedImages={completedImages}
             totalImages={totalImages}
             selectedScenes={selectedMasterScenes}
+            onCancel={handleCancel}
+            isCancelling={isCancelling}
           />
         </div>
       </AppLayout>
