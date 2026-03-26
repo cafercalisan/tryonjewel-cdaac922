@@ -210,7 +210,6 @@ export function GeneratingPanel({
           </div>
         </div>
       )}
-      )}
 
       {/* Blurred preview (for single/retouch) */}
       {(isSingle || isRetouch) && previewImage && (
