@@ -94,12 +94,18 @@ export function GeneratingPanel({
   // Determine which scene is currently active
   const activeSceneKey = currentStep ? STEP_TO_SCENE[currentStep] : null;
 
+  // Build scene list: use selectedScenes if available, otherwise infer from totalImages
+  const effectiveScenes = selectedScenes.length > 0
+    ? selectedScenes
+    : (totalImages === 1 ? (activeSceneKey ? [activeSceneKey] : ['editorial']) :
+       ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'].slice(0, totalImages));
+
   // Build completed scenes list
-  const sceneOrder = selectedScenes.length > 0 ? selectedScenes : ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
+  const sceneOrder = effectiveScenes;
   const activeSceneIndex = activeSceneKey ? sceneOrder.indexOf(activeSceneKey) : -1;
 
-  // Show 3-card layout for standard package with selected scenes
-  const showSceneCards = isStandard && selectedScenes.length > 0;
+  // Show scene cards for standard package (with or without selectedScenes)
+  const showSceneCards = isStandard && totalImages > 1;
 
   return (
     <motion.div
@@ -136,8 +142,8 @@ export function GeneratingPanel({
       {/* 3-card scene progress (standard with selected scenes) */}
       {showSceneCards && (
         <div className="px-6 pb-3">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {selectedScenes.map((sceneKey, i) => {
+          <div className={`grid gap-2 sm:gap-3 ${effectiveScenes.length <= 3 ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-3'}`}>
+            {effectiveScenes.map((sceneKey, i) => {
               const config = SCENE_CONFIG[sceneKey];
               if (!config) return null;
 
@@ -204,58 +210,6 @@ export function GeneratingPanel({
           </div>
         </div>
       )}
-
-      {/* Simple per-image cards for standard without selectedScenes (backward compat) */}
-      {isStandard && selectedScenes.length === 0 && totalImages > 1 && (
-        <div className="px-6 pb-3">
-          <div className="grid grid-cols-3 gap-2">
-            {Array.from({ length: Math.min(totalImages, 6) }, (_, i) => {
-              const sceneKeys = ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'];
-              const key = sceneKeys[i];
-              const config = key ? SCENE_CONFIG[key] : null;
-              const isDone = i < completedImages;
-              const isActive = i === (activeSceneKey ? sceneOrder.indexOf(activeSceneKey) : completedImages) && !isDone && currentStep?.startsWith('generating');
-
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className={`relative rounded-xl p-2.5 border transition-all ${
-                    isDone
-                      ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
-                      : isActive
-                      ? 'gradient-gold-subtle border-gold animate-glow-gold'
-                      : 'bg-muted/30 border-border/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    {isDone ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : isActive ? (
-                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'hsl(38, 45%, 55%)' }} />
-                    ) : config ? (
-                      <config.Icon className="h-4 w-4 text-muted-foreground/40" />
-                    ) : (
-                      <Camera className="h-4 w-4 text-muted-foreground/40" />
-                    )}
-                    <span className={`text-[11px] font-semibold ${
-                      isDone ? 'text-green-600 dark:text-green-400' : isActive ? 'text-foreground' : 'text-muted-foreground/50'
-                    }`}>
-                      {config?.label || `Gorsel ${i + 1}`}
-                    </span>
-                  </div>
-                  <p className={`text-[9px] leading-tight ${
-                    isDone ? 'text-green-500/70' : isActive ? 'text-muted-foreground' : 'text-muted-foreground/30'
-                  }`}>
-                    {config?.desc}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
       )}
 
       {/* Blurred preview (for single/retouch) */}

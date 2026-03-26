@@ -1,9 +1,11 @@
 node_modules
+backend/node_modules
+backend/dist
 dist
 dist-server
 .git
 .claude
 .planning
+.gsd
 .env
-*.png
-*.md
+data/

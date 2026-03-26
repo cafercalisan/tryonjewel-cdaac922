@@ -2,41 +2,67 @@
 
 ## What This Is
 
-TryOnJewel (Moore Atelier) — Turkish B2B SaaS for jewelry brands. Users upload product photos, select scenes (editorial, e-commerce, model, macro, etc.), and the platform generates professional campaign-quality images and videos using Google Gemini AI. Credit-based pricing (100 free credits on signup, paid tiers up to enterprise).
+TryOnJewel — mücevher ürünlerini AI ile çoklu kullanım senaryolarına dönüştüren görsel üretim platformu. Kullanıcı ürün görseli yükler, platform analiz eder, seçilen moda göre (retouch, sahne, referans fusion, model showcase, experience, video) profesyonel kalitede çıktılar üretir.
 
 ## Core Value
 
-Upload a jewelry photo → get professional campaign-ready images in seconds, replacing expensive studio/model shoots.
+Tek bir ürün fotoğrafından, profesyonel kalitede e-ticaret, editöriyal, model sunumu ve kampanya görselleri üretmek — ürün geometrisini ve metal sadakatini koruyarak.
 
 ## Current State
 
-Fully functional application deployed on Coolify (Hetzner):
-- **18 routes**: Landing, Login, Signup, Dashboard, Generate (v1 + v2 engines), Results, Gallery, ModelGallery, Videos, Studio, Brand, Scenes, Admin, etc.
-- **17 API endpoints**: Auth (signup/login/refresh/me), CRUD (scenes/images/videos/profiles/brand-profiles), AI generation (jewelry v1/v2, video, design, model), admin, storage (upload/signed-url)
-- **Custom auth**: JWT + bcrypt, no third-party auth provider
-- **Storage**: MinIO (S3-compatible) in Docker, replacing prior Supabase storage
-- **Database**: PostgreSQL 16 on bare metal, 8 tables (users, profiles, scenes, images, processing_jobs, videos, user_models, brand_profiles)
-- **Build**: Clean, ~2.8s, code-split lazy routes
+**Mevcut v1 (legacy):** React + Express + PostgreSQL + MinIO + Gemini API
+- Auth: JWT + bcrypt ✅ çalışıyor
+- Storage: MinIO S3 uyumlu ✅ çalışıyor
+- 38 sahne seed data ✅
+- Tek monolitik Generate.tsx (1100+ satır) ile sahne-bazlı üretim
+- 2600 satırlık inline generate-jewelry handler
+- Hetzner'da deploy edilmiş Docker infra
+
+**Planlanan v2:** PRD'ye uygun modüler mimari ile tam yeniden yazım
+- NestJS backend + BullMQ + Redis job queue
+- Ürün analizi, referans analizi, QC pipeline
+- 7 üretim modu (Retouch, Scene, Reference Fusion, Model Showcase, Experience, Video, Master Package)
+- Versiyonlanmış prompt sistemi
 
 ## Architecture / Key Patterns
 
-| Layer | Stack |
-|---|---|
-| Frontend | Vite + React 18 + TypeScript + Tailwind 3 + shadcn/ui + Framer Motion |
-| API | Express server (`server.ts`) wrapping Vercel-style handler functions in `api/` |
-| Database | PostgreSQL 16 via `pg` pool (`api/_lib/db.ts`) |
-| Storage | MinIO via AWS S3 SDK (`api/_lib/storage.ts`) |
-| Auth | Custom JWT (jose + bcrypt) — `api/_lib/auth-local.ts` |
-| AI | Google Gemini 3.1 Flash (analysis + image gen) |
-| Deploy | Docker (nginx + Node.js) on Coolify/Hetzner |
+### Frontend
+- React 18 + TypeScript + Vite + Tailwind + shadcn/ui
+- React Router 6, React Query, Framer Motion
+- Mevcut UI bileşenleri (shadcn/ui) korunacak, sayfalar yeniden yazılacak
 
-Key patterns:
-- API handlers use Express `(req, res)` signature, registered in `server.ts`
-- Frontend calls `/api/*` — nginx proxies to Node.js on port 3001
-- `docker-compose.yml` runs MinIO + app container
-- Frontend auth via `auth-client.ts` (localStorage tokens, auto-refresh)
-- Turkish UI throughout
+### Backend (v2 hedef)
+- NestJS modüler mimari
+- BullMQ + Redis job queue
+- PostgreSQL 16 (mevcut Hetzner DB)
+- MinIO S3 storage (mevcut)
+- Gemini 3.1 Flash + Gemini 3 Pro Image + Veo 3.1
+
+### Yeni Modül Yapısı (hedef)
+```
+backend/
+├── src/
+│   ├── auth/          — JWT auth, guards
+│   ├── products/      — upload, CRUD, set gruplama
+│   ├── references/    — upload, analiz lifecycle
+│   ├── analysis/      — product analyzer, reference analyzer
+│   ├── models/        — model DNA kütüphanesi
+│   ├── scenes/        — sahne kütüphanesi
+│   ├── prompt/        — composer, templates, versioning
+│   ├── generation/    — orchestrator, job oluşturma
+│   ├── workers/       — image worker, video worker, qc worker
+│   ├── qc/            — kalite kontrol skorlama
+│   ├── gallery/       — asset listeleme, filtreleme
+│   ├── admin/         — scene/model/prompt/job yönetimi
+│   └── common/        — storage, database, shared types
+```
+
+## Capability Contract
+
+See `.gsd/REQUIREMENTS.md` for the explicit capability contract.
 
 ## Milestone Sequence
 
-- [ ] M001: Hetzner Self-Hosted — Full platform running self-managed on Hetzner (PostgreSQL, MinIO, app, reverse proxy, SSL, backups)
+- [ ] M003: NestJS Backend Foundation + Core Modes — Tüm backend'i NestJS ile yeniden yaz, 5 temel üretim modunu (Retouch, Scene, Reference Fusion, Model Showcase, Experience) çalıştır, job queue + QC pipeline kur
+- [ ] M004: Frontend Rebuild — Generate akışını PRD'ye uygun çok adımlı wizard'a dönüştür, galeri/admin/video sayfalarını yeniden yaz
+- [ ] M005: Video Pipeline + Master Package — Veo 3.1 video üretimi, Master Package orkestrasyonu, admin dashboard genişletme

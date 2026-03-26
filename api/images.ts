@@ -43,6 +43,10 @@ export default async function handler(req: Request, res: Response) {
             }
           } catch { /* ignore parse error */ }
         }
+        // Fallback: if image status is still generating/pending but job is completed
+        if (image.status !== 'completed' && image.job_status === 'completed') {
+          image.status = 'completed';
+        }
         return sendCorsResponse(res, 200, { data: image });
       }
       const { rows } = await query(

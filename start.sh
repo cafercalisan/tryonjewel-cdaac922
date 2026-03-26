@@ -5,15 +5,8 @@ mkdir -p /run/nginx
 
 MAX_RESTARTS=5
 RESTART_DELAY=2
-restart_count=0
 
-start_node() {
-  echo "Starting Node.js API server (attempt $((restart_count + 1))/$MAX_RESTARTS)..."
-  node dist-server/server.js
-  return $?
-}
-
-# Start nginx and verify it started
+# ── Start nginx ──
 nginx -g "daemon off;" &
 NGINX_PID=$!
 sleep 1
@@ -25,7 +18,28 @@ if ! kill -0 $NGINX_PID 2>/dev/null; then
 fi
 echo "nginx started (PID $NGINX_PID)"
 
-# Node.js restart loop
+# ── Start NestJS v2 API ──
+echo "Starting NestJS v2 API on port 3002..."
+cd /app/backend
+API_V2_PORT=3002 node dist/main.js &
+NEST_PID=$!
+cd /app
+sleep 2
+
+if kill -0 $NEST_PID 2>/dev/null; then
+  echo "NestJS v2 API started (PID $NEST_PID)"
+else
+  echo "WARNING: NestJS v2 API failed to start — legacy API only"
+fi
+
+# ── Legacy Express restart loop ──
+restart_count=0
+start_node() {
+  echo "Starting legacy API server (attempt $((restart_count + 1))/$MAX_RESTARTS)..."
+  node dist-server/server.js
+  return $?
+}
+
 while [ $restart_count -lt $MAX_RESTARTS ]; do
   start_node
   EXIT_CODE=$?
@@ -48,6 +62,8 @@ if [ $restart_count -ge $MAX_RESTARTS ]; then
   echo "Node.js crashed $MAX_RESTARTS times. Giving up."
 fi
 
-# If node loop ends, kill nginx too
+# If legacy node loop ends, kill nest and nginx too
+kill $NEST_PID 2>/dev/null
 kill $NGINX_PID 2>/dev/null
+wait $NEST_PID 2>/dev/null
 wait $NGINX_PID 2>/dev/null
