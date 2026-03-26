@@ -1,14 +1,14 @@
 [
   {
-    "id": "8ce1d67e",
+    "id": "3ebdd05c",
     "label": "hetzner-ssh",
-    "command": "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new root@204.168.148.136",
+    "command": "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 root@204.168.148.136",
     "cwd": "/Users/cafer/Desktop/tryonjewel-cdaac922",
-    "startedAt": 1774550402498,
+    "startedAt": 1774551400381,
     "processType": "shell",
     "group": null,
     "readyPattern": "[#\\$]",
     "readyPort": null,
-    "pid": 50039
+    "pid": 52753
   }
 ]
