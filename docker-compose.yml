@@ -72,8 +72,8 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       API_PORT: 3001
       API_V2_PORT: 3002
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_HOST: ${REDIS_HOST:-tryonjewel-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
     restart: always
     extra_hosts:
       - "host.docker.internal:host-gateway"
