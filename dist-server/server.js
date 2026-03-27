@@ -161,18 +161,22 @@ function sendCorsResponse(res, status, body, req) {
 // api/generate-jewelry.ts
 var GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 var ANALYSIS_MODEL = "gemini-3.1-flash-lite-preview";
-var IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
+var IMAGE_GEN_MODEL = "gemini-3-pro-image-preview";
 async function callGeminiAnalysis(opts) {
   const apiKey = GOOGLE_IMAGE_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_API_KEY not configured");
-  const parts = [{ text: opts.prompt }];
-  if (opts.imageBase64) {
-    parts.push({
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: opts.imageBase64
-      }
-    });
+  const parts = [];
+  const images = opts.imageBase64s || (opts.imageBase64 ? [opts.imageBase64] : []);
+  if (images.length > 1) {
+    parts.push({ text: `Analyze this jewelry piece. The following ${images.length} images show the SAME piece from different angles \u2014 use ALL angles for a complete analysis.` });
+    for (let i = 0; i < images.length; i++) {
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: images[i] } });
+      parts.push({ text: `[Angle ${i + 1}/${images.length}]` });
+    }
+    parts.push({ text: opts.prompt });
+  } else {
+    parts.push({ text: opts.prompt });
+    if (images[0]) parts.push({ inlineData: { mimeType: "image/jpeg", data: images[0] } });
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
   const requestBody = {
@@ -208,6 +212,22 @@ async function callGeminiAnalysis(opts) {
   return text;
 }
 var MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
+async function getMatchingScenesFromDB(category, productType, limit = 1) {
+  const result = await query(
+    `SELECT name, prompt, sub_category FROM scenes
+     WHERE category = $1 AND (product_type_category = $2 OR product_type_category = 'genel')
+     ORDER BY RANDOM() LIMIT $3`,
+    [category, productType, limit]
+  );
+  if (result.rows.length === 0) {
+    const fallback = await query(
+      `SELECT name, prompt, sub_category FROM scenes WHERE category = $1 ORDER BY RANDOM() LIMIT $2`,
+      [category, limit]
+    );
+    return fallback.rows;
+  }
+  return result.rows;
+}
 var EDITORIAL_SCENE_POOL = [
   // ── Outdoor / Dis Cekim (6) ──
   {
@@ -964,11 +984,16 @@ DO NOT alter proportions. The piece must maintain its EXACT shape.
 ANY deviation from this identity card is a CRITICAL ERROR.
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`.trim();
 }
-function buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard) {
-  const categories = [...new Set(EDITORIAL_SCENE_POOL.map((s) => s.category))];
-  const chosenCategory = pickRandom(categories);
-  const scenesInCategory = EDITORIAL_SCENE_POOL.filter((s) => s.category === chosenCategory);
-  const scene = pickRandom(scenesInCategory);
+function buildEditorialPrompt(analysisResult, fidelityBlock, productExtractionBlock, identityCard, dbScene) {
+  let scene;
+  if (dbScene) {
+    scene = { name: dbScene.name, prompt: dbScene.prompt, category: dbScene.sub_category };
+  } else {
+    const categories = [...new Set(EDITORIAL_SCENE_POOL.map((s) => s.category))];
+    const chosenCategory = pickRandom(categories);
+    const scenesInCategory = EDITORIAL_SCENE_POOL.filter((s) => s.category === chosenCategory);
+    scene = pickRandom(scenesInCategory);
+  }
   const lighting = pickRandom(LIGHTING_ANGLES);
   const camera = pickRandom(CAMERA_PERSPECTIVES);
   console.log(`Editorial scene: ${scene.name} [${scene.category}], Lighting: ${lighting.substring(0, 40)}..., Camera: ${camera.substring(0, 30)}...`);
@@ -994,6 +1019,7 @@ CREATIVE DIRECTION:
 - Shallow depth of field with soft bokeh background
 - The jewelry is the clear focal point \u2014 scene complements, never distracts
 - Authentic color grading \u2014 warm, natural, not over-processed
+- ABSOLUTELY NO HANDS, NO MODELS, NO HUMAN ELEMENTS \u2014 product only
 
 TECHNICAL:
 - 4:5 portrait aspect ratio
@@ -1415,13 +1441,28 @@ async function callGeminiImageGeneration({
   aspectRatio = "3:4"
 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
-  const parts = [{ text: prompt }];
-  for (const base64Image of base64Images) {
-    parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Image } });
+  const parts = [];
+  if (base64Images.length === 1) {
+    parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Images[0] } });
+    parts.push({ text: `REFERENCE JEWELRY IMAGE (above): This is the exact jewelry piece to reproduce.
+
+${prompt}` });
+  } else {
+    parts.push({ text: `REFERENCE JEWELRY IMAGES: The following ${base64Images.length} images show the SAME jewelry piece from different angles. Study ALL of them carefully to capture every detail.` });
+    for (let i = 0; i < base64Images.length; i++) {
+      parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Images[i] } });
+      parts.push({ text: `[Reference angle ${i + 1}/${base64Images.length}]` });
+    }
+    parts.push({ text: `
+USING ALL ${base64Images.length} REFERENCE IMAGES ABOVE \u2014 reproduce this exact jewelry with perfect fidelity:
+
+${prompt}` });
   }
   return await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(4 * 60 * 1e3),
+    // 4 min per image max
     body: JSON.stringify({
       contents: [{ parts }],
       generationConfig: {
@@ -1607,6 +1648,13 @@ async function processGeneration(params) {
       console.log("Analyzing style reference...");
       await query("UPDATE processing_jobs SET current_step = $1, progress = $2 WHERE id = $3", ["analyzing_style", 12, jobId]);
       styleAnalysis = await analyzeStyleReference(styleReferenceBase64);
+      if (styleAnalysis) {
+        await query(
+          "UPDATE images SET style_analysis_data = $1 WHERE id = $2",
+          [JSON.stringify(styleAnalysis), imageRecordId]
+        );
+        console.log("Style analysis saved to DB");
+      }
     }
     let scene = null;
     if (!hasStyleReference && sceneId && uuidRegex.test(sceneId)) {
@@ -1630,7 +1678,6 @@ async function processGeneration(params) {
     if (base64Images.length === 0) {
       throw new Error("Image too large. Max 1.5MB.");
     }
-    const base64Image = base64Images[0];
     console.log("Step 1: Analyzing jewelry...");
     await query("UPDATE processing_jobs SET progress = $1 WHERE id = $2", [15, jobId]);
     const analysisPrompt = `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
@@ -1743,7 +1790,7 @@ ONLY valid JSON.`;
     try {
       const analysisContent = await callGeminiAnalysis({
         prompt: analysisPrompt,
-        imageBase64: base64Image
+        imageBase64s: base64Images
       });
       console.log("Raw analysis content (first 500 chars):", analysisContent.substring(0, 500));
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, "").trim());
@@ -1935,68 +1982,89 @@ ${brandProfile.brand_dna_prompt}
 ${brandDnaBlock}` : fidelityBlock;
     const generatedUrls = [];
     if (isRetouchPackage) {
-      console.log("Retouch Package: Professional photo enhancement...");
-      const retouchPrompt = `
+      console.log("Retouch Package: Multi-angle professional photo enhancement (4 views)...");
+      const retouchAngles = [
+        {
+          key: "front",
+          label: "FRONTAL VIEW",
+          camera: `Camera: Straight-on frontal shot, camera perfectly aligned with the product center. The jewelry fills 70-80% of the frame height. Lens: 90-100mm macro equivalent, f/8 for full sharpness edge-to-edge. This is the hero product shot \u2014 pristine, centered, definitive.`,
+          lighting: `Lighting: Two softboxes at 45\xB0 left and right (key+fill), overhead strip light for top sparkle. Even, shadow-free, commercial. White bounce below for under-chin fill on raised pieces.`
+        },
+        {
+          key: "three_quarter",
+          label: "THREE-QUARTER VIEW (30-40\xB0 rotation)",
+          camera: `Camera: Three-quarter angle shot (approximately 30-40\xB0 rotation from frontal). Camera slightly elevated (10-15\xB0 above eye level). This angle reveals depth and three-dimensionality of the piece. Lens: 90mm macro, f/5.6 for gentle depth falloff on the far edge.`,
+          lighting: `Lighting: Key light shifted to match the viewing angle (front-left at 40\xB0), accent rim light from back-right to separate edge from background. Gentle shadow under the piece adds dimensionality.`
+        },
+        {
+          key: "side",
+          label: "SIDE PROFILE VIEW (90\xB0 rotation)",
+          camera: `Camera: Pure side profile shot (90\xB0 rotation from frontal view). Camera at product eye-level, capturing the thinnest silhouette. This view communicates scale and proportion that frontal cannot. Lens: 100mm macro, f/8, razor-sharp across the narrow depth plane.`,
+          lighting: `Lighting: Single key light directly opposite the camera creating a dramatic rim/edge light. Fill card on camera side to lift shadow detail. This reveals surface texture and engraving.`
+        },
+        {
+          key: "top_down",
+          label: "TOP-DOWN / BIRD'S EYE VIEW",
+          camera: `Camera: Top-down (bird's eye) shot, camera directly above the product looking straight down. Product laying flat on the surface. This angle is crucial for showing stone arrangement, engraving patterns, and symmetry. Lens: 85mm, f/11 for maximum depth of field across the flat plane.`,
+          lighting: `Lighting: Ring light or circular softbox directly around the lens for even overhead illumination. No directional shadow \u2014 the flat lay demands shadowless clarity. Subtle dark card below camera to add contrast to metal reflections.`
+        }
+      ];
+      for (let i = 0; i < retouchAngles.length; i++) {
+        const angle = retouchAngles[i];
+        console.log(`Retouch angle ${i + 1}/4: ${angle.label}...`);
+        const anglePrompt = `
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-PROFESSIONAL JEWELRY RETOUCHING \u2014 8-STEP MASTER WORKFLOW
+PROFESSIONAL JEWELRY RETOUCHING \u2014 ${angle.label}
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 You are operating as a professional high-end jewelry photo retoucher.
-This is a PRECISION IMAGE ENHANCEMENT task, NOT creative generation.
+Generate a retouched e-commerce product image of this jewelry from the ${angle.label}.
+
+IMPORTANT: Render the product as it would appear when photographed from this specific angle.
+Use the provided reference image to understand the product's exact geometry, then mentally rotate it to the requested angle.
+The output must look like a real photograph taken from this angle \u2014 not a digital rotation or distortion of the original.
 
 ABSOLUTE PRODUCT INTEGRITY RULES (CRITICAL):
 - Do NOT change product geometry, proportions, or scale
 - Do NOT add, remove, resize or reshape stones
 - Do NOT modify stone count, cut, setting or prong structure
 - Do NOT change metal structure, engravings or design language
+- Maintain absolute fidelity to the product design: same stones, same metal, same proportions
 
-STEP 1 \u2014 DUST & DEFECT REMOVAL
-Remove all dust particles, fingerprints, micro-scratches, lint fibers.
-Clean sensor spots and environmental contamination. Surface should be immaculate.
+${angle.camera}
 
-STEP 2 \u2014 FREQUENCY SEPARATION
-Separate texture from color. Preserve real metal grain/texture on high-frequency layer.
-Smooth color transitions on low-frequency layer. NO plastic/airbrushed look.
+${angle.lighting}
 
-STEP 3 \u2014 BACKGROUND ISOLATION
-Precision edge masking. Pure white background (RGB 255,255,255).
-Sub-pixel edge accuracy. No halo, no fringing, no lost detail at edges.
-Preserve fine elements: chain links, prong tips, filigree details.
+RETOUCHING WORKFLOW:
+1. BACKGROUND: Pure white (#FFFFFF) seamless studio background
+2. DUST/DEFECT REMOVAL: Remove all particles, fingerprints, scratches
+3. COLOR CORRECTION: D65 white balance, accurate metal & stone colors
+4. METAL REFINEMENT: Remove handling marks, enhance specular highlights naturally
+5. GEMSTONE ENHANCEMENT: Increase facet definition, brilliance, fire
+6. SHADOW: Subtle ground shadow for depth (soft, 10-15% opacity)
+7. SHARPENING: Selective high-pass sharpening on edges and details
 
-STEP 4 \u2014 COLOR CORRECTION
-White balance to D65 (6500K daylight equivalent).
-Metal accuracy: yellow gold warm, white gold/platinum cool neutral, rose gold pink-warm.
-Stone color: true-to-life saturation, no oversaturation.
-
-STEP 5 \u2014 METAL SURFACE REFINEMENT
-Remove handling marks. Restore surface uniformity.
-Polished: mirror-clean reflections. Matte/brushed: preserve grain direction.
-Enhance specular highlights naturally \u2014 no HDR artifacts.
-
-STEP 6 \u2014 GEMSTONE ENHANCEMENT
-Increase facet definition and internal light paths.
-Enhance brilliance (white light return), fire (spectral dispersion), scintillation.
-Preserve natural inclusions. NO artificial sparkle overlay.
-
-STEP 7 \u2014 SHADOW & DIMENSION
-Add subtle ground shadow for depth (soft, diffused, 10-15% opacity).
-Enhance three-dimensionality through subtle dodge & burn.
-Contact shadow where product meets surface.
-
-STEP 8 \u2014 FINAL SHARPENING
-Selective high-pass sharpening on edges and detail areas.
-Avoid sharpening smooth metal surfaces (prevents noise amplification).
-Output: commercially clean, catalog-ready image.
-
-OUTPUT: Single professionally retouched jewelry image on pure white background.
-Ultra high resolution output.`.trim();
-      await query("UPDATE processing_jobs SET progress = $1 WHERE id = $2", [28, jobId]);
-      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, null, jobId, aspectRatio);
-      if (retouchUrl) {
-        generatedUrls.push(retouchUrl);
-        console.log("Retouch complete");
+OUTPUT: A single professionally retouched jewelry image from the ${angle.label}, on pure white background. Ultra high resolution.`.trim();
+        await query("UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3", [
+          Math.round(10 + i / retouchAngles.length * 70),
+          `generating_${angle.key}`,
+          jobId
+        ]);
+        const retouchUrl = await generateSingleImage(base64Images, anglePrompt, userId, imageRecordId, i, null, jobId, aspectRatio);
+        if (retouchUrl) {
+          generatedUrls.push(retouchUrl);
+          console.log(`Retouch ${angle.key} complete (${i + 1}/4)`);
+        } else {
+          console.warn(`Retouch ${angle.key} failed, continuing with remaining angles...`);
+        }
+        await query("UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3", [
+          generatedUrls.length,
+          Math.round(10 + (i + 1) / retouchAngles.length * 80),
+          jobId
+        ]);
       }
-      await query("UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3", [generatedUrls.length, 90, jobId]);
+      console.log(`Retouch multi-angle complete: ${generatedUrls.length}/4 images generated`);
+      await query("UPDATE processing_jobs SET progress = $1 WHERE id = $2", [90, jobId]);
     } else if (packageType === "single") {
       console.log("Single (Tekil) Package: Custom single image generation...");
       const identityCard = buildProductIdentityCard(analysisResult);
@@ -2054,11 +2122,12 @@ Ultra high resolution output.`.trim();
           key: "editorial",
           step: "generating_editorial",
           label: "Editorial",
-          buildPrompt: (ic) => {
+          buildPrompt: async (ic) => {
             if (hasStyleReference && styleReferenceBase64) {
               return buildStyleTransferPrompt(styleAnalysis, resolvedProductType, fidelityBlockWithBrand, productExtractionBlock, ic);
             }
-            return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+            const dbScenes = await getMatchingScenesFromDB("editorial", resolvedProductType);
+            return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
           },
           getImages: () => {
             if (hasStyleReference && styleReferenceBase64) {
@@ -2072,39 +2141,51 @@ Ultra high resolution output.`.trim();
           key: "ecommerce",
           step: "generating_ecommerce",
           label: "E-Commerce",
-          buildPrompt: (ic) => buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
+          buildPrompt: async (ic) => {
+            const dbScenes = await getMatchingScenesFromDB("ecommerce", resolvedProductType);
+            if (dbScenes[0]) {
+              return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
+            }
+            return buildEcommercePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+          },
           startTemperature: 0.1
         },
         {
           key: "model",
           step: "generating_model",
           label: "Model",
-          buildPrompt: (ic) => buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic) => buildModelPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12
         },
         {
           key: "macro",
           step: "generating_macro",
           label: "Macro Detail",
-          buildPrompt: (ic) => buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic),
+          buildPrompt: async (ic) => {
+            const dbScenes = await getMatchingScenesFromDB("macro", resolvedProductType);
+            if (dbScenes[0]) {
+              return buildEditorialPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, dbScenes[0]);
+            }
+            return buildMacroPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic);
+          },
           startTemperature: 0.12
         },
         {
           key: "model_closeup",
           step: "generating_model_closeup",
           label: "Model Close-Up",
-          buildPrompt: (ic) => buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic) => buildModelCloseUpPrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12
         },
         {
           key: "model_lifestyle",
           step: "generating_model_lifestyle",
           label: "Model Lifestyle",
-          buildPrompt: (ic) => buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
+          buildPrompt: async (ic) => buildModelLifestylePrompt(analysisResult, fidelityBlockWithBrand, productExtractionBlock, resolvedProductType, ic),
           startTemperature: 0.12
         }
       ];
-      const filteredSteps = paramSelectedScenes ? masterSteps.filter((s) => paramSelectedScenes.includes(s.key)) : masterSteps;
+      const filteredSteps = paramSelectedScenes ? paramSelectedScenes.map((key) => masterSteps.find((s) => s.key === key)).filter((s) => s !== void 0) : masterSteps;
       console.log(`Generating ${filteredSteps.length} scenes: ${filteredSteps.map((s) => s.key).join(", ")}`);
       if (paramSelectedScenes) {
         await query("UPDATE processing_jobs SET total_images = $1 WHERE id = $2", [filteredSteps.length, jobId]);
@@ -2118,7 +2199,7 @@ Ultra high resolution output.`.trim();
         const endProgress = Math.round(25 + (i + 1) * perStep);
         await query("UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3", [startProgress, ms.step, jobId]);
         const stepIdentityCard = buildIdentityCardForStep(i, filteredSteps.length);
-        const basePrompt = ms.buildPrompt(stepIdentityCard);
+        const basePrompt = await ms.buildPrompt(stepIdentityCard);
         const prompt = await enhanceScenePrompt(basePrompt, analysisResult, ms.key);
         const images = ms.getImages ? ms.getImages() : base64Images;
         const temperature = ms.startTemperature ?? 0.12;
@@ -2142,7 +2223,19 @@ Ultra high resolution output.`.trim();
       await query("UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5", ["failed", "G\xF6rsel olu\u015Fturulamad\u0131", 100, "failed", jobId]);
       return;
     }
-    await query("UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3", ["completed", generatedUrls, imageRecordId]);
+    const pgArrayLiteral = `{${generatedUrls.map((u) => `"${u}"`).join(",")}}`;
+    console.log("Saving generated URLs to images table:", pgArrayLiteral);
+    try {
+      await query("UPDATE images SET status = $1, generated_image_urls = $2::text[] WHERE id = $3", ["completed", pgArrayLiteral, imageRecordId]);
+      console.log("Images table updated successfully");
+    } catch (imgUpdateErr) {
+      console.error("CRITICAL: Failed to update images table:", imgUpdateErr);
+      try {
+        await query("UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3", ["completed", generatedUrls, imageRecordId]);
+      } catch (fallbackErr) {
+        console.error("CRITICAL: Fallback also failed:", fallbackErr);
+      }
+    }
     await query("UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4, completed_images = $5 WHERE id = $6", ["completed", 100, "completed", JSON.stringify(generatedUrls), generatedUrls.length, jobId]);
     console.log("Generation complete:", generatedUrls.length, "images");
   } catch (error) {
@@ -2207,7 +2300,7 @@ async function handler(req, res) {
     const validatedCustomPrompt = isSinglePackage && typeof customPrompt === "string" ? customPrompt.trim().substring(0, 500) : void 0;
     const stuckResult = await query(
       "SELECT id, image_record_id FROM processing_jobs WHERE user_id = $1 AND status = ANY($2::text[]) AND updated_at < $3",
-      [userId, ["pending", "generating"], new Date(Date.now() - 2 * 60 * 1e3).toISOString()]
+      [userId, ["pending", "generating"], new Date(Date.now() - 15 * 60 * 1e3).toISOString()]
     );
     const stuckJobs = stuckResult.rows;
     if (stuckJobs && stuckJobs.length > 0) {
@@ -2256,7 +2349,7 @@ async function handler(req, res) {
     );
     if (!imageRecord) throw new Error("Failed to create image record");
     const imageRecordId = imageRecord.id;
-    const totalImages = isSinglePackage || isRetouchPackage ? 1 : validatedSelectedScenes ? validatedSelectedScenes.length : 6;
+    const totalImages = isRetouchPackage ? 4 : isSinglePackage ? 1 : validatedSelectedScenes ? validatedSelectedScenes.length : 6;
     const jobRecord = await queryOne(
       "INSERT INTO processing_jobs (user_id, image_record_id, status, total_images, completed_images, progress, current_step, credits_used) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
       [userId, imageRecordId, "pending", totalImages, 0, 0, "pending", isAdminUser ? 0 : creditsNeeded]
@@ -2264,7 +2357,7 @@ async function handler(req, res) {
     if (!jobRecord) throw new Error("Failed to create processing job");
     const jobRecordId = jobRecord.id;
     console.log(`Job created: ${jobRecordId}, Image record: ${imageRecordId}`);
-    processGeneration({
+    const n8nPayload = {
       userId,
       imageRecordId,
       jobId: jobRecordId,
@@ -2280,7 +2373,23 @@ async function handler(req, res) {
       isAdminUser,
       selectedScenes: validatedSelectedScenes,
       customPrompt: validatedCustomPrompt
-    }).catch((err) => console.error("Background generation error:", err));
+    };
+    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "http://n8n:5678/webhook/generate-jewelry";
+    const N8N_SECRET = process.env.N8N_WEBHOOK_SECRET || "n8n-tryonjewel-secret-2026";
+    const USE_N8N = process.env.USE_N8N === "true";
+    if (USE_N8N) {
+      fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Webhook-Secret": N8N_SECRET },
+        body: JSON.stringify(n8nPayload),
+        signal: AbortSignal.timeout(1e4)
+      }).catch(async (err) => {
+        console.error("n8n webhook failed, falling back to inline:", err?.message);
+        processGeneration(n8nPayload).catch((e) => console.error("Fallback generation error:", e));
+      });
+    } else {
+      processGeneration(n8nPayload).catch((err) => console.error("Background generation error:", err));
+    }
     return sendCorsResponse(res, 200, {
       success: true,
       jobId: jobRecordId,
@@ -2306,13 +2415,22 @@ async function handler(req, res) {
 // api/generate-jewelry-v2.ts
 var GOOGLE_IMAGE_API_KEY2 = process.env.GOOGLE_API_KEY;
 var ANALYSIS_MODEL2 = "gemini-3.1-flash-lite-preview";
-var IMAGE_GEN_MODEL2 = "gemini-3.1-flash-image-preview";
+var IMAGE_GEN_MODEL2 = "gemini-3-pro-image-preview";
 async function callGeminiAnalysis2(opts) {
   const apiKey = GOOGLE_IMAGE_API_KEY2;
   if (!apiKey) throw new Error("GOOGLE_API_KEY not configured");
-  const parts = [{ text: opts.prompt }];
-  if (opts.imageBase64) {
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: opts.imageBase64 } });
+  const parts = [];
+  const images = opts.imageBase64s || (opts.imageBase64 ? [opts.imageBase64] : []);
+  if (images.length > 1) {
+    parts.push({ text: `Analyze this jewelry piece. The following ${images.length} images show the SAME piece from different angles \u2014 use ALL angles for a complete analysis.` });
+    for (let i = 0; i < images.length; i++) {
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: images[i] } });
+      parts.push({ text: `[Angle ${i + 1}/${images.length}]` });
+    }
+    parts.push({ text: opts.prompt });
+  } else {
+    parts.push({ text: opts.prompt });
+    if (images[0]) parts.push({ inlineData: { mimeType: "image/jpeg", data: images[0] } });
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL2}:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
@@ -2350,19 +2468,37 @@ async function callGeminiImageGeneration2({
   aspectRatio = "3:4"
 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL2}:generateContent?key=${GOOGLE_IMAGE_API_KEY2}`;
-  const parts = [{ text: prompt }];
-  for (const b64 of base64Images) {
-    parts.push({ inline_data: { mime_type: "image/jpeg", data: b64 } });
+  const parts = [];
+  if (base64Images.length === 1) {
+    parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Images[0] } });
+    parts.push({ text: `REFERENCE JEWELRY IMAGE (above): This is the exact jewelry piece to reproduce.
+
+${prompt}` });
+  } else {
+    parts.push({ text: `REFERENCE JEWELRY IMAGES: The following ${base64Images.length} images show the SAME jewelry piece from different angles. Study ALL of them carefully to capture every detail \u2014 shape, metal color, stone cuts, engravings, and proportions.` });
+    for (let i = 0; i < base64Images.length; i++) {
+      parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Images[i] } });
+      parts.push({ text: `[Reference angle ${i + 1}/${base64Images.length}]` });
+    }
+    parts.push({ text: `
+USING ALL ${base64Images.length} REFERENCE IMAGES ABOVE \u2014 reproduce this exact jewelry with perfect fidelity:
+
+${prompt}` });
   }
   return await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(4 * 60 * 1e3),
+    // 4 min per image max
     body: JSON.stringify({
       contents: [{ parts }],
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"],
         temperature,
-        imageConfig: { aspectRatio, imageSize: "4K" }
+        imageConfig: {
+          aspectRatio,
+          imageSize: "4K"
+        }
       }
     })
   });
@@ -3074,7 +3210,8 @@ function buildModelPromptV2(analysisResult, fidelityBlock, productExtractionBloc
   const gaze = pickRandom2(CHARACTER_GAZE2);
   const expression = pickRandom2(CHARACTER_EXPRESSIONS2);
   const persona = pickRandom2(CHARACTER_PERSONAS2);
-  const outfit = pickRandom2(OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType)) || OUTFIT_POOL2);
+  const _outfitPool873 = OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType));
+  const outfit = pickRandom2(_outfitPool873.length > 0 ? _outfitPool873 : OUTFIT_POOL2);
   const lens = selectLens("model", userLens);
   const angle = selectAngle(userAngle);
   const lighting = selectLighting("model", aesthetic.key, userLighting);
@@ -3155,7 +3292,8 @@ function buildModelCloseUpPromptV2(analysisResult, fidelityBlock, productExtract
   const config = PRODUCT_TYPE_MODEL_CONFIG2[productType] || PRODUCT_TYPE_MODEL_CONFIG2["genel"];
   const pose = pickRandom2(config.poses);
   const persona = pickRandom2(CHARACTER_PERSONAS2);
-  const outfit = pickRandom2(OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType)) || OUTFIT_POOL2);
+  const _outfitPool970 = OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType));
+  const outfit = pickRandom2(_outfitPool970.length > 0 ? _outfitPool970 : OUTFIT_POOL2);
   const lighting = selectLighting("model_closeup", aesthetic.key, userLighting);
   console.log(`V2 Model Close-Up \u2014 Persona: ${persona.name}, Aesthetic: ${aesthetic.name}`);
   const sixBlock = buildSixBlockJSON({
@@ -3202,7 +3340,8 @@ function buildModelLifestylePromptV2(analysisResult, fidelityBlock, productExtra
   const gaze = pickRandom2(CHARACTER_GAZE2);
   const expression = pickRandom2(CHARACTER_EXPRESSIONS2);
   const persona = pickRandom2(CHARACTER_PERSONAS2);
-  const outfit = pickRandom2(OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType)) || OUTFIT_POOL2);
+  const _outfitPool1026 = OUTFIT_POOL2.filter((o) => o.bestFor.includes(productType));
+  const outfit = pickRandom2(_outfitPool1026.length > 0 ? _outfitPool1026 : OUTFIT_POOL2);
   const lens = selectLens("model_lifestyle", userLens);
   const lighting = selectLighting("model_lifestyle", aesthetic.key, userLighting);
   const lifestyleScenes = [
@@ -3494,7 +3633,7 @@ CRITICAL: Count EVERY stone precisely. "visual_fingerprint" = 5-7 sentences. "vi
 ONLY valid JSON.`;
     let analysisResult = { type: "jewelry", design_elements: { style: "classic" } };
     try {
-      const analysisContent = await callGeminiAnalysis2({ prompt: analysisPrompt, imageBase64: base64Image });
+      const analysisContent = await callGeminiAnalysis2({ prompt: analysisPrompt, imageBase64s: base64Images });
       analysisResult = JSON.parse(analysisContent.replace(/```json\n?|\n?```/g, "").trim());
     } catch (err) {
       console.error("V2 Jewelry analysis failed:", err?.message || err);
@@ -3766,7 +3905,7 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
       return;
     }
     await query("UPDATE images SET status = $1, generated_image_urls = $2 WHERE id = $3", ["completed", generatedUrls, imageRecordId]);
-    await query("UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4, completed_images = $5 WHERE id = $6", ["completed", 100, "completed", generatedUrls, generatedUrls.length, jobId]);
+    await query("UPDATE processing_jobs SET status = $1, progress = $2, current_step = $3, result_urls = $4::jsonb, completed_images = $5 WHERE id = $6", ["completed", 100, "completed", JSON.stringify(generatedUrls), generatedUrls.length, jobId]);
     console.log("V2 Generation complete:", generatedUrls.length, "images");
   } catch (error) {
     console.error("V2 Processing error:", error);
@@ -3859,7 +3998,7 @@ async function handler2(req, res) {
     const validatedCustomPrompt = isSinglePackage && typeof customPrompt === "string" ? customPrompt.trim().substring(0, 500) : void 0;
     const stuckResult = await query(
       "SELECT id, image_record_id FROM processing_jobs WHERE user_id = $1 AND status = ANY($2::text[]) AND updated_at < $3",
-      [userId, ["pending", "generating"], new Date(Date.now() - 2 * 60 * 1e3).toISOString()]
+      [userId, ["pending", "generating"], new Date(Date.now() - 15 * 60 * 1e3).toISOString()]
     );
     const stuckJobs = stuckResult.rows;
     if (stuckJobs && stuckJobs.length > 0) {
@@ -5178,9 +5317,19 @@ async function handler13(req, res) {
     if ("error" in authResult) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
     }
-    const { rows } = await query(
-      "SELECT * FROM scenes ORDER BY sort_order ASC, created_at ASC"
-    );
+    const { category, product_type } = req.query;
+    let sql = "SELECT * FROM scenes WHERE 1=1";
+    const params = [];
+    if (category) {
+      params.push(category);
+      sql += ` AND category = $${params.length}`;
+    }
+    if (product_type) {
+      params.push(product_type);
+      sql += ` AND (product_type_category = $${params.length} OR product_type_category = 'genel')`;
+    }
+    sql += " ORDER BY sort_order ASC, created_at ASC";
+    const { rows } = await query(sql, params);
     return sendCorsResponse(res, 200, { data: rows });
   } catch (err) {
     console.error("Scenes error:", err);
@@ -5199,6 +5348,35 @@ async function handler14(req, res) {
     }
     const { userId } = authResult;
     if (req.method === "GET") {
+      const imageId = req.query?.id;
+      if (imageId) {
+        const image = await queryOne(
+          `SELECT i.*, pj.result_urls as job_result_urls, pj.status as job_status
+           FROM images i
+           LEFT JOIN processing_jobs pj ON pj.image_record_id = i.id
+           WHERE i.id = $1 AND i.user_id = $2`,
+          [imageId, userId]
+        );
+        if (!image) {
+          return sendCorsResponse(res, 404, { error: "Image not found" });
+        }
+        if ((!image.generated_image_urls || image.generated_image_urls.length === 0) && image.job_result_urls) {
+          try {
+            const urls = typeof image.job_result_urls === "string" ? JSON.parse(image.job_result_urls) : image.job_result_urls;
+            if (Array.isArray(urls) && urls.length > 0) {
+              image.generated_image_urls = urls;
+              if (image.job_status === "completed") {
+                image.status = "completed";
+              }
+            }
+          } catch {
+          }
+        }
+        if (image.status !== "completed" && image.job_status === "completed") {
+          image.status = "completed";
+        }
+        return sendCorsResponse(res, 200, { data: image });
+      }
       const { rows } = await query(
         "SELECT * FROM images WHERE user_id = $1 ORDER BY created_at DESC",
         [userId]
@@ -5234,10 +5412,41 @@ async function handler14(req, res) {
 async function handler15(req, res) {
   handleCors(res, req);
   if (req.method === "OPTIONS") return res.status(200).end();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.removeHeader("ETag");
+  res.removeHeader("Last-Modified");
   try {
     const authResult = await authenticateUser(req);
     if ("error" in authResult) {
       return sendCorsResponse(res, authResult.status, { error: authResult.error });
+    }
+    if (req.method === "POST" && (req.params?.id === "cancel" || req.path?.endsWith("/cancel"))) {
+      const jobId2 = req.body?.jobId;
+      if (jobId2) {
+        await query(
+          `UPDATE processing_jobs SET status = 'cancelled', error_message = 'Kullan\u0131c\u0131 taraf\u0131ndan iptal edildi'
+           WHERE id = $1 AND user_id = $2 AND status IN ('pending', 'generating')`,
+          [jobId2, authResult.userId]
+        );
+      } else {
+        await query(
+          `UPDATE processing_jobs SET status = 'cancelled', error_message = 'Kullan\u0131c\u0131 taraf\u0131ndan iptal edildi'
+           WHERE user_id = $1 AND status IN ('pending', 'generating')`,
+          [authResult.userId]
+        );
+      }
+      return sendCorsResponse(res, 200, { success: true });
+    }
+    if (req.params?.id === "active" || req.path?.endsWith("/active")) {
+      const job2 = await queryOne(
+        `SELECT * FROM processing_jobs
+         WHERE user_id = $1
+         AND status IN ('pending', 'generating')
+         ORDER BY created_at DESC LIMIT 1`,
+        [authResult.userId]
+      );
+      return sendCorsResponse(res, 200, { data: job2 || null });
     }
     const jobId = req.params?.id || req.query?.id || req.body?.id;
     if (!jobId) {
@@ -5581,6 +5790,8 @@ app.all("/api/admin-set-credits", handler6);
 app.all("/api/admin-data", handler20);
 app.all("/api/scenes", handler13);
 app.all("/api/images", handler14);
+app.get("/api/processing-jobs/active", handler15);
+app.post("/api/processing-jobs/cancel", handler15);
 app.get("/api/processing-jobs/:id", handler15);
 app.all("/api/processing-jobs", handler15);
 app.all("/api/profile", handler16);

@@ -1986,72 +1986,97 @@ FORBIDDEN:
     // ═══════════════════════════════════════════════════
 
     if (isRetouchPackage) {
-      console.log('Retouch Package: Professional photo enhancement...');
+      console.log('Retouch Package: Multi-angle professional photo enhancement (4 views)...');
 
-      const retouchPrompt = `
+      const retouchAngles = [
+        {
+          key: 'front',
+          label: 'FRONTAL VIEW',
+          camera: `Camera: Straight-on frontal shot, camera perfectly aligned with the product center. The jewelry fills 70-80% of the frame height. Lens: 90-100mm macro equivalent, f/8 for full sharpness edge-to-edge. This is the hero product shot — pristine, centered, definitive.`,
+          lighting: `Lighting: Two softboxes at 45° left and right (key+fill), overhead strip light for top sparkle. Even, shadow-free, commercial. White bounce below for under-chin fill on raised pieces.`,
+        },
+        {
+          key: 'three_quarter',
+          label: 'THREE-QUARTER VIEW (30-40° rotation)',
+          camera: `Camera: Three-quarter angle shot (approximately 30-40° rotation from frontal). Camera slightly elevated (10-15° above eye level). This angle reveals depth and three-dimensionality of the piece. Lens: 90mm macro, f/5.6 for gentle depth falloff on the far edge.`,
+          lighting: `Lighting: Key light shifted to match the viewing angle (front-left at 40°), accent rim light from back-right to separate edge from background. Gentle shadow under the piece adds dimensionality.`,
+        },
+        {
+          key: 'side',
+          label: 'SIDE PROFILE VIEW (90° rotation)',
+          camera: `Camera: Pure side profile shot (90° rotation from frontal view). Camera at product eye-level, capturing the thinnest silhouette. This view communicates scale and proportion that frontal cannot. Lens: 100mm macro, f/8, razor-sharp across the narrow depth plane.`,
+          lighting: `Lighting: Single key light directly opposite the camera creating a dramatic rim/edge light. Fill card on camera side to lift shadow detail. This reveals surface texture and engraving.`,
+        },
+        {
+          key: 'top_down',
+          label: 'TOP-DOWN / BIRD\'S EYE VIEW',
+          camera: `Camera: Top-down (bird's eye) shot, camera directly above the product looking straight down. Product laying flat on the surface. This angle is crucial for showing stone arrangement, engraving patterns, and symmetry. Lens: 85mm, f/11 for maximum depth of field across the flat plane.`,
+          lighting: `Lighting: Ring light or circular softbox directly around the lens for even overhead illumination. No directional shadow — the flat lay demands shadowless clarity. Subtle dark card below camera to add contrast to metal reflections.`,
+        },
+      ];
+
+      for (let i = 0; i < retouchAngles.length; i++) {
+        const angle = retouchAngles[i];
+        console.log(`Retouch angle ${i + 1}/4: ${angle.label}...`);
+
+        const anglePrompt = `
 ═══════════════════════════════════════════════════════════════
-PROFESSIONAL JEWELRY RETOUCHING — 8-STEP MASTER WORKFLOW
+PROFESSIONAL JEWELRY RETOUCHING — ${angle.label}
 ═══════════════════════════════════════════════════════════════
 
 You are operating as a professional high-end jewelry photo retoucher.
-This is a PRECISION IMAGE ENHANCEMENT task, NOT creative generation.
+Generate a retouched e-commerce product image of this jewelry from the ${angle.label}.
+
+IMPORTANT: Render the product as it would appear when photographed from this specific angle.
+Use the provided reference image to understand the product's exact geometry, then mentally rotate it to the requested angle.
+The output must look like a real photograph taken from this angle — not a digital rotation or distortion of the original.
 
 ABSOLUTE PRODUCT INTEGRITY RULES (CRITICAL):
 - Do NOT change product geometry, proportions, or scale
 - Do NOT add, remove, resize or reshape stones
 - Do NOT modify stone count, cut, setting or prong structure
 - Do NOT change metal structure, engravings or design language
+- Maintain absolute fidelity to the product design: same stones, same metal, same proportions
 
-STEP 1 — DUST & DEFECT REMOVAL
-Remove all dust particles, fingerprints, micro-scratches, lint fibers.
-Clean sensor spots and environmental contamination. Surface should be immaculate.
+${angle.camera}
 
-STEP 2 — FREQUENCY SEPARATION
-Separate texture from color. Preserve real metal grain/texture on high-frequency layer.
-Smooth color transitions on low-frequency layer. NO plastic/airbrushed look.
+${angle.lighting}
 
-STEP 3 — BACKGROUND ISOLATION
-Precision edge masking. Pure white background (RGB 255,255,255).
-Sub-pixel edge accuracy. No halo, no fringing, no lost detail at edges.
-Preserve fine elements: chain links, prong tips, filigree details.
+RETOUCHING WORKFLOW:
+1. BACKGROUND: Pure white (#FFFFFF) seamless studio background
+2. DUST/DEFECT REMOVAL: Remove all particles, fingerprints, scratches
+3. COLOR CORRECTION: D65 white balance, accurate metal & stone colors
+4. METAL REFINEMENT: Remove handling marks, enhance specular highlights naturally
+5. GEMSTONE ENHANCEMENT: Increase facet definition, brilliance, fire
+6. SHADOW: Subtle ground shadow for depth (soft, 10-15% opacity)
+7. SHARPENING: Selective high-pass sharpening on edges and details
 
-STEP 4 — COLOR CORRECTION
-White balance to D65 (6500K daylight equivalent).
-Metal accuracy: yellow gold warm, white gold/platinum cool neutral, rose gold pink-warm.
-Stone color: true-to-life saturation, no oversaturation.
+OUTPUT: A single professionally retouched jewelry image from the ${angle.label}, on pure white background. Ultra high resolution.`.trim();
 
-STEP 5 — METAL SURFACE REFINEMENT
-Remove handling marks. Restore surface uniformity.
-Polished: mirror-clean reflections. Matte/brushed: preserve grain direction.
-Enhance specular highlights naturally — no HDR artifacts.
+        await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [
+          Math.round(10 + (i / retouchAngles.length) * 70),
+          `generating_${angle.key}`,
+          jobId
+        ]);
 
-STEP 6 — GEMSTONE ENHANCEMENT
-Increase facet definition and internal light paths.
-Enhance brilliance (white light return), fire (spectral dispersion), scintillation.
-Preserve natural inclusions. NO artificial sparkle overlay.
+        const retouchUrl = await generateSingleImage(base64Images, anglePrompt, userId, imageRecordId, i, null, jobId, aspectRatio);
 
-STEP 7 — SHADOW & DIMENSION
-Add subtle ground shadow for depth (soft, diffused, 10-15% opacity).
-Enhance three-dimensionality through subtle dodge & burn.
-Contact shadow where product meets surface.
+        if (retouchUrl) {
+          generatedUrls.push(retouchUrl);
+          console.log(`Retouch ${angle.key} complete (${i + 1}/4)`);
+        } else {
+          console.warn(`Retouch ${angle.key} failed, continuing with remaining angles...`);
+        }
 
-STEP 8 — FINAL SHARPENING
-Selective high-pass sharpening on edges and detail areas.
-Avoid sharpening smooth metal surfaces (prevents noise amplification).
-Output: commercially clean, catalog-ready image.
-
-OUTPUT: Single professionally retouched jewelry image on pure white background.
-Ultra high resolution output.`.trim();
-
-      await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [28, jobId]);
-      const retouchUrl = await generateSingleImage(base64Images, retouchPrompt, userId, imageRecordId, 0, null, jobId, aspectRatio);
-
-      if (retouchUrl) {
-        generatedUrls.push(retouchUrl);
-        console.log('Retouch complete');
+        await query('UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3', [
+          generatedUrls.length,
+          Math.round(10 + ((i + 1) / retouchAngles.length) * 80),
+          jobId
+        ]);
       }
 
-      await query('UPDATE processing_jobs SET completed_images = $1, progress = $2 WHERE id = $3', [generatedUrls.length, 90, jobId]);
+      console.log(`Retouch multi-angle complete: ${generatedUrls.length}/4 images generated`);
+      await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [90, jobId]);
 
     } else if (packageType === 'single') {
       // SINGLE (TEKIL) PACKAGE: 1 custom image
@@ -2411,7 +2436,8 @@ export default async function handler(req: Request, res: Response) {
     const imageRecordId = imageRecord.id;
 
     // Calculate total images based on package type and selected scenes
-    const totalImages = isSinglePackage || isRetouchPackage ? 1
+    const totalImages = isRetouchPackage ? 4
+      : isSinglePackage ? 1
       : validatedSelectedScenes ? validatedSelectedScenes.length
       : 6;
 
