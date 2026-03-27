@@ -57,6 +57,7 @@ export class GalleryService {
         return {
           id: img.id,
           mode: img.mode,
+          imageType: img.imageType,
           outputUrl: signedUrl || img.outputUrl,
           productId: img.productId,
           sceneId: img.sceneId,

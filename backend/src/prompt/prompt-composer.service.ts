@@ -14,6 +14,7 @@ export interface PromptComposeInput {
   modelDna?: Record<string, any>; // model identity payload
   outputRatio?: string;
   additionalInstructions?: string;
+  poseKey?: string;               // multi-angle: front, three_quarter, side, top_down
 }
 
 export interface ComposedPrompt {
@@ -41,7 +42,7 @@ export class PromptComposerService {
     const blocks: Record<string, string> = {};
 
     // ── Task block ──
-    blocks.task = this.buildTaskBlock(input.mode);
+    blocks.task = this.buildTaskBlock(input.mode, input.poseKey);
 
     // ── Product fidelity block ──
     blocks.fidelity = this.buildFidelityBlock(input.productAnalysis);
@@ -62,10 +63,10 @@ export class PromptComposerService {
     }
 
     // ── Camera block ──
-    blocks.camera = this.buildCameraBlock(input.mode, input.productAnalysis);
+    blocks.camera = this.buildCameraBlock(input.mode, input.productAnalysis, input.poseKey);
 
     // ── Lighting block ──
-    blocks.lighting = this.buildLightingBlock(input.mode, input.referenceAnalysis);
+    blocks.lighting = this.buildLightingBlock(input.mode, input.referenceAnalysis, input.poseKey);
 
     // ── Negative prompt block ──
     blocks.negative = this.buildNegativeBlock(input.mode);
@@ -97,7 +98,27 @@ export class PromptComposerService {
 
   // ── Block builders ──
 
-  private buildTaskBlock(mode: GenerationMode): string {
+  private buildTaskBlock(mode: GenerationMode, poseKey?: string): string {
+    // ── Multi-angle retouch has angle-specific task instructions ──
+    if (mode === GenerationMode.RETOUCH && poseKey) {
+      const angleLabels: Record<string, string> = {
+        front: 'FRONTAL VIEW',
+        three_quarter: 'THREE-QUARTER VIEW (30-40° rotation)',
+        side: 'SIDE PROFILE VIEW (90° rotation)',
+        top_down: 'TOP-DOWN / BIRD\'S EYE VIEW',
+      };
+      const label = angleLabels[poseKey] || poseKey.toUpperCase();
+      return [
+        `Generate a professional e-commerce retouch of this jewelry product from the ${label}.`,
+        'Remove all background imperfections and replace with a clean, pure white (#FFFFFF) seamless studio background.',
+        'Balance metal colors, enhance diamond/gemstone brilliance, clean edges.',
+        `IMPORTANT: Render the product as it would appear when photographed from this specific angle (${label}).`,
+        'Use the provided reference image to understand the product\'s exact geometry, then mentally rotate it to the requested angle.',
+        'The output must look like a real photograph taken from this angle — not a digital rotation or distortion of the original.',
+        'Maintain absolute fidelity to the product design: same stones, same metal, same proportions.',
+      ].join(' ');
+    }
+
     const tasks: Record<string, string> = {
       [GenerationMode.RETOUCH]:
         'Clean up and retouch this jewelry product image for e-commerce. Remove background imperfections, balance metal colors, enhance diamond/gemstone brilliance, clean edges. Output a professional catalog-ready product image.',
@@ -158,7 +179,13 @@ export class PromptComposerService {
     return parts.join('\n');
   }
 
-  private buildCameraBlock(mode: GenerationMode, analysis: ProductAnalysisResult): string {
+  private buildCameraBlock(mode: GenerationMode, analysis: ProductAnalysisResult, poseKey?: string): string {
+    // ── Multi-angle retouch camera directions ──
+    if (mode === GenerationMode.RETOUCH && poseKey) {
+      const angleCamera = this.getRetouchAngleCamera(poseKey, analysis.product_type);
+      if (angleCamera) return `Camera: ${angleCamera}`;
+    }
+
     const cameraByMode: Record<string, string> = {
       [GenerationMode.RETOUCH]: 'Straight-on product shot, centered, sharp focus on entire piece.',
       [GenerationMode.READY_SCENE]: 'Slightly elevated angle (15-30°), product centered with scene context visible.',
@@ -171,10 +198,82 @@ export class PromptComposerService {
     return `Camera: ${cameraByMode[mode] || cameraByMode[GenerationMode.RETOUCH]}`;
   }
 
-  private buildLightingBlock(mode: GenerationMode, refAnalysis?: ReferenceAnalysisResult): string {
+  /** Angle-specific camera instructions for multi-angle retouch */
+  private getRetouchAngleCamera(poseKey: string, productType: string): string | null {
+    const isRing = productType === 'ring';
+    const isEarring = productType === 'earring';
+    const isNecklace = productType === 'necklace';
+    const isBracelet = productType === 'bracelet';
+
+    const angles: Record<string, string> = {
+      front: [
+        'Straight-on frontal shot, camera perfectly aligned with the product center.',
+        'The jewelry fills 70-80% of the frame height.',
+        'Lens: 90-100mm macro equivalent, f/8 for full sharpness edge-to-edge.',
+        isRing ? 'Ring standing upright, face-on view showing the main stone and setting clearly.' :
+        isEarring ? 'Earring face-on, showing the full decorative front surface.' :
+        isNecklace ? 'Pendant centered, chain draped symmetrically.' :
+        isBracelet ? 'Bracelet laid flat or on a cylindrical form, clasp hidden, main design visible.' :
+        'Product positioned to show the most iconic frontal view.',
+        'This is the hero product shot — pristine, centered, definitive.',
+      ].join(' '),
+
+      three_quarter: [
+        'Three-quarter angle shot (approximately 30-40° rotation from frontal).',
+        'Camera slightly elevated (10-15° above eye level).',
+        'This angle reveals depth and three-dimensionality of the piece.',
+        isRing ? 'Ring rotated to show the side profile of the setting and band curvature. Stone brilliance catching the new angle.' :
+        isEarring ? 'Earring angled to reveal post/clip mechanism and side profile depth.' :
+        isNecklace ? 'Chain links and pendant shown at angle revealing craftsmanship depth.' :
+        isBracelet ? 'Bracelet curved form visible, showing thickness and link construction.' :
+        'Product rotated to reveal construction details not visible from front.',
+        'Lens: 90mm macro, f/5.6 for gentle depth falloff on the far edge.',
+      ].join(' '),
+
+      side: [
+        'Pure side profile shot (90° rotation from frontal view).',
+        'Camera at product eye-level, capturing the thinnest silhouette.',
+        isRing ? 'Ring in perfect profile showing band thickness, stone height, setting architecture from the side.' :
+        isEarring ? 'Earring side view showing depth, drop length, and structural engineering.' :
+        isNecklace ? 'Pendant side profile showing thickness and bail connection. Chain links visible in profile.' :
+        isBracelet ? 'Bracelet side view showing hinge mechanism, clasp, and cross-section profile.' :
+        'Clean silhouette view emphasizing the profile geometry.',
+        'This view communicates scale and proportion that frontal cannot.',
+        'Lens: 100mm macro, f/8, razor-sharp across the narrow depth plane.',
+      ].join(' '),
+
+      top_down: [
+        'Top-down (bird\'s eye) shot, camera directly above the product looking straight down.',
+        'Product laying flat on the surface.',
+        isRing ? 'Ring laying flat, showing the full circle, stone from directly above revealing the table facet and halo if present.' :
+        isEarring ? 'Pair of earrings laid symmetrically side by side from above.' :
+        isNecklace ? 'Necklace arranged in elegant oval or circle layout from above, pendant at the bottom center.' :
+        isBracelet ? 'Bracelet in a circle or open arc from above, showing the full circumference pattern.' :
+        'Product arranged flat showing the overall footprint and pattern from above.',
+        'This angle is crucial for showing stone arrangement, engraving patterns, and symmetry.',
+        'Lens: 85mm, f/11 for maximum depth of field across the flat plane.',
+      ].join(' '),
+    };
+
+    return angles[poseKey] || null;
+  }
+
+  private buildLightingBlock(mode: GenerationMode, refAnalysis?: ReferenceAnalysisResult, poseKey?: string): string {
     if (refAnalysis?.light_type) {
       return `Lighting: ${refAnalysis.light_type} — inspired by reference image lighting.`;
     }
+
+    // ── Multi-angle retouch lighting ──
+    if (mode === GenerationMode.RETOUCH && poseKey) {
+      const angleLighting: Record<string, string> = {
+        front: 'Two softboxes at 45° left and right (key+fill), overhead strip light for top sparkle. Even, shadow-free, commercial. White bounce below for under-chin fill on raised pieces.',
+        three_quarter: 'Key light shifted to match the viewing angle (front-left at 40°), accent rim light from back-right to separate edge from background. Gentle shadow under the piece adds dimensionality.',
+        side: 'Single key light directly opposite the camera (behind the product from camera\'s perspective) creating a dramatic rim/edge light. Fill card on camera side to lift shadow detail. This reveals surface texture and engraving.',
+        top_down: 'Ring light or circular softbox directly around the lens for even overhead illumination. No directional shadow — the flat lay demands shadowless clarity. Subtle dark card below camera to add contrast to metal reflections.',
+      };
+      return `Lighting: ${angleLighting[poseKey] || angleLighting.front}`;
+    }
+
     const lightByMode: Record<string, string> = {
       [GenerationMode.RETOUCH]: 'Clean studio lighting, even exposure, no harsh shadows.',
       [GenerationMode.READY_SCENE]: 'Natural-looking light matching the scene environment.',

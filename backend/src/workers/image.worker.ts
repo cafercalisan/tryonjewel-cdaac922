@@ -26,6 +26,7 @@ interface ImageJobData {
   referenceId?: string;
   referenceStrategy?: string;
   modelId?: string;
+  poseKey?: string;
   outputRatio?: string;
   imageModelName: string;
 }
@@ -54,7 +55,7 @@ export class ImageWorker extends WorkerHost {
 
   async process(job: Job<ImageJobData>): Promise<any> {
     const data = job.data;
-    this.logger.log(`Processing image job ${data.jobId} / item ${data.itemId} — mode: ${data.mode}`);
+    this.logger.log(`Processing image job ${data.jobId} / item ${data.itemId} — mode: ${data.mode}${data.poseKey ? ` / angle: ${data.poseKey}` : ''}`);
 
     try {
       // Update status → generating
@@ -89,6 +90,7 @@ export class ImageWorker extends WorkerHost {
           hair_style: model.hairStyle,
         }) : undefined,
         outputRatio: data.outputRatio,
+        poseKey: data.poseKey,
       };
 
       const composed = await this.promptComposer.compose(composeInput);
@@ -125,6 +127,7 @@ export class ImageWorker extends WorkerHost {
         sceneId: data.sceneId || null,
         modelId: data.modelId || null,
         jobId: data.jobId,
+        imageType: data.poseKey || null,
         mode: data.mode,
         outputUrl,
         resolution: data.outputRatio || '3:4',
@@ -133,6 +136,7 @@ export class ImageWorker extends WorkerHost {
           promptVersion: composed.promptVersion,
           blocks: composed.blocks,
           mode: composed.mode,
+          poseKey: data.poseKey || null,
         },
       });
       const savedImage = await this.imageRepo.save(image);
@@ -143,12 +147,19 @@ export class ImageWorker extends WorkerHost {
         outputImageId: savedImage.id,
       });
 
-      // Update job status
-      await this.jobRepo.update(data.jobId, {
-        status: JobStatus.QC_CHECK,
-        progress: 90,
-        promptVersion: composed.promptVersion,
-      });
+      // Check if this is a multi-item job (retouch multi-angle) or single
+      const allItems = await this.itemRepo.find({ where: { jobId: data.jobId } });
+      if (allItems.length > 1) {
+        // Multi-item: check overall completion
+        await this.checkMultiItemCompletion(data.jobId, allItems);
+      } else {
+        // Single item: mark job done
+        await this.jobRepo.update(data.jobId, {
+          status: JobStatus.QC_CHECK,
+          progress: 90,
+          promptVersion: composed.promptVersion,
+        });
+      }
 
       this.logger.log(`Image generated successfully: ${savedImage.id} for job ${data.jobId}`);
       return { imageId: savedImage.id, outputUrl };
@@ -225,5 +236,25 @@ export class ImageWorker extends WorkerHost {
     const response = await fetch(signedUrl);
     const buffer = await response.arrayBuffer();
     return Buffer.from(buffer).toString('base64');
+  }
+
+  private async checkMultiItemCompletion(jobId: string, items: GenerationJobItem[]): Promise<void> {
+    const total = items.length;
+    const completed = items.filter(i => i.status === JobItemStatus.COMPLETED).length;
+    const failed = items.filter(i => i.status === JobItemStatus.FAILED).length;
+    const done = completed + failed;
+
+    // Progress: scale between 20 (started) and 95 (all done, pending final status)
+    const progress = Math.round(20 + (done / total) * 75);
+    await this.jobRepo.update(jobId, { progress: Math.min(progress, 95) });
+
+    if (done >= total) {
+      if (failed === total) {
+        await this.jobRepo.update(jobId, { status: JobStatus.FAILED, progress: 100 });
+      } else {
+        await this.jobRepo.update(jobId, { status: JobStatus.COMPLETED, progress: 100 });
+      }
+      this.logger.log(`Multi-angle job ${jobId}: ${completed}/${total} succeeded, ${failed} failed`);
+    }
   }
 }

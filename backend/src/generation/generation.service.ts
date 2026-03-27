@@ -67,34 +67,39 @@ export class GenerationService {
 
     const savedJob = await this.jobRepo.save(job);
 
-    // Create job item
-    const item = this.itemRepo.create({
-      jobId: savedJob.id,
-      itemType: 'image',
-      mode: dto.mode,
-      status: JobItemStatus.QUEUED,
-    });
-    await this.itemRepo.save(item);
+    // ── Create job items ──
+    if (dto.mode === GenerationMode.RETOUCH) {
+      // Multi-angle retouch: 4 items, one per angle
+      await this.createRetouchMultiAngleItems(savedJob, dto, userId);
+    } else {
+      // Single item for other modes
+      const item = this.itemRepo.create({
+        jobId: savedJob.id,
+        itemType: 'image',
+        mode: dto.mode,
+        status: JobItemStatus.QUEUED,
+      });
+      await this.itemRepo.save(item);
 
-    // Dispatch to BullMQ
-    await this.imageQueue.add('generate-image', {
-      jobId: savedJob.id,
-      itemId: item.id,
-      userId,
-      productId: dto.productId,
-      mode: dto.mode,
-      sceneId: dto.sceneId,
-      referenceId: dto.referenceId,
-      referenceStrategy: dto.referenceStrategy,
-      modelId: dto.modelId,
-      outputRatio: dto.outputRatio || '3:4',
-      imageModelName,
-    }, {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { age: 3600 },
-      removeOnFail: { age: 86400 },
-    });
+      await this.imageQueue.add('generate-image', {
+        jobId: savedJob.id,
+        itemId: item.id,
+        userId,
+        productId: dto.productId,
+        mode: dto.mode,
+        sceneId: dto.sceneId,
+        referenceId: dto.referenceId,
+        referenceStrategy: dto.referenceStrategy,
+        modelId: dto.modelId,
+        outputRatio: dto.outputRatio || '3:4',
+        imageModelName,
+      }, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 86400 },
+      });
+    }
 
     this.logger.log(`Job ${savedJob.id} created and queued for ${dto.mode}`);
     return savedJob;
@@ -119,6 +124,7 @@ export class GenerationService {
         id: item.id,
         type: item.itemType,
         mode: item.mode,
+        poseKey: item.poseKey,
         status: item.status,
         attempts: item.workerAttemptCount,
         outputImageId: item.outputImageId,
@@ -162,6 +168,70 @@ export class GenerationService {
         return GEMINI_MODELS.PRO_IMAGE;
       default:
         return GEMINI_MODELS.FLASH_IMAGE;
+    }
+  }
+
+  // ── Multi-angle retouch: 4 angles ──
+
+  static readonly RETOUCH_ANGLES = ['front', 'three_quarter', 'side', 'top_down'] as const;
+
+  private async createRetouchMultiAngleItems(
+    job: GenerationJob,
+    dto: CreateGenerationDto,
+    userId: string,
+  ): Promise<void> {
+    const imageModelName = this.selectModel(dto.mode);
+
+    for (const angle of GenerationService.RETOUCH_ANGLES) {
+      const item = this.itemRepo.create({
+        jobId: job.id,
+        itemType: 'image',
+        mode: dto.mode,
+        poseKey: angle,
+        status: JobItemStatus.QUEUED,
+      });
+      await this.itemRepo.save(item);
+
+      await this.imageQueue.add('generate-image', {
+        jobId: job.id,
+        itemId: item.id,
+        userId,
+        productId: dto.productId,
+        mode: dto.mode,
+        poseKey: angle,
+        outputRatio: dto.outputRatio || '1:1',
+        imageModelName,
+      }, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 86400 },
+      });
+    }
+
+    this.logger.log(`Retouch multi-angle: 4 items created for job ${job.id}`);
+  }
+
+  /** Called by ImageWorker after each item completes — checks if all items are done */
+  async checkJobCompletion(jobId: string): Promise<void> {
+    const items = await this.itemRepo.find({ where: { jobId } });
+    const total = items.length;
+    const completed = items.filter(i => i.status === JobItemStatus.COMPLETED).length;
+    const failed = items.filter(i => i.status === JobItemStatus.FAILED).length;
+    const done = completed + failed;
+
+    // Update progress
+    const progress = Math.round((done / total) * 90) + 10; // 10-100 range
+    await this.jobRepo.update(jobId, { progress: Math.min(progress, 95) });
+
+    if (done === total) {
+      // All items finished
+      if (failed === total) {
+        await this.jobRepo.update(jobId, { status: JobStatus.FAILED, progress: 100 });
+      } else {
+        await this.jobRepo.update(jobId, { status: JobStatus.COMPLETED, progress: 100 });
+      }
+      this.logger.log(`Job ${jobId} complete: ${completed}/${total} succeeded, ${failed} failed`);
     }
   }
 }
