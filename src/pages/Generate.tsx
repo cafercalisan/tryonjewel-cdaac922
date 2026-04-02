@@ -111,6 +111,8 @@ export default function Generate() {
   const [isCancelling, setIsCancelling] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guard against duplicate completion handling (race condition in polling)
+  const hasCompletedRef = useRef(false);
   // Stale detection: track last progress change time
   const lastProgressRef = useRef<{ progress: number; step: string | null; time: number }>({
     progress: 0, step: null, time: Date.now()
@@ -166,6 +168,7 @@ export default function Generate() {
     setPollingJobId(jobId);
     setPollingImageId(imageId);
     lastProgressRef.current = { progress: 0, step: null, time: Date.now() };
+    hasCompletedRef.current = false;
 
     // Poll every 2 seconds for faster feedback
     pollingRef.current = setInterval(async () => {
@@ -224,9 +227,13 @@ export default function Generate() {
           }
 
           if (data.status === 'completed') {
+            // Guard: prevent duplicate completion handling from concurrent polling callbacks
+            if (hasCompletedRef.current) return;
+            hasCompletedRef.current = true;
+
             // Stop all polling immediately
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+            if (pollingTimeoutRef.current) { clearTimeout(pollingTimeoutRef.current); pollingTimeoutRef.current = null; }
             stopTracking();
 
             // Reset state BEFORE navigate
@@ -240,9 +247,13 @@ export default function Generate() {
             navigate(`/sonuclar?id=${imageId}${scenesParam}`);
             return;
           } else if (data.status === 'failed' || data.status === 'cancelled') {
+            // Guard: prevent duplicate failure handling
+            if (hasCompletedRef.current) return;
+            hasCompletedRef.current = true;
+
             // Stop all polling immediately
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+            if (pollingTimeoutRef.current) { clearTimeout(pollingTimeoutRef.current); pollingTimeoutRef.current = null; }
             stopTracking();
 
             if (data.status === 'failed') {
@@ -1043,6 +1054,11 @@ export default function Generate() {
                         isCompressing={isStyleCompressing}
                         setIsCompressing={setIsStyleCompressing}
                       />
+                      {styleReference && (
+                        <p className="text-[11px] text-muted-foreground mt-2 bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
+                          Referans gorselin stili, pozu, sahnesi, isik ayarlari ve marka estegi analiz edilerek urun gorselinizle birlestirilecek.
+                        </p>
+                      )}
                     </div>
 
                     {/* Divider */}

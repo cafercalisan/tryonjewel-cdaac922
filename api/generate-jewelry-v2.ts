@@ -1160,20 +1160,28 @@ interface StyleReferenceAnalysis {
   model: { present: boolean; pose_description: string; body_parts_visible: string; expression_mood: string; clothing: string; skin_tone: string; };
   mood: { overall_atmosphere: string; color_palette: string; style_reference: string; editorial_genre: string; };
   existing_jewelry: { present: boolean; description: string; location: string; };
+  pose_detail: { hand_position: string; body_angle: string; head_tilt: string; weight_distribution: string; gesture: string; };
+  brand_aesthetic: { luxury_tier: string; visual_language: string; dominant_colors: string[]; texture_quality: string; reference_brand: string; };
+  technical: { negative_space: string; focal_point: string; blur_level: string; color_grading: string; contrast_style: string; };
 }
 
 async function analyzeStyleReference(styleBase64: string): Promise<StyleReferenceAnalysis | null> {
   try {
-    const stylePrompt = `You are an expert photography and art director. Analyze this style reference image with extreme precision for recreating its visual style in a new jewelry photograph.
+    const stylePrompt = `You are a world-class luxury jewelry photography art director and brand strategist. Analyze this style reference image with extreme precision — every detail matters for recreating its exact visual language in a new jewelry photograph.
+
+Study the image as if you need to brief a photographer and stylist to recreate this EXACT visual style with a different jewelry piece.
 
 Return JSON:
 {
-  "scene": { "setting": "", "background_elements": "", "surface": "", "season_time": "" },
-  "lighting": { "type": "", "direction": "", "quality": "", "color_temperature": "" },
-  "composition": { "framing": "", "camera_angle": "", "depth_of_field": "" },
-  "model": { "present": true, "pose_description": "", "body_parts_visible": "", "expression_mood": "", "clothing": "", "skin_tone": "" },
-  "mood": { "overall_atmosphere": "", "color_palette": "", "style_reference": "", "editorial_genre": "" },
-  "existing_jewelry": { "present": true, "description": "", "location": "" }
+  "scene": { "setting": "detailed environment description", "background_elements": "every visible background element", "surface": "surface material and texture under/around subject", "season_time": "time of day, season, weather if visible" },
+  "lighting": { "type": "key light type and modifier (softbox/beauty dish/natural/ring/etc)", "direction": "precise light direction (45-deg front-left, overhead, backlit, etc)", "quality": "hard/soft/diffused/specular — describe shadow edges", "color_temperature": "warm/cool/neutral with approximate Kelvin" },
+  "composition": { "framing": "tight crop/medium/wide — what is included and excluded", "camera_angle": "exact angle (eye-level/15-deg above/bird's eye/etc)", "depth_of_field": "shallow f/1.4 bokeh / medium f/4 / deep f/11 — describe blur transition" },
+  "model": { "present": true, "pose_description": "detailed full body pose description", "body_parts_visible": "list all visible body parts", "expression_mood": "facial expression and emotional tone", "clothing": "detailed clothing description with colors and materials", "skin_tone": "skin tone and undertone" },
+  "mood": { "overall_atmosphere": "emotional atmosphere in 2-3 sentences", "color_palette": "dominant and accent colors with hex approximations", "style_reference": "photographer/brand this resembles", "editorial_genre": "luxury editorial/campaign/lifestyle/e-commerce/etc" },
+  "existing_jewelry": { "present": true, "description": "describe any jewelry visible", "location": "where on body/scene" },
+  "pose_detail": { "hand_position": "exact hand and finger placement description", "body_angle": "body rotation in degrees from camera (frontal/three-quarter/profile)", "head_tilt": "head angle and direction of tilt", "weight_distribution": "how weight is distributed — which hip, lean direction, S-curve", "gesture": "overall gesture quality — relaxed/dynamic/static/elegant/powerful" },
+  "brand_aesthetic": { "luxury_tier": "haute_couture|high_luxury|accessible_luxury|fashion|artisan", "visual_language": "describe the brand's visual DNA in 1-2 sentences", "dominant_colors": ["#hex1", "#hex2", "#hex3"], "texture_quality": "describe dominant textures (matte/glossy/silk/leather/natural)", "reference_brand": "closest luxury brand aesthetic match (Cartier/Tiffany/Bulgari/Van Cleef/etc)" },
+  "technical": { "negative_space": "describe use of negative space — minimal/balanced/generous", "focal_point": "where the eye is drawn first and the visual flow path", "blur_level": "background blur description with approximate f-stop", "color_grading": "color grade style — warm lift/cool shadows/film emulation/clean neutral/etc", "contrast_style": "low-key dramatic/high-key bright/balanced/matte/crushed blacks" }
 }
 ONLY valid JSON.`;
 
@@ -1189,7 +1197,7 @@ ONLY valid JSON.`;
 function buildStyleTransferPromptV2(
   styleAnalysis: StyleReferenceAnalysis | null, productType: string | null,
   fidelityBlock: string, productExtractionBlock: string, identityCard: string,
-  aesthetic: AestheticStyle,
+  aesthetic: AestheticStyle, analysisResult?: any,
 ): string {
   const placementMap: Record<string, { bodyPart: string; placement: string; removal: string }> = {
     'yuzuk': { bodyPart: 'hand/finger', placement: 'Place the ring on the finger as shown in style reference.', removal: 'Remove any existing rings.' },
@@ -1200,31 +1208,64 @@ function buildStyleTransferPromptV2(
   };
   const pl = placementMap[productType || ''] || { bodyPart: 'appropriate body part', placement: 'Place the jewelry naturally.', removal: 'Remove any existing jewelry from target.' };
 
-  const sceneBlock = styleAnalysis ? `SCENE: ${styleAnalysis.scene.setting}. BG: ${styleAnalysis.scene.background_elements}. Surface: ${styleAnalysis.scene.surface}.` : '';
-  const lightBlock = styleAnalysis ? `LIGHT: ${styleAnalysis.lighting.type}, ${styleAnalysis.lighting.direction}, ${styleAnalysis.lighting.quality}, ${styleAnalysis.lighting.color_temperature}.` : '';
-  const compBlock = styleAnalysis ? `COMPOSITION: ${styleAnalysis.composition.framing}, ${styleAnalysis.composition.camera_angle}, DOF: ${styleAnalysis.composition.depth_of_field}.` : '';
-  const modelBlock = styleAnalysis?.model?.present ? `MODEL: ${styleAnalysis.model.pose_description}. Visible: ${styleAnalysis.model.body_parts_visible}. Expression: ${styleAnalysis.model.expression_mood}. Clothing: ${styleAnalysis.model.clothing}.` : '';
+  // Scene & environment from reference
+  const sceneBlock = styleAnalysis ? `SCENE: ${styleAnalysis.scene.setting}. BG: ${styleAnalysis.scene.background_elements}. Surface: ${styleAnalysis.scene.surface}. Time: ${styleAnalysis.scene.season_time}.` : '';
+
+  // Lighting from reference + product stone optics interaction
+  const stoneOpticsHint = analysisResult?.stone_optics
+    ? `STONE LIGHT BEHAVIOR: Brilliance=${analysisResult.stone_optics.brilliance_pattern}, Fire=${analysisResult.stone_optics.fire_dispersion}, Luster=${analysisResult.stone_optics.surface_luster}. Render stone optical properties accurately under the reference lighting.`
+    : '';
+  const lightBlock = styleAnalysis ? `LIGHT: ${styleAnalysis.lighting.type}, direction: ${styleAnalysis.lighting.direction}, quality: ${styleAnalysis.lighting.quality}, temperature: ${styleAnalysis.lighting.color_temperature}. ${stoneOpticsHint}` : '';
+
+  // Composition + pose detail from reference
+  const compBlock = styleAnalysis ? `FRAMING: ${styleAnalysis.composition.framing}. CAMERA: ${styleAnalysis.composition.camera_angle}. DOF: ${styleAnalysis.composition.depth_of_field}.` : '';
+  const poseBlock = styleAnalysis?.pose_detail ? `POSE DETAIL: Hands: ${styleAnalysis.pose_detail.hand_position}. Body angle: ${styleAnalysis.pose_detail.body_angle}. Head: ${styleAnalysis.pose_detail.head_tilt}. Weight: ${styleAnalysis.pose_detail.weight_distribution}. Gesture: ${styleAnalysis.pose_detail.gesture}.` : '';
+  const modelBlock = styleAnalysis?.model?.present ? `MODEL: ${styleAnalysis.model.pose_description}. Visible: ${styleAnalysis.model.body_parts_visible}. Expression: ${styleAnalysis.model.expression_mood}. Clothing: ${styleAnalysis.model.clothing}. Skin: ${styleAnalysis.model.skin_tone}.` : '';
+
+  // Brand aesthetic from reference
+  const brandBlock = styleAnalysis?.brand_aesthetic ? `BRAND LANGUAGE: ${styleAnalysis.brand_aesthetic.visual_language}. Tier: ${styleAnalysis.brand_aesthetic.luxury_tier}. Reference: ${styleAnalysis.brand_aesthetic.reference_brand}. Dominant colors: ${styleAnalysis.brand_aesthetic.dominant_colors?.join(', ') || 'N/A'}. Textures: ${styleAnalysis.brand_aesthetic.texture_quality}.` : '';
+
+  // Technical composition from reference
+  const techBlock = styleAnalysis?.technical ? `TECHNICAL STYLE: Negative space: ${styleAnalysis.technical.negative_space}. Focal point: ${styleAnalysis.technical.focal_point}. Blur: ${styleAnalysis.technical.blur_level}. Color grading: ${styleAnalysis.technical.color_grading}. Contrast: ${styleAnalysis.technical.contrast_style}.` : '';
+
+  // Mood from reference
   const moodBlock = styleAnalysis ? `MOOD: ${styleAnalysis.mood.overall_atmosphere}. Palette: ${styleAnalysis.mood.color_palette}. Style: ${styleAnalysis.mood.style_reference}. Genre: ${styleAnalysis.mood.editorial_genre}.` : '';
 
+  // Product craftsmanship detail for texture rendering
+  const craftBlock = analysisResult?.craftsmanship
+    ? `CRAFTSMANSHIP RENDER: ${analysisResult.craftsmanship.setting_technique_detail}. Quality: ${analysisResult.craftsmanship.quality_grade}. Edge: ${analysisResult.craftsmanship.edge_treatment}. Finish zones: ${JSON.stringify(analysisResult.craftsmanship.finish_zones || [])}.`
+    : '';
+  const chainBlock = analysisResult?.chain_clasp && analysisResult.chain_clasp.chain_style !== 'none'
+    ? `CHAIN: ${analysisResult.chain_clasp.chain_style} ${analysisResult.chain_clasp.chain_thickness}. Clasp: ${analysisResult.chain_clasp.clasp_type} (${analysisResult.chain_clasp.clasp_visibility}).`
+    : '';
+
   const sixBlock = buildSixBlockJSON({
-    shot: `Style reference transfer — recreate the reference image's visual style with the analyzed jewelry. ${sceneBlock}`,
-    lens: `Match reference: ${compBlock}`,
-    light: `Match reference: ${lightBlock} AESTHETIC overlay: ${aesthetic.lightingMod}`,
-    texture: `Metal/stone from product reference preserved exactly. Scene textures from style reference.`,
-    composition: `${compBlock} ${modelBlock}`,
-    style_reference: `${moodBlock} AESTHETIC: ${aesthetic.name} — ${aesthetic.colorGrade}`,
+    shot: `Style reference transfer — recreate the reference image's EXACT visual style, pose, scene, and atmosphere with the analyzed jewelry piece. ${sceneBlock} ${brandBlock}`,
+    lens: `Match reference exactly: ${compBlock} ${techBlock}`,
+    light: `Match reference lighting precisely: ${lightBlock}`,
+    texture: `PRODUCT SURFACES: ${craftBlock} ${chainBlock} Metal and stone surfaces from product reference preserved with absolute fidelity — render every finish zone, edge treatment, and stone optical property exactly. SCENE TEXTURES: Match reference image surfaces and material quality.`,
+    composition: `${compBlock} ${poseBlock} ${modelBlock} Jewelry must be the visual focal point — scene complements, never competes.`,
+    style_reference: `${moodBlock} ${brandBlock} ${techBlock} AESTHETIC: ${aesthetic.name} — ${aesthetic.colorGrade}`,
   });
 
   return `${identityCard}
 
-[STYLE REFERENCE TRANSFER — V2 ENGINE]
+[STYLE REFERENCE TRANSFER — V2 ENHANCED ENGINE]
 
 ⚠️ PRE-PROCESSING: ACCESSORY REMOVAL ⚠️
 1. REMOVE all existing jewelry from target: ${pl.bodyPart}
 2. ${pl.removal}
 
-IMAGE 1 = STYLE REFERENCE (pose, scene, lighting, atmosphere)
-IMAGE 2+ = PRODUCT REFERENCE (jewelry to transfer)
+IMAGE 1 = STYLE REFERENCE — Recreate this image's EXACT visual style:
+  - Scene/environment, lighting setup, camera angle, color grading
+  - Model pose (body angle, hand position, head tilt, gesture)
+  - Brand aesthetic (luxury tier, visual language, mood)
+  - Technical qualities (blur, negative space, contrast, color grade)
+
+IMAGE 2+ = PRODUCT REFERENCE — Transfer this EXACT jewelry piece:
+  - Every stone, prong, setting detail must be pixel-perfect
+  - Metal finish zones preserved exactly
+  - Stone optical properties (brilliance, fire, luster) rendered accurately
 
 ${productExtractionBlock}
 
@@ -1235,6 +1276,11 @@ ${sixBlock}
 PRODUCT TYPE: ${productType?.toUpperCase() || 'JEWELRY'}
 TARGET: ${pl.bodyPart.toUpperCase()}
 PLACEMENT: ${pl.placement}
+
+CRITICAL RULES:
+- The OUTPUT must look like it belongs to the SAME PHOTOSHOOT as the style reference
+- The JEWELRY must be IDENTICAL to the product reference — zero deviation
+- Combine reference style + product fidelity seamlessly
 
 TECHNICAL: 4:5 portrait, 4K resolution, ultra photorealistic.`;
 }
@@ -1380,7 +1426,7 @@ async function processGeneration(params: {
     console.log('V2 Step 1: Analyzing jewelry...');
     await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [15, jobId]);
 
-    const analysisPrompt = `You are an expert jewelry and luxury watch analyst. Analyze this piece with extreme precision.
+    const analysisPrompt = `You are a master gemologist and bench jeweler. Examine this jewelry piece with extreme precision — focus on stone optical properties (brilliance, fire, luster), setting craftsmanship quality, and construction details that define the piece's character.
 
 Return JSON:
 {
@@ -1394,10 +1440,13 @@ Return JSON:
   "design_elements": { "style": "modern|vintage|art_deco|minimalist|ornate|classic|bohemian|sports|dress", "patterns": [], "symmetry": "symmetric|asymmetric", "complexity": "simple|moderate|intricate" },
   "unique_identifiers": "",
   "visual_fingerprint": "5-7 DETAILED sentences as VERBAL PHOTOGRAPH",
-  "visual_dna": { "silhouette_descriptor": "", "dominant_visual_axis": "", "light_signature": "", "color_relationship_map": "", "scale_anchor": "", "distinguishing_asymmetries": "", "optical_weight_center": "" }
+  "visual_dna": { "silhouette_descriptor": "", "dominant_visual_axis": "", "light_signature": "", "color_relationship_map": "", "scale_anchor": "", "distinguishing_asymmetries": "", "optical_weight_center": "" },
+  "craftsmanship": { "setting_technique_detail": "detailed description of setting technique quality (pave precision, bezel forming, prong tip finish)", "finish_zones": [{"zone": "band|gallery|bezel|prong_tips|clasp", "finish": "mirror_polish|satin|matte|brushed|hammered|sandblasted"}], "edge_treatment": "knife_edge|beveled|rounded|raw|milgrain_edge", "quality_grade": "haute_joaillerie|fine_jewelry|fashion_jewelry|artisan" },
+  "stone_optics": { "brilliance_pattern": "describe how light reflects internally and externally — arrows pattern, hearts pattern, or diffused", "fire_dispersion": "none|subtle|moderate|exceptional — rainbow spectral flashes", "transparency_level": "transparent|translucent|opaque", "surface_luster": "adamantine|vitreous|waxy|pearly|silky|metallic" },
+  "chain_clasp": { "chain_style": "cable|curb|rope|box|snake|figaro|wheat|singapore|none", "chain_thickness": "delicate|medium|chunky|none", "clasp_type": "lobster|spring_ring|toggle|magnetic|hook|box|barrel|none", "clasp_visibility": "hidden|subtle|decorative|none" }
 }
 
-CRITICAL: Count EVERY stone precisely. "visual_fingerprint" = 5-7 sentences. "visual_dna" = reconstruction blueprint.
+CRITICAL: Count EVERY stone precisely. "visual_fingerprint" = 5-7 sentences. "visual_dna" = reconstruction blueprint. Examine stone optical behavior under light — brilliance, fire, scintillation. Assess craftsmanship quality — setting precision, finish consistency, edge work.
 ONLY valid JSON.`;
 
     let analysisResult: any = { type: 'jewelry', design_elements: { style: 'classic' } };
@@ -1561,7 +1610,7 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
       let singleImages: string[];
 
       if (hasStyleReference && styleReferenceBase64) {
-        singlePrompt = buildStyleTransferPromptV2(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard, aesthetic);
+        singlePrompt = buildStyleTransferPromptV2(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard, aesthetic, analysisResult);
         singlePrompt = await enhanceScenePromptV2(singlePrompt, analysisResult, 'style_transfer');
         singleImages = [styleReferenceBase64, ...base64Images];
       } else if (paramCustomPrompt) {
@@ -1582,7 +1631,7 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
     } else if (hasStyleReference && styleReferenceBase64 && packageType !== 'standard') {
       console.log('V2 Standalone style reference...');
       const identityCard = buildProductIdentityCard(analysisResult);
-      let styleTransferPrompt = buildStyleTransferPromptV2(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard, aesthetic);
+      let styleTransferPrompt = buildStyleTransferPromptV2(styleAnalysis, productType, fidelityBlockWithBrand, productExtractionBlock, identityCard, aesthetic, analysisResult);
       styleTransferPrompt = await enhanceScenePromptV2(styleTransferPrompt, analysisResult, 'style_transfer');
 
       await query('UPDATE processing_jobs SET progress = $1 WHERE id = $2', [28, jobId]);
@@ -1609,7 +1658,7 @@ OUTPUT: Commercially clean, catalog-ready image on pure white. Ultra high resolu
       const masterSteps = [
         { key: 'editorial', step: 'generating_editorial', label: 'Editorial',
           buildPrompt: (ic: string) => {
-            if (hasStyleReference && styleReferenceBase64) return buildStyleTransferPromptV2(styleAnalysis, resolvedProductType, fidelityBlockWithBrand, productExtractionBlock, ic, aesthetic);
+            if (hasStyleReference && styleReferenceBase64) return buildStyleTransferPromptV2(styleAnalysis, resolvedProductType, fidelityBlockWithBrand, productExtractionBlock, ic, aesthetic, analysisResult);
             return buildEditorialPromptV2(analysisResult, fidelityBlockWithBrand, productExtractionBlock, ic, aesthetic, userLens, userAngle, userLighting);
           },
           getImages: () => hasStyleReference && styleReferenceBase64 ? [styleReferenceBase64, ...base64Images] : base64Images,
