@@ -1405,7 +1405,10 @@ async function generateSingleImage(
       }
 
       if (!generatedImage) {
-        console.error(`No image in generation response (attempt ${attempt + 1})`);
+        const finishReason = genData.candidates?.[0]?.finishReason || 'unknown';
+        const blockReason = genData.promptFeedback?.blockReason || 'none';
+        const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join(' ').substring(0, 300);
+        console.error(`No image in generation response (attempt ${attempt + 1}) — finishReason: ${finishReason}, blockReason: ${blockReason}, text: ${textParts || 'none'}`);
         if (attempt < 2) continue;
         return null;
       }
