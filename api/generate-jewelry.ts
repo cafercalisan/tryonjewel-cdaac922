@@ -1364,6 +1364,9 @@ async function generateSingleImage(
     try {
       if (!GOOGLE_IMAGE_API_KEY) {
         console.error('Missing GOOGLE_API_KEY');
+        try {
+          await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', ['GOOGLE_API_KEY yapılandırılmamış', jobId]);
+        } catch (_) {}
         return null;
       }
 
@@ -1411,6 +1414,11 @@ async function generateSingleImage(
         const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join(' ').substring(0, 300);
         console.error(`No image in generation response (attempt ${attempt + 1}) — finishReason: ${finishReason}, blockReason: ${blockReason}, safety: ${safetyRatings}, text: ${textParts || 'none'}`);
         if (attempt < 2) continue;
+        // Save the specific error reason to the job
+        try {
+          const reason = blockReason !== 'none' ? `Güvenlik filtresi: ${blockReason}` : finishReason === 'SAFETY' ? 'Güvenlik filtresi tarafından engellendi' : `AI yanıtında görsel bulunamadı (${finishReason})`;
+          await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [reason, jobId]);
+        } catch (_) {}
         return null;
       }
 
@@ -1430,9 +1438,13 @@ async function generateSingleImage(
       }
 
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Generation ${index} error (attempt ${attempt + 1}):`, error);
       if (attempt < 2) continue;
+      try {
+        const errMsg = error?.message || 'Beklenmeyen hata';
+        await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [`Üretim hatası: ${errMsg.substring(0, 300)}`, jobId]);
+      } catch (_) {}
       return null;
     }
   }
@@ -2245,6 +2257,10 @@ OUTPUT: A single professionally retouched jewelry image from the ${angle.label},
     await query('UPDATE processing_jobs SET progress = $1, current_step = $2 WHERE id = $3', [90, 'saving', jobId]);
 
     if (generatedUrls.length === 0) {
+      // Build a more informative error message from the job's error_message if available
+      const existingJob = await queryOne<{error_message: string | null}>('SELECT error_message FROM processing_jobs WHERE id = $1', [jobId]);
+      const detailedError = existingJob?.error_message || 'AI görsel üretimi başarısız oldu. Lütfen farklı bir görsel veya sahne ile tekrar deneyin.';
+
       // Refund credits
       if (!isAdminUser) {
         try {
@@ -2255,9 +2271,9 @@ OUTPUT: A single professionally retouched jewelry image from the ${angle.label},
         }
       }
 
-      await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', 'Görsel oluşturulamadı', imageRecordId]);
+      await query('UPDATE images SET status = $1, error_message = $2 WHERE id = $3', ['failed', detailedError, imageRecordId]);
 
-      await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', 'Görsel oluşturulamadı', 100, 'failed', jobId]);
+      await query('UPDATE processing_jobs SET status = $1, error_message = $2, progress = $3, current_step = $4 WHERE id = $5', ['failed', detailedError, 100, 'failed', jobId]);
 
       return;
     }

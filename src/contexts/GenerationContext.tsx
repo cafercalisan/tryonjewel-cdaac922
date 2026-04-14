@@ -66,7 +66,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
       currentStep: 'pending',
       progress: 0,
       completedImages: 0,
-      totalImages: 3,
+      totalImages: 1,
       resultUrls: null,
       selectedScenes,
     };
@@ -91,7 +91,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
             currentStep: data.current_step,
             progress: data.progress || 0,
             completedImages: data.completed_images || 0,
-            totalImages: data.total_images || 3,
+            totalImages: data.total_images || 1,
             resultUrls: data.result_urls,
             selectedScenes,
           };

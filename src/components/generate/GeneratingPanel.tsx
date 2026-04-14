@@ -41,7 +41,7 @@ export function GeneratingPanel({
   currentStep = null,
   progress = 0,
   completedImages = 0,
-  totalImages = 3,
+  totalImages = 1,
   selectedScenes = [],
   onCancel,
   isCancelling = false,
@@ -94,18 +94,17 @@ export function GeneratingPanel({
   // Determine which scene is currently active
   const activeSceneKey = currentStep ? STEP_TO_SCENE[currentStep] : null;
 
-  // Build scene list: use selectedScenes if available, otherwise infer from totalImages
+  // Build scene list: use selectedScenes if available, otherwise use only activeSceneKey if detected
   const effectiveScenes = selectedScenes.length > 0
     ? selectedScenes
-    : (totalImages === 1 ? (activeSceneKey ? [activeSceneKey] : ['editorial']) :
-       ['editorial', 'ecommerce', 'model', 'macro', 'model_closeup', 'model_lifestyle'].slice(0, totalImages));
+    : (activeSceneKey ? [activeSceneKey] : []);
 
   // Build completed scenes list
   const sceneOrder = effectiveScenes;
   const activeSceneIndex = activeSceneKey ? sceneOrder.indexOf(activeSceneKey) : -1;
 
-  // Show scene cards for standard package (with or without selectedScenes)
-  const showSceneCards = isStandard && totalImages > 1;
+  // Show scene cards for standard package ONLY when multiple scenes are explicitly selected
+  const showSceneCards = isStandard && selectedScenes.length > 1 && totalImages > 1;
 
   return (
     <motion.div
@@ -252,7 +251,7 @@ export function GeneratingPanel({
               {description}
             </span>
             <div className="flex items-center gap-1.5">
-              {totalImages > 1 && (
+              {showSceneCards && totalImages > 1 && (
                 <span className="text-muted-foreground mr-1">
                   {completedImages}/{totalImages}
                 </span>

@@ -163,7 +163,7 @@ export default function Studio() {
                     {job.status === 'completed' ? `${job.completed_images || job.total_images} görsel` :
                      job.status === 'failed' ? (job.error_message || 'Hata oluştu') :
                      job.status === 'cancelled' ? 'İptal edildi' :
-                     `${job.completed_images || 0}/${job.total_images || 3} görsel`}
+                     `${job.completed_images || 0}/${job.total_images || 1} görsel`}
                   </p>
                 </div>
 

@@ -21,10 +21,10 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
     goldStyle?: boolean;
   }[] = [
     {
-      id: 'standard', label: 'Master Paket', desc: '3 secili profesyonel gorsel',
-      Icon: Sparkles, badge: '3 gorsel', credits: '10 kredi', recommended: true, goldStyle: true,
+      id: 'standard', label: 'Master Paket', desc: 'Profesyonel sahne gorseli',
+      Icon: Sparkles, badge: '1 gorsel', credits: '10 kredi', recommended: true, goldStyle: true,
       features: [
-        { icon: Camera, label: '3 Sahne Secimi' },
+        { icon: Camera, label: 'Sahne Secimi' },
         { icon: Focus, label: '4K Kalite' },
         { icon: User, label: 'Tutarli Kimlik' },
       ],
@@ -40,7 +40,7 @@ export function PackageSelector({ selectedPackage, onSelect }: PackageSelectorPr
     },
     {
       id: 'retouch', label: 'Retouch', desc: 'Profesyonel rotus',
-      Icon: Wand2, badge: '1 gorsel', credits: '10 kredi',
+      Icon: Wand2, badge: '4 aci', credits: '10 kredi',
       features: [
         { icon: Check, label: 'Studio kalitesi rotus' },
         { icon: Check, label: 'Arka plan temizleme' },

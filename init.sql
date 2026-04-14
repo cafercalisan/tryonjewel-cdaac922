@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   image_record_id UUID REFERENCES images(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending',
-  total_images INTEGER NOT NULL DEFAULT 6,
+  total_images INTEGER NOT NULL DEFAULT 1,
   completed_images INTEGER NOT NULL DEFAULT 0,
   progress INTEGER NOT NULL DEFAULT 0,
   current_step TEXT DEFAULT 'pending',

@@ -107,7 +107,7 @@ export default function Generate() {
   const [jobCurrentStep, setJobCurrentStep] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState(0);
   const [completedImages, setCompletedImages] = useState(0);
-  const [totalImages, setTotalImages] = useState(3);
+  const [totalImages, setTotalImages] = useState(1);
   const [isCancelling, setIsCancelling] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,6 +146,9 @@ export default function Generate() {
           if (jobAge < 10 * 60 * 1000) {
             setIsGenerating(true);
             setGenerationStep('generating');
+            setTotalImages(job.total_images || 1);
+            setCompletedImages(job.completed_images || 0);
+            setJobProgress(job.progress || 0);
             lastProgressRef.current = { progress: job.progress || 0, step: job.current_step, time: Date.now() };
             startPolling(job.id, job.image_record_id, []);
           } else {
@@ -209,7 +212,7 @@ export default function Generate() {
           setJobCurrentStep(data.current_step);
           setJobProgress(data.progress || 0);
           setCompletedImages(data.completed_images || 0);
-          setTotalImages(data.total_images || 3);
+          setTotalImages(data.total_images || 1);
 
           // Stale detection: track if progress or step actually changed
           const prev = lastProgressRef.current;
@@ -505,7 +508,11 @@ export default function Generate() {
 
     setIsGenerating(true);
     setGenerationStep("generating");
-    
+    // Set the correct totalImages based on package type
+    const expectedTotal = isRetouchMode ? 4 : isSingleMode ? 1 : packageType === 'standard' ? (selectedMasterScenes.length || 1) : 1;
+    setTotalImages(expectedTotal);
+    setCompletedImages(0);
+    setJobProgress(0);
 
     try {
       const imagePaths: string[] = [];
@@ -1154,7 +1161,7 @@ export default function Generate() {
               selectedModel={selectedModelData || null}
               selectedScene={selectedScene}
               creditsNeeded={creditsNeeded}
-              totalImages={packageType === 'standard' ? 3 : 1}
+              totalImages={packageType === 'standard' ? selectedMasterScenes.length || 1 : 1}
               currentCredits={profile?.credits}
               isAdminUser={isAdminUser}
               canGenerate={canGenerate}
