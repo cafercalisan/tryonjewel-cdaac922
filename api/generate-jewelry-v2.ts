@@ -122,15 +122,12 @@ async function generateSingleImage(
   jobId: string, aspectRatio: string = '3:4', startTemperature: number = 0.12,
 ): Promise<string | null> {
   const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1];
-  const delays = [0, 3000, 5000];
+  const OVERLOAD_BACKOFF = [8000, 20000, 45000];
+  const NORMAL_BACKOFF = [3000, 5000, 5000];
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (!GOOGLE_IMAGE_API_KEY) return null;
-      if (attempt > 0) {
-        console.log(`Retry ${attempt}/2 for image ${index} with temperature ${temperatures[attempt]}...`);
-        await new Promise(r => setTimeout(r, delays[attempt]));
-      }
 
       const genResponse = await callGeminiImageGeneration({
         base64Images, prompt, temperature: temperatures[attempt], aspectRatio,
@@ -138,11 +135,21 @@ async function generateSingleImage(
 
       if (!genResponse.ok) {
         const errText = await genResponse.text();
-        console.error(`Generation ${index} API error (${genResponse.status}) attempt ${attempt + 1}:`, errText);
+        const status = genResponse.status;
+        const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
+        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
+
         if (attempt >= 2) {
-          try { await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [`Gemini API error ${genResponse.status}: ${errText.substring(0, 500)}`, jobId]); } catch (_) {}
+          const friendly = isOverload
+            ? 'Gemini modeli şu anda çok yoğun (503 UNAVAILABLE). Lütfen birkaç dakika sonra tekrar deneyin.'
+            : `Gemini API hatası ${status}: ${errText.substring(0, 400)}`;
+          try { await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [friendly, jobId]); } catch (_) {}
           return null;
         }
+
+        const waitMs = isOverload ? OVERLOAD_BACKOFF[attempt] : NORMAL_BACKOFF[attempt];
+        console.log(`Retry ${attempt + 1}/2 for image ${index} in ${waitMs}ms (overload=${isOverload})...`);
+        await new Promise(r => setTimeout(r, waitMs));
         continue;
       }
 
