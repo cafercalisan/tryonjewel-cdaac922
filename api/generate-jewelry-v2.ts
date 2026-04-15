@@ -7,9 +7,7 @@ import { handleCors, sendCorsResponse } from './_lib/cors.js';
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';     // primary analiz (preview, hızlı/ucuz)
 const ANALYSIS_MODEL_FALLBACK = 'gemini-2.5-flash';         // stable fallback — preview outage'da
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';       // Nano Banana Pro — primary (max quality)
-const IMAGE_GEN_MODEL_FALLBACK = 'gemini-3.1-flash-image-preview'; // Nano Banana 2 — on overload fallback
-const IMAGE_GEN_MODEL_FALLBACK_2 = 'gemini-2.5-flash-image';       // Nano Banana (stable) — son çare
+const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';       // Nano Banana Pro — ONLY (user: max quality, no downgrade)
 
 // ═══════════════════════════════════════════════════
 // GEMINI HELPERS (shared with V1)
@@ -135,44 +133,45 @@ async function generateSingleImage(
   imageRecordId: string, index: number, _unused: any,
   jobId: string, aspectRatio: string = '3:4', startTemperature: number = 0.12,
 ): Promise<string | null> {
-  // 4-step escalation: Pro → Pro (5s) → Nano Banana 2 → Nano Banana OG (2.5 flash image)
-  const MODEL_ESCALATION = [IMAGE_GEN_MODEL, IMAGE_GEN_MODEL, IMAGE_GEN_MODEL_FALLBACK, IMAGE_GEN_MODEL_FALLBACK_2];
-  const MODEL_LABEL = ['Pro', 'Pro(retry)', 'Nano Banana 2', 'Nano Banana OG'];
-  const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1, startTemperature + 0.1];
-  const NORMAL_BACKOFF = [3000, 5000, 5000, 5000];
-  const MAX_ATTEMPTS = MODEL_ESCALATION.length;
+  // PRO-ONLY strategy (user requirement: max quality, no downgrade)
+  // 5 attempts on Pro with exponential backoff: 0s → 5s → 15s → 30s → 60s (total ~110s max)
+  // Pro's current uptime is ~66% per probe → 5 tries gives >99% success probability
+  const OVERLOAD_BACKOFF = [5000, 15000, 30000, 60000]; // wait AFTER each failure (attempt 1-4)
+  const NORMAL_BACKOFF = [3000, 5000, 8000, 10000];
+  const temperatures = [
+    startTemperature,
+    startTemperature + 0.03,
+    startTemperature + 0.05,
+    startTemperature + 0.08,
+    startTemperature + 0.1,
+  ];
+  const MAX_ATTEMPTS = 5;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       if (!GOOGLE_IMAGE_API_KEY) return null;
 
-      const currentModel = MODEL_ESCALATION[attempt];
       const genResponse = await callGeminiImageGeneration({
-        base64Images, prompt, temperature: temperatures[attempt], aspectRatio, model: currentModel,
+        base64Images, prompt, temperature: temperatures[attempt], aspectRatio, model: IMAGE_GEN_MODEL,
       });
 
       if (!genResponse.ok) {
         const errText = await genResponse.text();
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
-        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${currentModel} (${MODEL_LABEL[attempt]})${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
+        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${IMAGE_GEN_MODEL}${isOverload ? ' [OVERLOAD]' : ''}:`, errText.substring(0, 300));
 
         if (attempt >= MAX_ATTEMPTS - 1) {
           const friendly = isOverload
-            ? 'Gemini modelleri şu anda çok yoğun (503). Nano Banana Pro, Nano Banana 2 ve Nano Banana OG denendi. Lütfen birkaç dakika sonra tekrar deneyin.'
+            ? 'Nano Banana Pro modeli şu anda yoğun (5 deneme yapıldı, toplam ~110 saniye beklendi). Kalite düşürmemek için düşük tier modele geçilmiyor. Lütfen 1-2 dakika sonra tekrar deneyin.'
             : `Gemini API hatası ${status}: ${errText.substring(0, 400)}`;
           try { await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [friendly, jobId]); } catch (_) {}
           return null;
         }
 
-        if (isOverload) {
-          // Pro ilk overload → 5s bekle ve tekrar Pro; diğer durumlarda hızlı eskale
-          const waitMs = attempt === 0 ? 5000 : 2000;
-          console.log(`Overload on ${MODEL_LABEL[attempt]} — waiting ${waitMs}ms then escalating to ${MODEL_LABEL[attempt+1]}...`);
-          await new Promise(r => setTimeout(r, waitMs));
-        } else {
-          await new Promise(r => setTimeout(r, NORMAL_BACKOFF[attempt]));
-        }
+        const waitMs = isOverload ? OVERLOAD_BACKOFF[attempt] : NORMAL_BACKOFF[attempt];
+        console.log(`Pro retry ${attempt + 1}/${MAX_ATTEMPTS - 1} — waiting ${waitMs}ms (overload=${isOverload})...`);
+        await new Promise(r => setTimeout(r, waitMs));
         continue;
       }
 
