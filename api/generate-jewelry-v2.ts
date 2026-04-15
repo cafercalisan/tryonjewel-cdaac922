@@ -6,7 +6,8 @@ import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
+const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';       // Nano Banana Pro — primary (max quality)
+const IMAGE_GEN_MODEL_FALLBACK = 'gemini-3.1-flash-image-preview'; // Nano Banana 2 — on overload fallback
 
 // ═══════════════════════════════════════════════════
 // GEMINI HELPERS (shared with V1)
@@ -72,14 +73,15 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 async function callGeminiImageGeneration({
-  base64Images, prompt, temperature = 0.12, aspectRatio = '3:4',
+  base64Images, prompt, temperature = 0.12, aspectRatio = '3:4', model = IMAGE_GEN_MODEL,
 }: {
   base64Images: string[];
   prompt: string;
   temperature?: number;
   aspectRatio?: string;
+  model?: string;
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_IMAGE_API_KEY}`;
 
   // Build parts: label each reference image, then the generation prompt
   const parts: any[] = [];
@@ -122,34 +124,49 @@ async function generateSingleImage(
   jobId: string, aspectRatio: string = '3:4', startTemperature: number = 0.12,
 ): Promise<string | null> {
   const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1];
-  const OVERLOAD_BACKOFF = [8000, 20000, 45000];
   const NORMAL_BACKOFF = [3000, 5000, 5000];
+
+  // Model escalation on overload: Pro → Pro (short wait) → Fallback (Nano Banana 2)
+  // First overload: brief wait + retry same Pro model (might have recovered)
+  // Second overload: switch to fallback model immediately
+  let useFallback = false;
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (!GOOGLE_IMAGE_API_KEY) return null;
 
+      const currentModel = useFallback ? IMAGE_GEN_MODEL_FALLBACK : IMAGE_GEN_MODEL;
       const genResponse = await callGeminiImageGeneration({
-        base64Images, prompt, temperature: temperatures[attempt], aspectRatio,
+        base64Images, prompt, temperature: temperatures[attempt], aspectRatio, model: currentModel,
       });
 
       if (!genResponse.ok) {
         const errText = await genResponse.text();
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
-        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
+        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1} model=${currentModel}${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
 
         if (attempt >= 2) {
           const friendly = isOverload
-            ? 'Gemini modeli şu anda çok yoğun (503 UNAVAILABLE). Lütfen birkaç dakika sonra tekrar deneyin.'
+            ? 'Gemini modelleri şu anda çok yoğun (503). Hem Nano Banana Pro hem Nano Banana 2 denendi. Lütfen birkaç dakika sonra tekrar deneyin.'
             : `Gemini API hatası ${status}: ${errText.substring(0, 400)}`;
           try { await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [friendly, jobId]); } catch (_) {}
           return null;
         }
 
-        const waitMs = isOverload ? OVERLOAD_BACKOFF[attempt] : NORMAL_BACKOFF[attempt];
-        console.log(`Retry ${attempt + 1}/2 for image ${index} in ${waitMs}ms (overload=${isOverload})...`);
-        await new Promise(r => setTimeout(r, waitMs));
+        if (isOverload) {
+          // On first overload: short wait (5s) and retry Pro. On second: switch to fallback.
+          if (!useFallback && attempt === 0) {
+            console.log(`Overload on Pro (attempt 1) — waiting 5s then retry Pro...`);
+            await new Promise(r => setTimeout(r, 5000));
+          } else {
+            useFallback = true;
+            console.log(`Overload persists — switching to fallback model ${IMAGE_GEN_MODEL_FALLBACK} (Nano Banana 2) on next attempt`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        } else {
+          await new Promise(r => setTimeout(r, NORMAL_BACKOFF[attempt]));
+        }
         continue;
       }
 
