@@ -6,9 +6,11 @@ import { handleCors, sendCorsResponse } from './_lib/cors.js';
 
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
-const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';
+const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';     // primary analiz (preview)
+const ANALYSIS_MODEL_FALLBACK = 'gemini-2.5-flash';         // stable fallback — preview outage'da
 const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';       // Nano Banana Pro — primary (max quality)
 const IMAGE_GEN_MODEL_FALLBACK = 'gemini-3.1-flash-image-preview'; // Nano Banana 2 — on overload fallback
+const IMAGE_GEN_MODEL_FALLBACK_2 = 'gemini-2.5-flash-image';       // Nano Banana (stable) — son çare
 
 // ── Gemini Text/Vision Analysis Helper ──
 async function callGeminiAnalysis(opts: {
@@ -35,8 +37,6 @@ async function callGeminiAnalysis(opts: {
     if (images[0]) parts.push({ inlineData: { mimeType: 'image/jpeg', data: images[0] } });
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent?key=${apiKey}`;
-
   const requestBody: any = {
     contents: [{ role: 'user', parts }],
     generationConfig: {
@@ -45,37 +45,45 @@ async function callGeminiAnalysis(opts: {
     },
   };
 
-  console.log(`Gemini analysis request to ${ANALYSIS_MODEL}...`);
+  // Model fallback: primary (preview) → stable on overload
+  const models = [ANALYSIS_MODEL, ANALYSIS_MODEL_FALLBACK];
+  let lastError = '';
+  for (let i = 0; i < models.length; i++) {
+    const model = models[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    console.log(`Gemini analysis request to ${model}...`);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
-  });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
 
-  if (!response.ok) {
+    if (response.ok) {
+      const data = await response.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        console.error('Gemini analysis: no candidates returned', JSON.stringify(data).substring(0, 500));
+        throw new Error('Gemini analysis returned no candidates');
+      }
+      if (candidate.finishReason === 'SAFETY') {
+        console.error('Gemini analysis: blocked by safety filter');
+        throw new Error('Gemini analysis blocked by safety filter');
+      }
+      const text = candidate.content?.parts?.[0]?.text || '{}';
+      console.log(`Gemini analysis response from ${model}: ${text.length} chars`);
+      return text;
+    }
+
     const errText = await response.text();
-    console.error(`Gemini analysis error ${response.status}:`, errText.substring(0, 500));
-    throw new Error(`Gemini analysis API error ${response.status}: ${errText.substring(0, 500)}`);
+    const status = response.status;
+    const isOverload = status >= 500 || status === 429;
+    console.error(`Gemini analysis error ${status} on ${model}:`, errText.substring(0, 500));
+    lastError = `${status}: ${errText.substring(0, 400)}`;
+    if (!isOverload) break; // non-overload (400 key/auth/safety) — fallback faydasız
+    if (i < models.length - 1) console.log(`Analysis ${model} overload, fallback to ${models[i+1]}...`);
   }
-
-  const data = await response.json();
-
-  // Check for blocked content or empty response
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    console.error('Gemini analysis: no candidates returned', JSON.stringify(data).substring(0, 500));
-    throw new Error('Gemini analysis returned no candidates');
-  }
-
-  if (candidate.finishReason === 'SAFETY') {
-    console.error('Gemini analysis: blocked by safety filter');
-    throw new Error('Gemini analysis blocked by safety filter');
-  }
-
-  const text = candidate.content?.parts?.[0]?.text || '{}';
-  console.log(`Gemini analysis response: ${text.length} chars`);
-  return text;
+  throw new Error(`Gemini analysis API error ${lastError}`);
 }
 
 const MAX_IMAGE_SIZE = 1.5 * 1024 * 1024;
@@ -1360,13 +1368,14 @@ async function generateSingleImage(
   aspectRatio: string = '3:4',
   startTemperature: number = 0.12,
 ): Promise<string | null> {
-  const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1];
-  const NORMAL_BACKOFF = [3000, 5000, 5000];
+  // 4-step escalation: Pro → Pro (5s) → Nano Banana 2 → Nano Banana OG (2.5 flash image)
+  const MODEL_ESCALATION = [IMAGE_GEN_MODEL, IMAGE_GEN_MODEL, IMAGE_GEN_MODEL_FALLBACK, IMAGE_GEN_MODEL_FALLBACK_2];
+  const MODEL_LABEL = ['Pro', 'Pro(retry)', 'Nano Banana 2', 'Nano Banana OG'];
+  const temperatures = [startTemperature, startTemperature + 0.05, startTemperature + 0.1, startTemperature + 0.1];
+  const NORMAL_BACKOFF = [3000, 5000, 5000, 5000];
+  const MAX_ATTEMPTS = MODEL_ESCALATION.length;
 
-  // Model escalation: Pro → Pro (5s wait) → Fallback (Nano Banana 2)
-  let useFallback = false;
-
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       if (!GOOGLE_IMAGE_API_KEY) {
         console.error('Missing GOOGLE_API_KEY');
@@ -1376,7 +1385,7 @@ async function generateSingleImage(
         return null;
       }
 
-      const currentModel = useFallback ? IMAGE_GEN_MODEL_FALLBACK : IMAGE_GEN_MODEL;
+      const currentModel = MODEL_ESCALATION[attempt];
       const genResponse = await callGeminiImageGeneration({
         base64Images,
         prompt,
@@ -1389,11 +1398,11 @@ async function generateSingleImage(
         const errText = await genResponse.text();
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
-        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1} model=${currentModel}${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
+        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${currentModel} (${MODEL_LABEL[attempt]})${isOverload ? ' [OVERLOAD]' : ''}:`, errText);
 
-        if (attempt >= 2) {
+        if (attempt >= MAX_ATTEMPTS - 1) {
           const friendly = isOverload
-            ? 'Gemini modelleri şu anda çok yoğun (503). Hem Nano Banana Pro hem Nano Banana 2 denendi. Lütfen birkaç dakika sonra tekrar deneyin.'
+            ? 'Gemini modelleri şu anda çok yoğun (503). Nano Banana Pro, Nano Banana 2 ve Nano Banana OG denendi. Lütfen birkaç dakika sonra tekrar deneyin.'
             : `Gemini API hatası ${status}: ${errText.substring(0, 400)}`;
           try {
             await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [friendly, jobId]);
@@ -1402,14 +1411,9 @@ async function generateSingleImage(
         }
 
         if (isOverload) {
-          if (!useFallback && attempt === 0) {
-            console.log(`Overload on Pro (attempt 1) — waiting 5s then retry Pro...`);
-            await new Promise(r => setTimeout(r, 5000));
-          } else {
-            useFallback = true;
-            console.log(`Overload persists — switching to fallback model ${IMAGE_GEN_MODEL_FALLBACK} (Nano Banana 2) on next attempt`);
-            await new Promise(r => setTimeout(r, 2000));
-          }
+          const waitMs = attempt === 0 ? 5000 : 2000;
+          console.log(`Overload on ${MODEL_LABEL[attempt]} — waiting ${waitMs}ms then escalating to ${MODEL_LABEL[attempt+1]}...`);
+          await new Promise(r => setTimeout(r, waitMs));
         } else {
           await new Promise(r => setTimeout(r, NORMAL_BACKOFF[attempt]));
         }
