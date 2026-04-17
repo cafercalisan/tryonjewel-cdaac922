@@ -8,7 +8,8 @@ const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const ANALYSIS_MODEL = 'gemini-3.1-flash-lite-preview';     // primary analiz (preview)
 const ANALYSIS_MODEL_FALLBACK = 'gemini-2.5-flash';         // stable fallback — preview outage'da
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';       // Nano Banana Pro — ONLY (user: max quality, no downgrade)
+const IMAGE_GEN_PRIMARY = 'gemini-3-pro-image-preview';     // Nano Banana Pro (max quality, 4K native)
+const IMAGE_GEN_FALLBACK = 'gemini-3.1-flash-image-preview'; // Nano Banana 2 — Pro overload'da 4K fallback
 
 // ── Gemini Text/Vision Analysis Helper ──
 async function callGeminiAnalysis(opts: {
@@ -1313,7 +1314,7 @@ async function callGeminiImageGeneration({
   prompt,
   temperature = 0.12,
   aspectRatio = '3:4',
-  model = IMAGE_GEN_MODEL,
+  model = IMAGE_GEN_PRIMARY,
 }: {
   base64Images: string[];
   prompt: string;
@@ -1366,20 +1367,21 @@ async function generateSingleImage(
   aspectRatio: string = '3:4',
   startTemperature: number = 0.12,
 ): Promise<string | null> {
-  // PRO-ONLY strategy (user requirement: max quality, no downgrade)
-  // 5 attempts on Pro with exponential backoff: 0s → 5s → 15s → 30s → 60s (total ~110s max)
-  const OVERLOAD_BACKOFF = [5000, 15000, 30000, 60000];
-  const NORMAL_BACKOFF = [3000, 5000, 8000, 10000];
+  // Pro → NB2 fallback: 4 attempts total — Pro x2, NB2 x2. Both models produce 4K native output.
+  // Backoff: attempt1 0s → attempt2 5s (Pro retry) → attempt3 3s (NB2 first) → attempt4 10s (NB2 retry)
+  const ATTEMPT_MODELS = [IMAGE_GEN_PRIMARY, IMAGE_GEN_PRIMARY, IMAGE_GEN_FALLBACK, IMAGE_GEN_FALLBACK];
+  const OVERLOAD_BACKOFF = [5000, 3000, 10000];
+  const NORMAL_BACKOFF = [3000, 2000, 5000];
   const temperatures = [
     startTemperature,
     startTemperature + 0.03,
     startTemperature + 0.05,
     startTemperature + 0.08,
-    startTemperature + 0.1,
   ];
-  const MAX_ATTEMPTS = 5;
+  const MAX_ATTEMPTS = ATTEMPT_MODELS.length;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const model = ATTEMPT_MODELS[attempt];
     try {
       if (!GOOGLE_IMAGE_API_KEY) {
         console.error('Missing GOOGLE_API_KEY');
@@ -1394,18 +1396,18 @@ async function generateSingleImage(
         prompt,
         temperature: temperatures[attempt],
         aspectRatio,
-        model: IMAGE_GEN_MODEL,
+        model,
       });
 
       if (!genResponse.ok) {
         const errText = await genResponse.text();
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
-        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${IMAGE_GEN_MODEL}${isOverload ? ' [OVERLOAD]' : ''}:`, errText.substring(0, 300));
+        console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${model}${isOverload ? ' [OVERLOAD]' : ''}:`, errText.substring(0, 300));
 
         if (attempt >= MAX_ATTEMPTS - 1) {
           const friendly = isOverload
-            ? 'Nano Banana Pro modeli şu anda yoğun (5 deneme yapıldı, toplam ~110 saniye beklendi). Kalite düşürmemek için düşük tier modele geçilmiyor. Lütfen 1-2 dakika sonra tekrar deneyin.'
+            ? 'Google görsel modelleri şu anda yoğun (Pro ve fallback modeli 4 kez denendi). Lütfen 1-2 dakika sonra tekrar deneyin.'
             : `Gemini API hatası ${status}: ${errText.substring(0, 400)}`;
           try {
             await query('UPDATE processing_jobs SET error_message = $1 WHERE id = $2', [friendly, jobId]);
@@ -1414,7 +1416,9 @@ async function generateSingleImage(
         }
 
         const waitMs = isOverload ? OVERLOAD_BACKOFF[attempt] : NORMAL_BACKOFF[attempt];
-        console.log(`Pro retry ${attempt + 1}/${MAX_ATTEMPTS - 1} — waiting ${waitMs}ms (overload=${isOverload})...`);
+        const nextModel = ATTEMPT_MODELS[attempt + 1];
+        const transitioning = nextModel !== model;
+        console.log(`Retry ${attempt + 1}/${MAX_ATTEMPTS - 1} — waiting ${waitMs}ms, next model=${nextModel}${transitioning ? ' [FALLBACK SWITCH]' : ''} (overload=${isOverload})`);
         await new Promise(r => setTimeout(r, waitMs));
         continue;
       }

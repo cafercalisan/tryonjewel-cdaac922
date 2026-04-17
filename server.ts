@@ -1,7 +1,6 @@
 import express from 'express';
 
 import generateJewelry from './api/generate-jewelry.js';
-import generateJewelryV2 from './api/generate-jewelry-v2.js';
 import generateVideo from './api/generate-video.js';
 import generateDesign from './api/generate-design.js';
 import generateModel from './api/generate-model.js';
@@ -53,8 +52,9 @@ const app = express();
 const PORT = process.env.API_PORT || 3001;
 
 // ── CORS middleware (before all routes) ──
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
   res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
@@ -98,7 +98,6 @@ app.all('/api/auth/me', authMe);
 
 // ── Generation routes ──
 app.all('/api/generate-jewelry', generateJewelry);
-app.all('/api/generate-jewelry-v2', generateJewelryV2);
 app.all('/api/generate-video', generateVideo);
 app.all('/api/generate-design', generateDesign);
 app.all('/api/generate-model', generateModel);
@@ -141,6 +140,7 @@ app.get('/storage/{*path}', async (req, res) => {
 
     const upstream = await fetch(targetUrl, {
       headers: { 'Host': minioHost },
+      signal: AbortSignal.timeout(30_000),
     });
     if (!upstream.ok) {
       return res.status(upstream.status).end();
