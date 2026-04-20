@@ -45,6 +45,13 @@ export default async function handler(req: Request, res: Response) {
       return sendCorsResponse(res, 200, { data: rows });
     }
 
+    if (table === 'error_logs') {
+      const { rows } = await query(
+        'SELECT id, user_id, job_id, endpoint, model, attempt, status_code, is_overload, error_message, context, created_at FROM error_logs ORDER BY created_at DESC LIMIT 200',
+      );
+      return sendCorsResponse(res, 200, { data: rows });
+    }
+
     return sendCorsResponse(res, 400, { error: 'Invalid table parameter' });
   } catch (err) {
     console.error('Admin data error:', err);

@@ -204,6 +204,29 @@ CREATE TABLE IF NOT EXISTS brand_profiles (
 CREATE INDEX idx_brand_profiles_user_id ON brand_profiles(user_id);
 
 -- ══════════════════════════════════════════════
+-- ERROR LOGS
+-- ══════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS error_logs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  job_id UUID,
+  endpoint TEXT NOT NULL,
+  model TEXT,
+  attempt INTEGER,
+  status_code INTEGER,
+  is_overload BOOLEAN DEFAULT false,
+  error_message TEXT NOT NULL,
+  context JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_error_logs_user_id ON error_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_error_logs_endpoint ON error_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_error_logs_job_id ON error_logs(job_id);
+
+-- ══════════════════════════════════════════════
 -- RPC FUNCTIONS
 -- ══════════════════════════════════════════════
 

@@ -3,6 +3,7 @@ import { query, queryOne } from './_lib/db.js';
 import { uploadFile, getSignedUrl, getInternalUrl } from './_lib/storage.js';
 import { authenticateUser } from './_lib/auth.js';
 import { handleCors, sendCorsResponse } from './_lib/cors.js';
+import { logError } from './_lib/error-log.js';
 
 const GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 
@@ -1404,6 +1405,12 @@ async function generateSingleImage(
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
         console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${model}${isOverload ? ' [OVERLOAD]' : ''}:`, errText.substring(0, 300));
+        logError({
+          userId, jobId, endpoint: 'generate-jewelry', model, attempt: attempt + 1,
+          statusCode: status, isOverload,
+          errorMessage: errText.substring(0, 1500),
+          context: { imageIndex: index, aspectRatio, phase: 'api-error' },
+        });
 
         if (attempt >= MAX_ATTEMPTS - 1) {
           const friendly = isOverload
@@ -1441,6 +1448,11 @@ async function generateSingleImage(
         const safetyRatings = JSON.stringify(genData.promptFeedback?.safetyRatings || genData.candidates?.[0]?.safetyRatings || []);
         const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join(' ').substring(0, 300);
         console.error(`No image in generation response (attempt ${attempt + 1}) — finishReason: ${finishReason}, blockReason: ${blockReason}, safety: ${safetyRatings}, text: ${textParts || 'none'}`);
+        logError({
+          userId, jobId, endpoint: 'generate-jewelry', model, attempt: attempt + 1,
+          errorMessage: `No image in response: finishReason=${finishReason}, blockReason=${blockReason}, text=${textParts || 'none'}`,
+          context: { imageIndex: index, aspectRatio, phase: 'no-image', safetyRatings },
+        });
         if (attempt < 2) continue;
         // Save the specific error reason to the job
         try {
@@ -1468,6 +1480,11 @@ async function generateSingleImage(
       return null;
     } catch (error: any) {
       console.error(`Generation ${index} error (attempt ${attempt + 1}):`, error);
+      logError({
+        userId, jobId, endpoint: 'generate-jewelry', model, attempt: attempt + 1,
+        errorMessage: error?.message || String(error),
+        context: { imageIndex: index, aspectRatio, phase: 'exception', name: error?.name },
+      });
       if (attempt < 2) continue;
       try {
         const errMsg = error?.message || 'Beklenmeyen hata';

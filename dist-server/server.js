@@ -158,6 +158,29 @@ function sendCorsResponse(res, status, body, req) {
   res.status(status).json(body);
 }
 
+// api/_lib/error-log.ts
+function logError(entry) {
+  const msg = (entry.errorMessage || "").substring(0, 2e3);
+  query(
+    `INSERT INTO error_logs
+       (user_id, job_id, endpoint, model, attempt, status_code, is_overload, error_message, context)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      entry.userId ?? null,
+      entry.jobId ?? null,
+      entry.endpoint,
+      entry.model ?? null,
+      entry.attempt ?? null,
+      entry.statusCode ?? null,
+      entry.isOverload ?? false,
+      msg,
+      entry.context ? JSON.stringify(entry.context) : null
+    ]
+  ).catch((err) => {
+    console.error("[error-log] insert failed:", err?.message || err);
+  });
+}
+
 // api/generate-jewelry.ts
 var GOOGLE_IMAGE_API_KEY = process.env.GOOGLE_API_KEY;
 var ANALYSIS_MODEL = "gemini-3.1-flash-lite-preview";
@@ -1523,6 +1546,17 @@ async function generateSingleImage(base64Images, prompt, userId, imageRecordId, 
         const status = genResponse.status;
         const isOverload = status === 503 || status === 429 || status === 500 || status === 502 || status === 504;
         console.error(`Generation ${index} API error (${status}) attempt ${attempt + 1}/${MAX_ATTEMPTS} model=${model}${isOverload ? " [OVERLOAD]" : ""}:`, errText.substring(0, 300));
+        logError({
+          userId,
+          jobId,
+          endpoint: "generate-jewelry",
+          model,
+          attempt: attempt + 1,
+          statusCode: status,
+          isOverload,
+          errorMessage: errText.substring(0, 1500),
+          context: { imageIndex: index, aspectRatio, phase: "api-error" }
+        });
         if (attempt >= MAX_ATTEMPTS - 1) {
           const friendly = isOverload ? "Google g\xF6rsel modelleri \u015Fu anda yo\u011Fun (Pro ve fallback modeli 4 kez denendi). L\xFCtfen 1-2 dakika sonra tekrar deneyin." : `Gemini API hatas\u0131 ${status}: ${errText.substring(0, 400)}`;
           try {
@@ -1554,6 +1588,15 @@ async function generateSingleImage(base64Images, prompt, userId, imageRecordId, 
         const safetyRatings = JSON.stringify(genData.promptFeedback?.safetyRatings || genData.candidates?.[0]?.safetyRatings || []);
         const textParts = parts.filter((p) => p.text).map((p) => p.text).join(" ").substring(0, 300);
         console.error(`No image in generation response (attempt ${attempt + 1}) \u2014 finishReason: ${finishReason}, blockReason: ${blockReason}, safety: ${safetyRatings}, text: ${textParts || "none"}`);
+        logError({
+          userId,
+          jobId,
+          endpoint: "generate-jewelry",
+          model,
+          attempt: attempt + 1,
+          errorMessage: `No image in response: finishReason=${finishReason}, blockReason=${blockReason}, text=${textParts || "none"}`,
+          context: { imageIndex: index, aspectRatio, phase: "no-image", safetyRatings }
+        });
         if (attempt < 2) continue;
         try {
           const reason = blockReason !== "none" ? `G\xFCvenlik filtresi: ${blockReason}` : finishReason === "SAFETY" ? "G\xFCvenlik filtresi taraf\u0131ndan engellendi" : `AI yan\u0131t\u0131nda g\xF6rsel bulunamad\u0131 (${finishReason})`;
@@ -1576,6 +1619,15 @@ async function generateSingleImage(base64Images, prompt, userId, imageRecordId, 
       return null;
     } catch (error) {
       console.error(`Generation ${index} error (attempt ${attempt + 1}):`, error);
+      logError({
+        userId,
+        jobId,
+        endpoint: "generate-jewelry",
+        model,
+        attempt: attempt + 1,
+        errorMessage: error?.message || String(error),
+        context: { imageIndex: index, aspectRatio, phase: "exception", name: error?.name }
+      });
       if (attempt < 2) continue;
       try {
         const errMsg = error?.message || "Beklenmeyen hata";
@@ -4027,6 +4079,12 @@ async function handler19(req, res) {
     }
     if (table === "user_roles") {
       const { rows } = await query("SELECT * FROM user_roles ORDER BY created_at DESC");
+      return sendCorsResponse(res, 200, { data: rows });
+    }
+    if (table === "error_logs") {
+      const { rows } = await query(
+        "SELECT id, user_id, job_id, endpoint, model, attempt, status_code, is_overload, error_message, context, created_at FROM error_logs ORDER BY created_at DESC LIMIT 200"
+      );
       return sendCorsResponse(res, 200, { data: rows });
     }
     return sendCorsResponse(res, 400, { error: "Invalid table parameter" });
